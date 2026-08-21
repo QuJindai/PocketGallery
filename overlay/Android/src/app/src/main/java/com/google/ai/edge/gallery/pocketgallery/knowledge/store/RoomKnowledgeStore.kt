@@ -23,10 +23,10 @@ class RoomKnowledgeStore(
   }
 
   override suspend fun searchFts(matchQuery: String, limit: Int): List<KnowledgeSearchHit> =
-    dao.searchFts(matchQuery, limit).map(KnowledgeSearchRow::toDomain)
+    dao.searchFts(matchQuery, limit).map { row -> row.toDomain() }
 
   override suspend fun searchLike(escapedNeedle: String, limit: Int): List<KnowledgeSearchHit> =
-    dao.searchLike(escapedNeedle, limit).map(KnowledgeSearchRow::toDomain)
+    dao.searchLike(escapedNeedle, limit).map { row -> row.toDomain() }
 
   private fun KnowledgeDocumentRecord.toEntity(): KnowledgeDocumentEntity =
     KnowledgeDocumentEntity(
