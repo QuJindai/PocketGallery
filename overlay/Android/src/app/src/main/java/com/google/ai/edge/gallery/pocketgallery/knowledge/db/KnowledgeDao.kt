@@ -3,6 +3,7 @@ package com.google.ai.edge.gallery.pocketgallery.knowledge.db
 import androidx.room3.Dao
 import androidx.room3.Insert
 import androidx.room3.Query
+import androidx.room3.Transaction
 
 @Dao
 abstract class KnowledgeDao {
@@ -11,6 +12,15 @@ abstract class KnowledgeDao {
 
   @Insert
   abstract suspend fun insertChunks(chunks: List<KnowledgeChunkEntity>)
+
+  @Transaction
+  open suspend fun insertDocumentWithChunks(
+    document: KnowledgeDocumentEntity,
+    chunks: List<KnowledgeChunkEntity>,
+  ) {
+    insertDocument(document)
+    if (chunks.isNotEmpty()) insertChunks(chunks)
+  }
 
   @Query("SELECT documentId FROM knowledge_documents WHERE sha256 = :sha256 LIMIT 1")
   abstract suspend fun findDocumentIdBySha256(sha256: String): String?
@@ -31,4 +41,17 @@ abstract class KnowledgeDao {
     """,
   )
   abstract suspend fun searchFts(matchQuery: String, limit: Int): List<KnowledgeSearchRow>
+
+  @Query(
+    """
+    SELECT c.chunkId, c.documentId, d.displayName, d.sourceUri,
+           c.ordinal, c.pageOrSection, c.text
+    FROM knowledge_chunks AS c
+    JOIN knowledge_documents AS d ON d.documentId = c.documentId
+    WHERE c.text LIKE '%' || :escapedNeedle || '%' ESCAPE '\'
+    ORDER BY c.ordinal
+    LIMIT :limit
+    """,
+  )
+  abstract suspend fun searchLike(escapedNeedle: String, limit: Int): List<KnowledgeSearchRow>
 }

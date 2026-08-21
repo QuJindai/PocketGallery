@@ -42,15 +42,15 @@ class KnowledgeIngestorTest {
       store = store,
       parserRegistry = ParserRegistry(listOf(parser)),
       chunker = DocumentChunker(maxChars = 1200, overlapChars = 150),
-      nowEpochMs = { 1_000 },
+      nowEpochMs = { 1_000L },
     ).ingest(input)
 
     assertEquals(listOf("dedupe:$expectedSha", "parse", "persist"), events)
     assertEquals(IngestResult.Imported(expectedSha, 1), result)
     assertEquals(expectedSha, store.persistedDocument?.documentId)
     assertEquals(expectedSha, store.persistedDocument?.sha256)
-    assertEquals(1_000, store.persistedDocument?.importedAtEpochMs)
-    assertEquals(500, store.persistedDocument?.modifiedAtEpochMs)
+    assertEquals(1_000L, store.persistedDocument?.importedAtEpochMs)
+    assertEquals(500L, store.persistedDocument?.modifiedAtEpochMs)
     assertEquals(1, store.persistedChunks.size)
     assertEquals("local knowledge evidence", store.persistedChunks.single().text)
   }
@@ -70,7 +70,7 @@ class KnowledgeIngestorTest {
     val result = KnowledgeIngestor(
       store = store,
       parserRegistry = ParserRegistry(listOf(parser)),
-      nowEpochMs = { 1_000 },
+      nowEpochMs = { 1_000L },
     ).ingest(input)
 
     assertEquals(IngestResult.Duplicate("existing-doc"), result)
@@ -84,7 +84,7 @@ class KnowledgeIngestorTest {
     val store = RecordingStore(events)
     val input = DocumentInput("content://image", "image.png", "image/png", byteArrayOf(1, 2, 3))
 
-    val result = KnowledgeIngestor(store = store, nowEpochMs = { 1_000 }).ingest(input)
+    val result = KnowledgeIngestor(store = store, nowEpochMs = { 1_000L }).ingest(input)
 
     assertTrue(result is IngestResult.Failed)
     result as IngestResult.Failed
