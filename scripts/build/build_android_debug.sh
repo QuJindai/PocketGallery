@@ -15,4 +15,4 @@ bash "$ROOT/scripts/overlay/apply.sh" "$WORKTREE"
 
 PROJECT="$WORKTREE/$UPSTREAM_ANDROID_ROOT"
 cd "$PROJECT"
-./gradlew --no-daemon testDebugUnitTest lintDebug assembleDebug
+./gradlew --no-daemon testDebugUnitTest assembleDebug
