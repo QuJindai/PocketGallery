@@ -48,7 +48,12 @@ cleanup() {
 }
 trap cleanup EXIT
 
-"$ADB" wait-for-device
+if ! timeout 180 "$ADB" wait-for-device; then
+  echo "emulator did not appear in adb within 180 seconds" >&2
+  tail -n 200 "$EMULATOR_LOG" >&2 || true
+  exit 1
+fi
+
 booted=0
 for _ in $(seq 1 180); do
   if ! kill -0 "$EMULATOR_PID" >/dev/null 2>&1; then
