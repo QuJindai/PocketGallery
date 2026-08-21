@@ -52,3 +52,19 @@ jobs:
           path: .work/gallery/Android/src/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14
+
+      - name: Run pristine upstream lint (informational)
+        continue-on-error: true
+        working-directory: .work/gallery/Android/src
+        run: ./gradlew --no-daemon lintDebug
+
+      - name: Upload upstream lint report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Gallery-upstream-lint-report
+          path: |
+            .work/gallery/Android/src/app/build/reports/lint-results-debug.html
+            .work/gallery/Android/src/app/build/reports/lint-results-debug.txt
+          if-no-files-found: ignore
+          retention-days: 14
