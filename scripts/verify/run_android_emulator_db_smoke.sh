@@ -7,6 +7,7 @@ source "$ROOT/.upstream-version"
 
 WORKTREE="${POCKETGALLERY_WORKTREE:-$ROOT/.work/gallery-db-smoke}"
 AVD_NAME="${POCKETGALLERY_AVD_NAME:-pocketgallery_p0b_api35}"
+AVD_HOME="${POCKETGALLERY_AVD_HOME:-$ROOT/.work/avd}"
 SYSTEM_IMAGE="${POCKETGALLERY_SYSTEM_IMAGE:-system-images;android-35;default;x86_64}"
 TEST_CLASS="com.google.ai.edge.gallery.pocketgallery.knowledge.db.KnowledgeDatabaseInstrumentedTest"
 LOG_DIR="$ROOT/.work/emulator"
@@ -26,8 +27,26 @@ if [[ ! -x "$EMULATOR" ]]; then
   EMULATOR="$(command -v emulator)"
 fi
 
-"$AVDMANAGER" delete avd -n "$AVD_NAME" >/dev/null 2>&1 || true
-echo no | "$AVDMANAGER" create avd --force -n "$AVD_NAME" -k "$SYSTEM_IMAGE" >/dev/null
+# Keep avdmanager and emulator on the exact same explicit AVD directory. The
+# GitHub runner can otherwise expose different legacy/default Android homes.
+rm -rf "$AVD_HOME"
+mkdir -p "$AVD_HOME"
+export ANDROID_AVD_HOME="$AVD_HOME"
+
+echo no | "$AVDMANAGER" create avd \
+  --force \
+  --name "$AVD_NAME" \
+  --package "$SYSTEM_IMAGE" \
+  >/dev/null
+
+if ! "$EMULATOR" -list-avds | grep -Fxq "$AVD_NAME"; then
+  echo "created AVD is not visible to emulator: $AVD_NAME" >&2
+  echo "ANDROID_AVD_HOME=$ANDROID_AVD_HOME" >&2
+  "$AVDMANAGER" list avd >&2 || true
+  "$EMULATOR" -list-avds >&2 || true
+  find "$ANDROID_AVD_HOME" -maxdepth 2 -type f -print >&2 || true
+  exit 1
+fi
 
 "$ADB" kill-server >/dev/null 2>&1 || true
 "$EMULATOR" \
@@ -44,7 +63,7 @@ cleanup() {
   "$ADB" emu kill >/dev/null 2>&1 || true
   kill "$EMULATOR_PID" >/dev/null 2>&1 || true
   wait "$EMULATOR_PID" >/dev/null 2>&1 || true
-  "$AVDMANAGER" delete avd -n "$AVD_NAME" >/dev/null 2>&1 || true
+  rm -rf "$AVD_HOME"
 }
 trap cleanup EXIT
 
