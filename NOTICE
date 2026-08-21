@@ -1,0 +1,11 @@
+PocketGallery
+Copyright 2026 PocketGallery contributors
+
+This project is a downstream distribution derived in part from Google AI Edge Gallery,
+which is licensed under the Apache License, Version 2.0.
+
+Google AI Edge Gallery source: https://github.com/google-ai-edge/gallery
+Pinned baseline: ec7fee19e3b7aad9991105e549d544233ea0b97f
+
+Model files are not distributed by this repository. Gemma and other model weights remain
+subject to their own model licenses and terms.

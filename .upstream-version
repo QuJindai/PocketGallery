@@ -1,0 +1,3 @@
+UPSTREAM_REPO=https://github.com/google-ai-edge/gallery.git
+UPSTREAM_COMMIT=ec7fee19e3b7aad9991105e549d544233ea0b97f
+UPSTREAM_ANDROID_ROOT=Android/src
