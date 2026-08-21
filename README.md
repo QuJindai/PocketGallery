@@ -21,6 +21,8 @@ P0A does **not** yet claim that the PocketGallery knowledge layer is implemented
 - Gallery version at baseline: 1.0.19
 - Android project: `Android/src`
 - LiteRT-LM: 0.11.0
+- CI/runtime build JDK: 21
+- Android platform package: `platforms;android-37.0`
 
 See [`UPSTREAM.md`](UPSTREAM.md) and [`.upstream-version`](.upstream-version).
 
@@ -34,7 +36,7 @@ bash scripts/verify/test_build_android_debug.sh
 
 ## Build debug APK
 
-Requires Git, JDK 17, Android SDK 37 and network access to the public Google upstream and Maven repositories.
+Requires Git, JDK 21, Android SDK platform 37.0 and network access to the public Google upstream and Maven repositories.
 
 ```bash
 bash scripts/build/build_android_debug.sh
@@ -45,6 +47,8 @@ The default APK path is:
 ```text
 .work/gallery/Android/src/app/build/outputs/apk/debug/app-debug.apk
 ```
+
+The blocking baseline build runs `testDebugUnitTest assembleDebug`. The pinned pristine Google Gallery baseline currently has pre-existing `lintDebug` findings, so CI runs upstream lint separately as an informational report instead of patching unrelated Google source or blocking the APK artifact. PocketGallery-owned code will receive a strict lint-delta gate as the knowledge layer is added.
 
 ## Downstream structure
 
