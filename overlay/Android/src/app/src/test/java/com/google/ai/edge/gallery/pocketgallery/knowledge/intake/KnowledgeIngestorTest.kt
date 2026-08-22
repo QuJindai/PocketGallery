@@ -31,7 +31,7 @@ class KnowledgeIngestorTest {
     val store = RecordingStore(events)
     val parser = object : DocumentParser {
       override fun supports(input: DocumentInput) = true
-      override fun parse(input: DocumentInput): NormalizedDocument {
+      override suspend fun parse(input: DocumentInput): NormalizedDocument {
         events += "parse"
         val text = input.bytes.toString(Charsets.UTF_8)
         return NormalizedDocument(text, listOf(NormalizedSection(null, text)))
@@ -61,7 +61,7 @@ class KnowledgeIngestorTest {
     val store = RecordingStore(events, existingDocumentId = "existing-doc")
     val parser = object : DocumentParser {
       override fun supports(input: DocumentInput) = true
-      override fun parse(input: DocumentInput): NormalizedDocument {
+      override suspend fun parse(input: DocumentInput): NormalizedDocument {
         error("duplicate input must not be parsed")
       }
     }
