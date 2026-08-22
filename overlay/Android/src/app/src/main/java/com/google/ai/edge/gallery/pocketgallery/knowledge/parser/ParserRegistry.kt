@@ -8,5 +8,5 @@ class ParserRegistry(
   fun parserFor(input: DocumentInput): DocumentParser =
     parsers.firstOrNull { it.supports(input) } ?: throw UnsupportedDocumentTypeException(input)
 
-  fun parse(input: DocumentInput): NormalizedDocument = parserFor(input).parse(input)
+  suspend fun parse(input: DocumentInput): NormalizedDocument = parserFor(input).parse(input)
 }

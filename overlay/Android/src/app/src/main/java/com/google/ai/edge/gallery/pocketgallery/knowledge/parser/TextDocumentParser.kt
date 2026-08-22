@@ -7,7 +7,7 @@ class TextDocumentParser : DocumentParser {
     input.mimeType.equals("text/plain", ignoreCase = true) ||
       input.displayName.lowercase().endsWith(".txt")
 
-  override fun parse(input: DocumentInput): NormalizedDocument {
+  override suspend fun parse(input: DocumentInput): NormalizedDocument {
     val text = decodeNormalizedUtf8(input.bytes)
     val sections = if (text.isBlank()) emptyList() else listOf(NormalizedSection(null, text))
     return NormalizedDocument(text = text, sections = sections)

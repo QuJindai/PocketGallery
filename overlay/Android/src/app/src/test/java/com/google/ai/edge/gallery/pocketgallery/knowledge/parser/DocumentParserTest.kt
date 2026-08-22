@@ -1,13 +1,14 @@
 package com.google.ai.edge.gallery.pocketgallery.knowledge.parser
 
 import com.google.ai.edge.gallery.pocketgallery.knowledge.model.DocumentInput
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class DocumentParserTest {
   @Test
-  fun txtRemovesBomAndNormalizesLineEndings() {
+  fun txtRemovesBomAndNormalizesLineEndings() = runBlocking {
     val input = DocumentInput(
       sourceUri = "content://fixture/sample.txt",
       displayName = "sample.txt",
@@ -20,7 +21,7 @@ class DocumentParserTest {
   }
 
   @Test
-  fun markdownCreatesHeadingDerivedSections() {
+  fun markdownCreatesHeadingDerivedSections() = runBlocking {
     val input = DocumentInput(
       sourceUri = "content://fixture/sample.md",
       displayName = "sample.md",
@@ -45,8 +46,10 @@ class DocumentParserTest {
 
   @Test(expected = UnsupportedDocumentTypeException::class)
   fun registryRejectsUnsupportedDocuments() {
-    ParserRegistry().parse(
-      DocumentInput("file://c", "image.png", "image/png", byteArrayOf(1, 2, 3)),
-    )
+    runBlocking {
+      ParserRegistry().parse(
+        DocumentInput("file://c", "image.png", "image/png", byteArrayOf(1, 2, 3)),
+      )
+    }
   }
 }
