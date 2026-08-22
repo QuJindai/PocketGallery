@@ -11,7 +11,7 @@ class MarkdownDocumentParser : DocumentParser {
       name.endsWith(".md") || name.endsWith(".markdown")
   }
 
-  override fun parse(input: DocumentInput): NormalizedDocument {
+  override suspend fun parse(input: DocumentInput): NormalizedDocument {
     val text = decodeNormalizedUtf8(input.bytes)
     if (text.isBlank()) return NormalizedDocument(text, emptyList())
 

@@ -4,6 +4,14 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
+PDF_PATCH="$ROOT/patches/upstream/0002-add-androidx-pdf-dependencies.patch"
+if [[ ! -f "$PDF_PATCH" ]]; then
+  echo "Missing P0C AndroidX PDF dependency patch: $PDF_PATCH" >&2
+  exit 1
+fi
+grep -Fq 'implementation("androidx.pdf:pdf-core:1.0.0-alpha19")' "$PDF_PATCH"
+grep -Fq 'implementation("androidx.pdf:pdf-document-service:1.0.0-alpha19")' "$PDF_PATCH"
+
 WORK="$TMP/work"
 OVERLAY="$TMP/overlay/Android"
 PATCHES="$TMP/patches"

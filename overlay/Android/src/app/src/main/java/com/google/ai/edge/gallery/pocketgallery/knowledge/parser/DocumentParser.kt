@@ -14,7 +14,7 @@ data class NormalizedDocument(
 
 interface DocumentParser {
   fun supports(input: DocumentInput): Boolean
-  fun parse(input: DocumentInput): NormalizedDocument
+  suspend fun parse(input: DocumentInput): NormalizedDocument
 }
 
 class UnsupportedDocumentTypeException(input: DocumentInput) :
