@@ -15,9 +15,11 @@ printf apk > app/build/outputs/apk/debug/app-debug.apk
 GRADLE
 chmod +x "$WORK/Android/src/gradlew"
 
-POCKETGALLERY_WORKTREE="$WORK" POCKETGALLERY_SKIP_MATERIALIZE=1 \
+POCKETGALLERY_WORKTREE="$WORK" \
+POCKETGALLERY_SKIP_MATERIALIZE=1 \
+POCKETGALLERY_SKIP_UPSTREAM_PATCHES=1 \
   bash "$ROOT/scripts/build/build_android_debug.sh"
 
-test "$(cat "$WORK/Android/src/gradle.args")" = "--no-daemon testDebugUnitTest assembleDebug"
+test "$(cat "$WORK/Android/src/gradle.args")" = "--no-daemon testDebugUnitTest assembleDebug assembleDebugAndroidTest"
 test -f "$WORK/Android/src/app/build/outputs/apk/debug/app-debug.apk"
 echo PASS

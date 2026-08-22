@@ -1,0 +1,20 @@
+diff --git a/Android/src/app/build.gradle.kts b/Android/src/app/build.gradle.kts
+--- a/Android/src/app/build.gradle.kts
++++ b/Android/src/app/build.gradle.kts
+@@ -112,6 +112,8 @@ dependencies {
+   implementation(libs.firebase.analytics)
+   implementation(libs.firebase.messaging)
+   implementation(libs.androidx.exifinterface)
+   implementation(libs.moshi.kotlin)
++  implementation("androidx.room3:room3-runtime:3.0.1")
++  implementation("androidx.sqlite:sqlite-bundled:2.7.0")
+   kapt(libs.hilt.android.compiler)
+   testImplementation(libs.junit)
+@@ -123,6 +125,7 @@ dependencies {
+   debugImplementation(libs.androidx.ui.tooling)
+   debugImplementation(libs.androidx.ui.test.manifest)
+   ksp(libs.moshi.kotlin.codegen)
++  ksp("androidx.room3:room3-compiler:3.0.1")
+   implementation(libs.mlkit.genai.prompt)
+   implementation(libs.mcp.kotlin.sdk)
+   implementation(libs.ktor.client.android)
