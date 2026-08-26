@@ -23,12 +23,14 @@ void main() {
     expect(source, isNot(contains('/cache/')));
   });
 
-  test('R2 application identity remains fixed for app-data reuse', () async {
+  test('R3 application identity and signing chain are stable for upgrades', () async {
     final bootstrap = await File('scripts/bootstrap_android.sh').readAsString();
     expect(
       bootstrap,
-      contains('com.qujindai.pocketgallery_phone_pilot.r2'),
+      contains('com.qujindai.pocketgallery_phone_pilot.r3'),
     );
-    expect(bootstrap, contains('PocketGallery R2'));
+    expect(bootstrap, contains('PocketGallery R3'));
+    expect(bootstrap, contains('pocketgallery-pilot.keystore'));
+    expect(bootstrap, contains('signingConfig'));
   });
 }
