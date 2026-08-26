@@ -1,10 +1,13 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 
+import 'hf_oauth_device_service.dart';
+
 enum ModelSetupPhase {
   checking,
   downloadingGemma,
   authorizationRequired,
+  authorizing,
   downloadingEmbedding,
   downloadingTokenizer,
   ready,
@@ -28,6 +31,9 @@ class ModelSetupSnapshot {
 }
 
 class ModelSetupService {
+  ModelSetupService({HfOAuthDeviceService? oauth})
+      : oauth = oauth ?? HfOAuthDeviceService();
+
   static const gemma4Url =
       'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it.litertlm';
   static const embeddingModelUrl =
@@ -35,8 +41,9 @@ class ModelSetupService {
   static const embeddingTokenizerUrl =
       'https://huggingface.co/litert-community/embeddinggemma-300m/resolve/main/sentencepiece.model';
 
+  final HfOAuthDeviceService oauth;
+
   Future<ModelSetupSnapshot> prepareAutomatically({
-    String? huggingFaceToken,
     void Function(ModelSetupSnapshot state)? onProgress,
   }) async {
     ModelSetupSnapshot emit(
@@ -71,11 +78,11 @@ class ModelSetupService {
       }
 
       if (!FlutterGemma.hasActiveEmbedder()) {
-        final token = huggingFaceToken?.trim();
+        final token = await oauth.getValidAccessToken();
         if (token == null || token.isEmpty) {
           return emit(
             ModelSetupPhase.authorizationRequired,
-            'Gemma 4 已就绪；EmbeddingGemma 需要一次官方许可授权，授权后将自动下载模型和 Tokenizer。',
+            'Gemma 4 已就绪；EmbeddingGemma 需要一次 Hugging Face 官方授权。',
           );
         }
 
@@ -99,7 +106,7 @@ class ModelSetupService {
           !FlutterGemma.hasActiveEmbedder()) {
         return emit(
           ModelSetupPhase.failed,
-          '模型文件已处理，但激活自检未通过。可直接重试，不需要重新选择文件。',
+          '模型文件已处理，但激活自检未通过。可直接重试，不需要重新下载已就绪模型。',
         );
       }
 
@@ -110,14 +117,19 @@ class ModelSetupService {
       );
     } catch (e) {
       final text = e.toString().toLowerCase();
-      if (text.contains('401') ||
-          text.contains('403') ||
-          text.contains('unauthorized') ||
+      if (text.contains('401') || text.contains('unauthorized')) {
+        await oauth.clearTokens();
+        return emit(
+          ModelSetupPhase.authorizationRequired,
+          'Hugging Face 授权已失效，请重新完成一次官方授权。',
+        );
+      }
+      if (text.contains('403') ||
           text.contains('forbidden') ||
           text.contains('gated')) {
         return emit(
           ModelSetupPhase.authorizationRequired,
-          'EmbeddingGemma 官方许可尚未授权或 token 无权访问；完成许可后点“授权后自动继续”。',
+          '账号已授权，但还需要接受 EmbeddingGemma 官方许可；接受后点“已完成许可，自动继续”。',
         );
       }
       return emit(
@@ -126,6 +138,36 @@ class ModelSetupService {
       );
     }
   }
+
+  Future<ModelSetupSnapshot> authorizeAndPrepare({
+    void Function(ModelSetupSnapshot state)? onProgress,
+  }) async {
+    onProgress?.call(const ModelSetupSnapshot(
+      phase: ModelSetupPhase.authorizing,
+      message: '正在启动 Hugging Face 官方授权…',
+    ));
+    try {
+      await oauth.authorize(
+        onDeviceCode: (authorization) {
+          onProgress?.call(ModelSetupSnapshot(
+            phase: ModelSetupPhase.authorizing,
+            message:
+                '浏览器已打开 · 授权码 ${authorization.userCode} · 完成授权后 App 会自动继续',
+          ));
+        },
+      );
+      return prepareAutomatically(onProgress: onProgress);
+    } catch (e) {
+      final state = ModelSetupSnapshot(
+        phase: ModelSetupPhase.authorizationRequired,
+        message: 'Hugging Face 官方授权未完成：$e',
+      );
+      onProgress?.call(state);
+      return state;
+    }
+  }
+
+  Future<void> openEmbeddingLicensePage() => oauth.openEmbeddingLicensePage();
 
   Future<String?> pickFile(List<String> extensions) async {
     final result = await FilePicker.pickFile(
