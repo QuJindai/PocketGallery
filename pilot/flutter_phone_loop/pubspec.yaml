@@ -1,0 +1,31 @@
+name: pocketgallery_phone_pilot
+description: "PocketGallery phone functional closed-loop pilot: FTS5 + EmbeddingGemma + Hybrid RAG + local Gemma + citations."
+publish_to: "none"
+version: 0.1.0+1
+
+environment:
+  sdk: ">=3.12.0 <4.0.0"
+  flutter: ">=3.44.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_gemma: ^1.6.5
+  flutter_gemma_litertlm: ^1.5.2
+  flutter_gemma_rag_sqlite: ^1.2.0
+  file_picker: ^12.1.0
+  sqlite3: ^3.5.2
+  path: ^1.9.1
+  path_provider: ^2.1.5
+  crypto: ^3.0.7
+  pdfrx: ^2.4.7
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/golden/
