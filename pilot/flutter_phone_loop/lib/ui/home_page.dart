@@ -42,42 +42,58 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _autoPrepareModels({String? token}) async {
-    if (modelBusy) return;
+    if (modelBusy) {
+      return;
+    }
     setState(() => modelBusy = true);
     try {
       final result = await setup.prepareAutomatically(
         huggingFaceToken: token,
         onProgress: (state) {
-          if (mounted) setState(() => modelState = state);
+          if (mounted) {
+            setState(() => modelState = state);
+          }
         },
       );
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
       setState(() => modelState = result);
       if (result.ready) {
         await widget.engine.syncSemanticIndex();
         hfToken.clear();
       }
     } finally {
-      if (mounted) setState(() => modelBusy = false);
+      if (mounted) {
+        setState(() => modelBusy = false);
+      }
     }
   }
 
   Future<void> _run(Future<void> Function() fn) async {
-    if (busy) return;
+    if (busy) {
+      return;
+    }
     setState(() => busy = true);
     try {
       await fn();
     } catch (e) {
-      if (mounted) setState(() => status = '操作失败：$e');
+      if (mounted) {
+        setState(() => status = '操作失败：$e');
+      }
     } finally {
-      if (mounted) setState(() => busy = false);
+      if (mounted) {
+        setState(() => busy = false);
+      }
     }
   }
 
   Future<void> _installAdvancedFiles() async {
     if (advancedGemmaPath == null ||
         advancedEmbeddingPath == null ||
-        advancedTokenizerPath == null) return;
+        advancedTokenizerPath == null) {
+      return;
+    }
     setState(() => modelBusy = true);
     try {
       await setup.installGemma4FromFile(advancedGemmaPath!);
@@ -105,7 +121,9 @@ class _HomePageState extends State<HomePage> {
         });
       }
     } finally {
-      if (mounted) setState(() => modelBusy = false);
+      if (mounted) {
+        setState(() => modelBusy = false);
+      }
     }
   }
 
@@ -210,10 +228,11 @@ class _HomePageState extends State<HomePage> {
               child: Text('Golden Test 会在 Gemma 4 与 EmbeddingGemma 均就绪后开放。'),
             ),
           if (report != null) _reportCard(report!),
-          if (busy) const Padding(
-            padding: EdgeInsets.only(top: 16),
-            child: LinearProgressIndicator(),
-          ),
+          if (busy)
+            const Padding(
+              padding: EdgeInsets.only(top: 16),
+              child: LinearProgressIndicator(),
+            ),
         ],
       ),
     );
@@ -242,11 +261,12 @@ class _HomePageState extends State<HomePage> {
                     style: TextStyle(fontWeight: FontWeight.bold),
                   ),
                 ),
-                if (modelBusy) const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
+                if (modelBusy)
+                  const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
               ],
             ),
             const SizedBox(height: 8),
@@ -319,7 +339,9 @@ class _HomePageState extends State<HomePage> {
           advancedGemmaPath,
           () => _run(() async {
             advancedGemmaPath = await setup.pickFile(const ['litertlm']);
-            if (mounted) setState(() {});
+            if (mounted) {
+              setState(() {});
+            }
           }),
         ),
         _advancedPathRow(
@@ -327,7 +349,9 @@ class _HomePageState extends State<HomePage> {
           advancedEmbeddingPath,
           () => _run(() async {
             advancedEmbeddingPath = await setup.pickFile(const ['tflite']);
-            if (mounted) setState(() {});
+            if (mounted) {
+              setState(() {});
+            }
           }),
         ),
         _advancedPathRow(
@@ -335,7 +359,9 @@ class _HomePageState extends State<HomePage> {
           advancedTokenizerPath,
           () => _run(() async {
             advancedTokenizerPath = await setup.pickFile(const ['model', 'json']);
-            if (mounted) setState(() {});
+            if (mounted) {
+              setState(() {});
+            }
           }),
         ),
         Align(
