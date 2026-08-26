@@ -20,12 +20,17 @@ if [[ ! -d android ]]; then
   [[ -f "$TMP/scaffold/.metadata" ]] && cp "$TMP/scaffold/.metadata" "$ROOT/.metadata"
 fi
 
+# R1 was signed by an ephemeral GitHub debug key. Give R2 a distinct app id so
+# it can be installed side-by-side without requiring an R1 uninstall.
 if [[ -f android/app/build.gradle.kts ]]; then
   python3 - <<'PY'
 from pathlib import Path
 p=Path("android/app/build.gradle.kts")
 s=p.read_text()
 s=s.replace("minSdk = flutter.minSdkVersion", "minSdk = 31")
+s=s.replace(
+    'applicationId = "com.qujindai.pocketgallery_phone_pilot"',
+    'applicationId = "com.qujindai.pocketgallery_phone_pilot.r2"')
 p.write_text(s)
 PY
 elif [[ -f android/app/build.gradle ]]; then
@@ -34,6 +39,9 @@ from pathlib import Path
 p=Path("android/app/build.gradle")
 s=p.read_text()
 s=s.replace("minSdkVersion flutter.minSdkVersion", "minSdkVersion 31")
+s=s.replace(
+    'applicationId "com.qujindai.pocketgallery_phone_pilot"',
+    'applicationId "com.qujindai.pocketgallery_phone_pilot.r2"')
 p.write_text(s)
 PY
 fi
@@ -45,6 +53,9 @@ python3 - <<'PY'
 from pathlib import Path
 p=Path('android/app/src/main/AndroidManifest.xml')
 s=p.read_text()
+s=s.replace(
+    'android:label="pocketgallery_phone_pilot"',
+    'android:label="PocketGallery R2"')
 if 'xmlns:tools=' not in s:
     s=s.replace(
         '<manifest xmlns:android="http://schemas.android.com/apk/res/android">',
