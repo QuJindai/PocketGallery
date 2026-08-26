@@ -3,12 +3,11 @@ import 'package:flutter_gemma/flutter_gemma.dart';
 
 class ModelSetupService {
   Future<String?> pickFile(List<String> extensions) async {
-    final result = await FilePicker.platform.pickFiles(
-      allowMultiple: false,
+    final result = await FilePicker.pickFile(
       type: FileType.custom,
       allowedExtensions: extensions,
     );
-    return result?.files.single.path;
+    return result?.path;
   }
 
   Future<void> installGemma4FromFile(String path) async {

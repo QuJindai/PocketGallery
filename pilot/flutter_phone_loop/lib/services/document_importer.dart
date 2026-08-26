@@ -12,13 +12,12 @@ class DocumentImporter {
   final PgChunker chunker;
 
   Future<List<String>> pickDocumentPaths() async {
-    final result = await FilePicker.platform.pickFiles(
+    final result = await FilePicker.pickFiles(
       allowMultiple: true,
       type: FileType.custom,
       allowedExtensions: const ['txt', 'md', 'pdf'],
     );
-    if (result == null) return const [];
-    return result.files
+    return result
         .map((f) => f.path)
         .whereType<String>()
         .where((p) => p.isNotEmpty)
@@ -59,7 +58,7 @@ class DocumentImporter {
       final out = <TextSection>[];
       for (var i = 0; i < doc.pages.length; i++) {
         final pageText = await doc.pages[i].loadText();
-        out.add(TextSection('page ${i + 1}', pageText.fullText));
+        out.add(TextSection('page ${i + 1}', pageText?.fullText ?? ''));
       }
       return out;
     } finally {

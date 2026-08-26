@@ -79,8 +79,8 @@ class LexicalFtsStore {
           insertFts.execute(args);
         }
       } finally {
-        insertPlain.dispose();
-        insertFts.dispose();
+        insertPlain.close();
+        insertFts.close();
       }
       db.execute('COMMIT;');
     } catch (_) {
@@ -172,7 +172,7 @@ class LexicalFtsStore {
   }
 
   void dispose() {
-    _db?.dispose();
+    _db?.close();
     _db = null;
   }
 }
