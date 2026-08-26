@@ -46,6 +46,16 @@ class LexicalFtsStore {
         .toList();
   }
 
+  Future<List<PgChunk>> allChunks() async {
+    await initialize();
+    final rows = _db!.select('''
+      SELECT id, document_id, source_name, locator, ordinal, content
+      FROM pg_chunks
+      ORDER BY document_id, ordinal
+    ''');
+    return rows.map(_rowToChunk).toList();
+  }
+
   Future<void> replaceDocument(ImportedDocument doc) async {
     await initialize();
     final db = _db!;
@@ -115,8 +125,6 @@ class LexicalFtsStore {
         LIMIT ?
       ''', [ftsQuery, topK]);
     } catch (_) {
-      // A literal phrase is a safe fallback for punctuation-heavy engineering
-      // identifiers and malformed user FTS syntax.
       final quoted = '"${query.replaceAll('"', '""')}"';
       rows = _db!.select('''
         SELECT id, document_id, source_name, locator, ordinal, content,
@@ -160,8 +168,6 @@ class LexicalFtsStore {
         .map((x) => '"$x"')
         .toList();
     if (parts.length >= 2) return parts.join(' OR ');
-    // With FTS5 trigram, a quoted continuous phrase is excellent for codes,
-    // standard numbers and exact Chinese expressions.
     return '"$q"';
   }
 
