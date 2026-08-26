@@ -13,7 +13,6 @@ class DocumentImporter {
 
   Future<List<String>> pickDocumentPaths() async {
     final result = await FilePicker.pickFiles(
-      allowMultiple: true,
       type: FileType.custom,
       allowedExtensions: const ['txt', 'md', 'pdf'],
     );
