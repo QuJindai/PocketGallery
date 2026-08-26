@@ -20,53 +20,74 @@ if [[ ! -d android ]]; then
   [[ -f "$TMP/scaffold/.metadata" ]] && cp "$TMP/scaffold/.metadata" "$ROOT/.metadata"
 fi
 
-# R1 was signed by an ephemeral GitHub debug key. Give R2 a distinct app id so
-# it can be installed side-by-side without requiring an R1 uninstall.
+# R3 is the stable application identity. A private pilot keystore may be
+# injected from outside the public repository through POCKETGALLERY_SIGNING_KEYSTORE.
+# The delivered APK is signed with that stable key after CI; the private key is
+# never committed to this public repository.
+export PG_SIGNING_ENABLED=0
+if [[ -n "${POCKETGALLERY_SIGNING_KEYSTORE:-}" && -f "${POCKETGALLERY_SIGNING_KEYSTORE}" ]]; then
+  cp "${POCKETGALLERY_SIGNING_KEYSTORE}" android/app/pocketgallery-pilot.keystore
+  : "${POCKETGALLERY_SIGNING_STORE_PASSWORD:?required when signing}"
+  : "${POCKETGALLERY_SIGNING_KEY_PASSWORD:?required when signing}"
+  : "${POCKETGALLERY_SIGNING_KEY_ALIAS:?required when signing}"
+  export PG_SIGNING_ENABLED=1
+fi
+
 if [[ -f android/app/build.gradle.kts ]]; then
   python3 - <<'PY'
 from pathlib import Path
-p=Path("android/app/build.gradle.kts")
+import os
+p=Path('android/app/build.gradle.kts')
 s=p.read_text()
-s=s.replace("minSdk = flutter.minSdkVersion", "minSdk = 31")
+s=s.replace('minSdk = flutter.minSdkVersion', 'minSdk = 31')
 s=s.replace(
     'applicationId = "com.qujindai.pocketgallery_phone_pilot"',
-    'applicationId = "com.qujindai.pocketgallery_phone_pilot.r2"')
+    'applicationId = "com.qujindai.pocketgallery_phone_pilot.r3"')
+if os.environ.get('PG_SIGNING_ENABLED') == '1':
+    store=os.environ['POCKETGALLERY_SIGNING_STORE_PASSWORD']
+    key=os.environ['POCKETGALLERY_SIGNING_KEY_PASSWORD']
+    alias=os.environ['POCKETGALLERY_SIGNING_KEY_ALIAS']
+    signing=f'''    signingConfigs {{\n        create("pilot") {{\n            storeFile = file("pocketgallery-pilot.keystore")\n            storePassword = "{store}"\n            keyAlias = "{alias}"\n            keyPassword = "{key}"\n        }}\n    }}\n\n'''
+    s=s.replace('    buildTypes {\n', signing+'    buildTypes {\n', 1)
+    s=s.replace('    buildTypes {\n', '    buildTypes {\n        getByName("debug") {\n            signingConfig = signingConfigs.getByName("pilot")\n        }\n', 1)
 p.write_text(s)
 PY
 elif [[ -f android/app/build.gradle ]]; then
   python3 - <<'PY'
 from pathlib import Path
-p=Path("android/app/build.gradle")
+import os
+p=Path('android/app/build.gradle')
 s=p.read_text()
-s=s.replace("minSdkVersion flutter.minSdkVersion", "minSdkVersion 31")
+s=s.replace('minSdkVersion flutter.minSdkVersion', 'minSdkVersion 31')
 s=s.replace(
     'applicationId "com.qujindai.pocketgallery_phone_pilot"',
-    'applicationId "com.qujindai.pocketgallery_phone_pilot.r2"')
+    'applicationId "com.qujindai.pocketgallery_phone_pilot.r3"')
+if os.environ.get('PG_SIGNING_ENABLED') == '1':
+    store=os.environ['POCKETGALLERY_SIGNING_STORE_PASSWORD']
+    key=os.environ['POCKETGALLERY_SIGNING_KEY_PASSWORD']
+    alias=os.environ['POCKETGALLERY_SIGNING_KEY_ALIAS']
+    signing=f'''    signingConfigs {{\n        pilot {{\n            storeFile file("pocketgallery-pilot.keystore")\n            storePassword "{store}"\n            keyAlias "{alias}"\n            keyPassword "{key}"\n        }}\n    }}\n\n'''
+    s=s.replace('    buildTypes {\n', signing+'    buildTypes {\n', 1)
+    s=s.replace('    buildTypes {\n', '    buildTypes {\n        debug {\n            signingConfig signingConfigs.pilot\n        }\n', 1)
 p.write_text(s)
 PY
 fi
 
-# flutter_gemma can keep large model downloads alive with an Android foreground
-# data-sync service. Inject the required declarations into the generated
-# scaffold so the source tree remains small and deterministic.
 python3 - <<'PY'
 from pathlib import Path
 p=Path('android/app/src/main/AndroidManifest.xml')
 s=p.read_text()
-s=s.replace(
-    'android:label="pocketgallery_phone_pilot"',
-    'android:label="PocketGallery R2"')
+s=s.replace('android:label="pocketgallery_phone_pilot"', 'android:label="PocketGallery R3"')
 if 'xmlns:tools=' not in s:
     s=s.replace(
         '<manifest xmlns:android="http://schemas.android.com/apk/res/android">',
         '<manifest xmlns:android="http://schemas.android.com/apk/res/android"\n    xmlns:tools="http://schemas.android.com/tools">')
-permissions=[
+for perm in [
     'android.permission.INTERNET',
     'android.permission.POST_NOTIFICATIONS',
     'android.permission.FOREGROUND_SERVICE',
     'android.permission.FOREGROUND_SERVICE_DATA_SYNC',
-]
-for perm in permissions:
+]:
     line=f'    <uses-permission android:name="{perm}" />'
     if line not in s:
         pos=s.find('>')+1
@@ -80,14 +101,8 @@ if 'androidx.work.impl.foreground.SystemForegroundService' not in s:
 p.write_text(s)
 PY
 
-grep -Rqs 'com.qujindai.pocketgallery_phone_pilot.r2' android/app/build.gradle* || {
-  echo 'R2 applicationId injection failed' >&2
-  exit 3
-}
-grep -q 'android:label="PocketGallery R2"' android/app/src/main/AndroidManifest.xml || {
-  echo 'R2 launcher label injection failed' >&2
-  exit 4
-}
+grep -Rqs 'com.qujindai.pocketgallery_phone_pilot.r3' android/app/build.gradle* || exit 3
+grep -q 'android:label="PocketGallery R3"' android/app/src/main/AndroidManifest.xml || exit 4
 
 flutter pub get
 echo "BOOTSTRAP_PASS"
