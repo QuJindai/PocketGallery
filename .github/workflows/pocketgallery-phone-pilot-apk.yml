@@ -46,7 +46,18 @@ jobs:
 
       - name: Build arm64 debug APK
         working-directory: pilot/flutter_phone_loop
-        run: flutter build apk --debug --target-platform android-arm64
+        run: |
+          flutter build apk --debug --target-platform android-arm64 --split-per-abi
+          cp build/app/outputs/flutter-apk/app-arm64-v8a-debug.apk \
+             build/app/outputs/flutter-apk/app-debug.apk
+
+      - name: Verify arm64-only APK
+        working-directory: pilot/flutter_phone_loop
+        run: |
+          APK=build/app/outputs/flutter-apk/app-debug.apk
+          ABIS="$(unzip -Z1 "$APK" | grep -E '^lib/[^/]+/.*\.so$' | sed -E 's#^lib/([^/]+)/.*#\1#' | sort -u | paste -sd, -)"
+          echo "APK_ABIS=$ABIS"
+          test "$ABIS" = "arm64-v8a"
 
       - name: Hash APK
         working-directory: pilot/flutter_phone_loop
