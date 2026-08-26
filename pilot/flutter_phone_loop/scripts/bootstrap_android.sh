@@ -20,8 +20,6 @@ if [[ ! -d android ]]; then
   [[ -f "$TMP/scaffold/.metadata" ]] && cp "$TMP/scaffold/.metadata" "$ROOT/.metadata"
 fi
 
-# Phone target is modern arm64. Raise minSdk only if the generated template
-# exposes the standard Flutter minSdk assignment.
 if [[ -f android/app/build.gradle.kts ]]; then
   python3 - <<'PY'
 from pathlib import Path
@@ -39,6 +37,37 @@ s=s.replace("minSdkVersion flutter.minSdkVersion", "minSdkVersion 31")
 p.write_text(s)
 PY
 fi
+
+# flutter_gemma can keep large model downloads alive with an Android foreground
+# data-sync service. Inject the required declarations into the generated
+# scaffold so the source tree remains small and deterministic.
+python3 - <<'PY'
+from pathlib import Path
+p=Path('android/app/src/main/AndroidManifest.xml')
+s=p.read_text()
+if 'xmlns:tools=' not in s:
+    s=s.replace(
+        '<manifest xmlns:android="http://schemas.android.com/apk/res/android">',
+        '<manifest xmlns:android="http://schemas.android.com/apk/res/android"\n    xmlns:tools="http://schemas.android.com/tools">')
+permissions=[
+    'android.permission.INTERNET',
+    'android.permission.POST_NOTIFICATIONS',
+    'android.permission.FOREGROUND_SERVICE',
+    'android.permission.FOREGROUND_SERVICE_DATA_SYNC',
+]
+for perm in permissions:
+    line=f'    <uses-permission android:name="{perm}" />'
+    if line not in s:
+        pos=s.find('>')+1
+        s=s[:pos]+'\n'+line+s[pos:]
+service='''        <service
+            android:name="androidx.work.impl.foreground.SystemForegroundService"
+            android:foregroundServiceType="dataSync"
+            tools:node="merge" />'''
+if 'androidx.work.impl.foreground.SystemForegroundService' not in s:
+    s=s.replace('    </application>', service+'\n    </application>')
+p.write_text(s)
+PY
 
 flutter pub get
 echo "BOOTSTRAP_PASS"

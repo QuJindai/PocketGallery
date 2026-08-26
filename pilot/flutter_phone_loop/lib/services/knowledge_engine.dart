@@ -1,3 +1,5 @@
+import 'package:flutter_gemma/flutter_gemma.dart';
+
 import '../core/evidence.dart';
 import '../core/hybrid_ranker.dart';
 import '../core/models.dart';
@@ -34,16 +36,33 @@ class KnowledgeEngine {
     await initialize();
     final doc = await importer.importPath(path);
     final oldIds = await lexicalStore.chunkIdsForDocument(doc.documentId);
-    if (oldIds.isNotEmpty) await semanticStore.removeIds(oldIds);
+
+    // FTS5 is the always-on path. Semantic indexing is enabled only after an
+    // embedder is active, so importing documents can never fail just because
+    // model preparation is still in progress.
+    if (FlutterGemma.hasActiveEmbedder() && oldIds.isNotEmpty) {
+      await semanticStore.removeIds(oldIds);
+    }
     await lexicalStore.replaceDocument(doc);
-    await semanticStore.addChunks(doc.chunks);
+    if (FlutterGemma.hasActiveEmbedder()) {
+      await semanticStore.addChunks(doc.chunks);
+    }
     return doc;
+  }
+
+  Future<void> syncSemanticIndex() async {
+    if (!FlutterGemma.hasActiveEmbedder()) return;
+    await initialize();
+    final chunks = await lexicalStore.allChunks();
+    if (chunks.isNotEmpty) await semanticStore.addChunks(chunks);
   }
 
   Future<KnowledgeAnswer> ask(String question) async {
     await initialize();
     final lexical = await lexicalStore.search(question);
-    final semantic = await semanticStore.search(question);
+    final semantic = FlutterGemma.hasActiveEmbedder()
+        ? await semanticStore.search(question)
+        : const <RetrievalHit>[];
     final hybrid = ranker.fuse(
       query: question,
       lexical: lexical,
@@ -61,6 +80,18 @@ class KnowledgeEngine {
         hybridHits: hybrid,
       );
     }
+
+    if (!FlutterGemma.hasActiveModel()) {
+      return KnowledgeAnswer(
+        answer: '本机 Gemma 正在自动准备；FTS5 本地检索已经可用，请先查看下方 Evidence。模型就绪后会自动启用生成回答。',
+        evidence: evidence,
+        citedAnchors: const [],
+        lexicalHits: lexical,
+        semanticHits: semantic,
+        hybridHits: hybrid,
+      );
+    }
+
     final answer = await gemma.answer(question: question, evidence: evidence);
     return KnowledgeAnswer(
       answer: answer,
@@ -74,7 +105,7 @@ class KnowledgeEngine {
 
   Future<void> clearAll() async {
     await initialize();
-    await semanticStore.clear();
+    if (FlutterGemma.hasActiveEmbedder()) await semanticStore.clear();
     await lexicalStore.clear();
   }
 
