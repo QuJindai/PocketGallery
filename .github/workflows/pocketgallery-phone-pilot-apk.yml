@@ -1,0 +1,75 @@
+name: PocketGallery Phone Pilot APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, develop]
+    paths:
+      - "pilot/flutter_phone_loop/**"
+      - ".github/workflows/pocketgallery-phone-pilot-apk.yml"
+  pull_request:
+    paths:
+      - "pilot/flutter_phone_loop/**"
+      - ".github/workflows/pocketgallery-phone-pilot-apk.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  pilot-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Bootstrap Android scaffold
+        working-directory: pilot/flutter_phone_loop
+        run: bash scripts/bootstrap_android.sh
+
+      - name: Environment
+        working-directory: pilot/flutter_phone_loop
+        run: flutter --version
+
+      - name: Analyze
+        working-directory: pilot/flutter_phone_loop
+        run: flutter analyze
+
+      - name: Unit tests
+        working-directory: pilot/flutter_phone_loop
+        run: flutter test
+
+      - name: Build arm64 debug APK
+        working-directory: pilot/flutter_phone_loop
+        run: |
+          flutter build apk --debug --target-platform android-arm64 --split-per-abi
+          cp build/app/outputs/flutter-apk/app-arm64-v8a-debug.apk \
+             build/app/outputs/flutter-apk/app-debug.apk
+
+      - name: Verify arm64-only APK
+        working-directory: pilot/flutter_phone_loop
+        run: |
+          APK=build/app/outputs/flutter-apk/app-debug.apk
+          ABIS="$(unzip -Z1 "$APK" | grep -E '^lib/[^/]+/.*\.so$' | sed -E 's#^lib/([^/]+)/.*#\1#' | sort -u | paste -sd, -)"
+          echo "APK_ABIS=$ABIS"
+          test "$ABIS" = "arm64-v8a"
+
+      - name: Hash APK
+        working-directory: pilot/flutter_phone_loop
+        run: |
+          sha256sum build/app/outputs/flutter-apk/app-debug.apk \
+            | tee build/app/outputs/flutter-apk/app-debug.apk.sha256
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PocketGallery-Phone-Pilot-debug-apk
+          path: |
+            pilot/flutter_phone_loop/build/app/outputs/flutter-apk/app-debug.apk
+            pilot/flutter_phone_loop/build/app/outputs/flutter-apk/app-debug.apk.sha256
+          if-no-files-found: error
+          retention-days: 14
