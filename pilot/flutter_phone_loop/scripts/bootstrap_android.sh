@@ -80,5 +80,14 @@ if 'androidx.work.impl.foreground.SystemForegroundService' not in s:
 p.write_text(s)
 PY
 
+grep -Rqs 'com.qujindai.pocketgallery_phone_pilot.r2' android/app/build.gradle* || {
+  echo 'R2 applicationId injection failed' >&2
+  exit 3
+}
+grep -q 'android:label="PocketGallery R2"' android/app/src/main/AndroidManifest.xml || {
+  echo 'R2 launcher label injection failed' >&2
+  exit 4
+}
+
 flutter pub get
 echo "BOOTSTRAP_PASS"
