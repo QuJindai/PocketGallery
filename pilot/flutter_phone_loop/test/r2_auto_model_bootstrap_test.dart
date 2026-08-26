@@ -26,4 +26,11 @@ void main() {
     expect(source, contains('FlutterGemma.hasActiveEmbedder()'));
     expect(source, contains('const <RetrievalHit>[]'));
   });
+
+  test('R2 installs side by side instead of colliding with R1 debug signature', () {
+    final source = File('scripts/bootstrap_android.sh').readAsStringSync();
+
+    expect(source, contains('com.qujindai.pocketgallery_phone_pilot.r2'));
+    expect(source, contains('PocketGallery R2'));
+  });
 }
