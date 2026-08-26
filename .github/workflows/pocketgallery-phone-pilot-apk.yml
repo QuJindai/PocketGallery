@@ -73,3 +73,5 @@ jobs:
             pilot/flutter_phone_loop/build/app/outputs/flutter-apk/app-debug.apk.sha256
           if-no-files-found: error
           retention-days: 14
+
+# R3_FINAL_GREEN_GATE
