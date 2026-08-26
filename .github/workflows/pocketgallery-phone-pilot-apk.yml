@@ -3,7 +3,7 @@ name: PocketGallery Phone Pilot APK
 on:
   workflow_dispatch:
   push:
-    branches: [main, develop]
+    branches: [main, develop, "feature/phone-pilot-r3-final-apk"]
     paths:
       - "pilot/flutter_phone_loop/**"
       - ".github/workflows/pocketgallery-phone-pilot-apk.yml"
