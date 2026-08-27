@@ -6,10 +6,9 @@ import '../core/evidence.dart';
 import '../core/models.dart';
 
 class GemmaChatService implements ChatModelGateway {
-  GemmaChatService({ContextBudgeter budgeter = const ContextBudgeter()})
-      : _budgeter = budgeter;
+  GemmaChatService({this.budgeter = const ContextBudgeter()});
 
-  final ContextBudgeter _budgeter;
+  final ContextBudgeter budgeter;
   InferenceModel? _model;
   InferenceChat? _chat;
   String? _activeSessionId;
@@ -49,7 +48,7 @@ class GemmaChatService implements ChatModelGateway {
     );
     _activeSessionId = sessionId;
 
-    final selected = _budgeter.selectHistory(
+    final selected = budgeter.selectHistory(
       priorMessages,
       evidenceTokens: evidenceTokens,
     );
@@ -79,7 +78,7 @@ class GemmaChatService implements ChatModelGateway {
     final context = evidence.isEmpty
         ? ''
         : const EvidencePackBuilder().toPromptContext(evidence);
-    final evidenceTokens = _budgeter.estimateTokens(context);
+    final evidenceTokens = budgeter.estimateTokens(context);
     await _ensureChat(
       sessionId,
       priorMessages,
