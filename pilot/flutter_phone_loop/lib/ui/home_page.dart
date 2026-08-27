@@ -13,7 +13,7 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   final setup = ModelSetupService();
   final query = TextEditingController(
     text: '31 03 51 01 获取标定结果时，为什么 DSA 可能一直等待？',
@@ -33,12 +33,39 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _prepare());
+    WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _bootstrapModelState());
+  }
+
+  Future<void> _bootstrapModelState() async {
+    if (await setup.hasPendingAuthorization()) {
+      await _prepare(resumePendingAuthorization: true);
+    } else {
+      await _prepare();
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      Future<void>.delayed(
+        const Duration(milliseconds: 400),
+        _resumeOAuthAfterExternalBrowser,
+      );
+    }
+  }
+
+  Future<void> _resumeOAuthAfterExternalBrowser() async {
+    if (!mounted || modelBusy || modelState.ready) return;
+    if (!await setup.hasPendingAuthorization()) return;
+    if (!mounted) return;
+    await _prepare(resumePendingAuthorization: true);
   }
 
   Future<void> _prepare({
     bool authorize = false,
     bool continueAfterLicense = false,
+    bool resumePendingAuthorization = false,
   }) async {
     if (modelBusy) return;
     setState(() => modelBusy = true);
@@ -48,7 +75,11 @@ class _HomePageState extends State<HomePage> {
       }
 
       final ModelSetupSnapshot r;
-      if (continueAfterLicense) {
+      if (resumePendingAuthorization) {
+        r = await setup.resumePendingAuthorizationAndPrepare(
+          onProgress: progress,
+        );
+      } else if (continueAfterLicense) {
         r = await setup.continueAfterLicense(onProgress: progress);
       } else if (authorize) {
         r = await setup.authorizeAndPrepare(onProgress: progress);
@@ -82,6 +113,7 @@ class _HomePageState extends State<HomePage> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     query.dispose();
     super.dispose();
   }
@@ -89,7 +121,7 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('PocketGallery · Phone Pilot R3.1')),
+      appBar: AppBar(title: const Text('PocketGallery · Phone Pilot R3.2')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -209,6 +241,7 @@ class _HomePageState extends State<HomePage> {
 
   Widget _modelCard() {
     final failed = modelState.phase == ModelSetupPhase.failed;
+    final authorizing = modelState.phase == ModelSetupPhase.authorizing;
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(14),
@@ -220,7 +253,9 @@ class _HomePageState extends State<HomePage> {
                   ? Icons.check_circle
                   : failed
                       ? Icons.error_outline
-                      : Icons.downloading),
+                      : authorizing
+                          ? Icons.verified_user_outlined
+                          : Icons.downloading),
               const SizedBox(width: 8),
               const Expanded(
                 child: Text(
@@ -249,6 +284,14 @@ class _HomePageState extends State<HomePage> {
                 label: const Text('自动重试'),
               ),
             ],
+            if (authorizing && !modelBusy) ...[
+              const SizedBox(height: 10),
+              OutlinedButton.icon(
+                onPressed: () => _prepare(resumePendingAuthorization: true),
+                icon: const Icon(Icons.sync),
+                label: const Text('检查授权状态并继续'),
+              ),
+            ],
           ],
         ),
       ),
@@ -268,7 +311,7 @@ class _HomePageState extends State<HomePage> {
             ),
             const SizedBox(height: 6),
             const Text(
-              '不再填写 Token。使用 Hugging Face 官方授权，浏览器登录后 App 自动取得 gated-repos OAuth 权限并安全保存/刷新凭据。模型下载成功后永久复用，不重复下载。',
+              '不再填写 Token。使用 Hugging Face 官方授权；授权事务会先保存到本机，切换浏览器或 App 被系统暂停后也能自动恢复。模型下载成功后永久复用，不重复下载。',
             ),
             const SizedBox(height: 10),
             FilledButton.icon(
@@ -285,7 +328,7 @@ class _HomePageState extends State<HomePage> {
             ),
             const SizedBox(height: 4),
             const Text(
-              '如果刚刚只在许可页接受了条款，返回后点下面按钮；已有 OAuth 会直接继续下载，没有 OAuth 会自动进入官方授权。',
+              '如果刚刚只在许可页接受了条款，点下面按钮会启动官方 OAuth；浏览器显示连接成功后，返回 App 即会自动继续。',
             ),
             TextButton(
               onPressed: modelBusy
