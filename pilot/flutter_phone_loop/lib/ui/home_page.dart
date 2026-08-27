@@ -36,7 +36,10 @@ class _HomePageState extends State<HomePage> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _prepare());
   }
 
-  Future<void> _prepare({bool authorize = false}) async {
+  Future<void> _prepare({
+    bool authorize = false,
+    bool continueAfterLicense = false,
+  }) async {
     if (modelBusy) return;
     setState(() => modelBusy = true);
     try {
@@ -44,12 +47,22 @@ class _HomePageState extends State<HomePage> {
         if (mounted) setState(() => modelState = s);
       }
 
-      final r = authorize
-          ? await setup.authorizeAndPrepare(onProgress: progress)
-          : await setup.prepareAutomatically(onProgress: progress);
+      final ModelSetupSnapshot r;
+      if (continueAfterLicense) {
+        r = await setup.continueAfterLicense(onProgress: progress);
+      } else if (authorize) {
+        r = await setup.authorizeAndPrepare(onProgress: progress);
+      } else {
+        r = await setup.prepareAutomatically(onProgress: progress);
+      }
       if (!mounted) return;
       setState(() => modelState = r);
-      if (r.ready) await widget.engine.syncSemanticIndex();
+      if (r.ready) {
+        await widget.engine.syncSemanticIndex();
+        if (mounted) {
+          setState(() => status = '模型 READY · 已自动补建 Embedding 索引');
+        }
+      }
     } finally {
       if (mounted) setState(() => modelBusy = false);
     }
@@ -76,7 +89,7 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('PocketGallery · Phone Pilot R3')),
+      appBar: AppBar(title: const Text('PocketGallery · Phone Pilot R3.1')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -141,15 +154,29 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _importDocuments() async {
     final paths = await widget.engine.importer.pickDocumentPaths();
+    var textlessFiles = 0;
     for (final path in paths) {
       if (mounted) setState(() => status = '索引 ${path.split('/').last}…');
       final doc = await widget.engine.importPath(path);
-      imported.add('${doc.sourceName} · ${doc.chunks.length} chunks');
+      if (doc.chunks.isEmpty) {
+        textlessFiles++;
+        imported.add(
+          '${doc.sourceName} · 0 chunks · 未提取到可检索文本（可能是扫描件/图片型 PDF）',
+        );
+      } else {
+        imported.add('${doc.sourceName} · ${doc.chunks.length} chunks');
+      }
     }
     if (!mounted) return;
-    setState(() => status = modelState.ready
-        ? '文档索引完成 · FTS5 + Embedding'
-        : '文档索引完成 · FTS5 已可用，Embedding 将在模型就绪后自动补建');
+    setState(() {
+      if (textlessFiles > 0) {
+        status = '文档导入完成 · $textlessFiles 个文件未提取到可检索文本；可能是扫描件/图片型 PDF';
+      } else {
+        status = modelState.ready
+            ? '文档索引完成 · FTS5 + Embedding'
+            : '文档索引完成 · FTS5 已可用，Embedding 将在模型就绪后自动补建';
+      }
+    });
   }
 
   Future<void> _ask() async {
@@ -162,7 +189,9 @@ class _HomePageState extends State<HomePage> {
     if (!mounted) return;
     setState(() {
       answer = r;
-      status = modelState.ready ? '完成' : '检索完成 · 模型仍在自动准备';
+      status = modelState.ready
+          ? '完成'
+          : '检索完成 · Embedding 尚未就绪（FTS5 可用）';
     });
   }
 
@@ -254,9 +283,15 @@ class _HomePageState extends State<HomePage> {
               icon: const Icon(Icons.open_in_browser),
               label: const Text('打开 EmbeddingGemma 官方许可页'),
             ),
+            const SizedBox(height: 4),
+            const Text(
+              '如果刚刚只在许可页接受了条款，返回后点下面按钮；已有 OAuth 会直接继续下载，没有 OAuth 会自动进入官方授权。',
+            ),
             TextButton(
-              onPressed: modelBusy ? null : _prepare,
-              child: const Text('已完成许可，自动继续'),
+              onPressed: modelBusy
+                  ? null
+                  : () => _prepare(continueAfterLicense: true),
+              child: const Text('已完成许可，继续官方授权并下载'),
             ),
           ],
         ),
