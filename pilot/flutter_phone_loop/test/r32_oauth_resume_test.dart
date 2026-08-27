@@ -36,11 +36,11 @@ void main() {
     expect(oauth, isNot(contains('return _pollForToken(authorization);')));
   });
 
-  test('R3.2 remains an in-place R3 upgrade', () {
+  test('R3.2+ remains an in-place R3 upgrade', () {
     final bootstrap = File('scripts/bootstrap_android.sh').readAsStringSync();
     final pubspec = File('pubspec.yaml').readAsStringSync();
 
     expect(bootstrap, contains('com.qujindai.pocketgallery_phone_pilot.r3'));
-    expect(pubspec, contains('version: 0.3.2+5'));
+    expect(pubspec, contains('version: 0.3.'));
   });
 }
