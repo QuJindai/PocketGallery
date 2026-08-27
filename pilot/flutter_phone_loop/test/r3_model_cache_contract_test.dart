@@ -35,7 +35,11 @@ void main() {
     );
     expect(bootstrap, contains('PocketGallery R3'));
     expect(workflow, contains('actions/cache@v5'));
-    expect(workflow, contains('~/.android/debug.keystore'));
+    expect(workflow, contains('~/.android/pocketgallery-r3-signing'));
     expect(workflow, contains('pocketgallery-r3-signing-v1'));
+    expect(workflow, contains('Prepare persistent R3 signing identity'));
+    expect(workflow, contains('POCKETGALLERY_SIGNING_KEYSTORE'));
+    expect(workflow, contains('apksigner'));
+    expect(workflow, contains('APK_SIGNER_SHA256'));
   });
 }
