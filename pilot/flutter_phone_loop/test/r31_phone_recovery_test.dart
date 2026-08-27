@@ -31,6 +31,6 @@ void main() {
     final pubspec = File('pubspec.yaml').readAsStringSync();
 
     expect(bootstrap, contains('com.qujindai.pocketgallery_phone_pilot.r3'));
-    expect(pubspec, contains(RegExp(r'version: 0\.3\.[1-9][0-9]*\+[4-9][0-9]*')));
+    expect(pubspec, contains(RegExp(r'version: 0\.(3\.[1-9][0-9]*|[4-9]\.[0-9]+)\+[4-9][0-9]*')));
   });
 }
