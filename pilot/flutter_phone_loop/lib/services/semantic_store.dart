@@ -4,6 +4,7 @@ import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
+import '../chat/chat_models.dart';
 import '../core/models.dart';
 import 'lexical_fts_store.dart';
 
@@ -42,23 +43,33 @@ class SemanticStore {
     }
   }
 
-  Future<List<RetrievalHit>> search(String query, {int topK = 12}) async {
+  Future<List<RetrievalHit>> search(
+    String query, {
+    int topK = 12,
+    KnowledgeScope scope = const KnowledgeScope.all(),
+  }) async {
     await initialize();
+    final ids = scope.documentIds;
+    if (!scope.isAll && (ids == null || ids.isEmpty)) return const [];
+
+    final candidateK = scope.isAll ? topK : (topK * 8).clamp(topK, 96).toInt();
     final rows = await FlutterGemma.rag.searchSimilar(
       query: query,
-      topK: topK,
+      topK: candidateK,
       threshold: 0.0,
     );
     final out = <RetrievalHit>[];
     for (var i = 0; i < rows.length; i++) {
       final c = await lexicalStore.getChunk(rows[i].id);
       if (c == null) continue;
+      if (!scope.isAll && !scope.documentIds!.contains(c.documentId)) continue;
       out.add(RetrievalHit(
         chunk: c,
         score: rows[i].similarity.clamp(0.0, 1.0).toDouble(),
         channel: 'embedding',
-        rank: i + 1,
+        rank: out.length + 1,
       ));
+      if (out.length >= topK) break;
     }
     return out;
   }
