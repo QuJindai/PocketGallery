@@ -15,6 +15,7 @@ class DocumentImporter {
     final result = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: const ['txt', 'md', 'pdf'],
+      allowMultiple: true,
     );
     return result
         .map((f) => f.path)
