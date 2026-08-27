@@ -121,7 +121,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('PocketGallery · Phone Pilot R3.2')),
+      appBar: AppBar(title: const Text('PocketGallery · Phone Pilot R3.3')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -313,6 +313,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             const Text(
               '不再填写 Token。使用 Hugging Face 官方授权；授权事务会先保存到本机，切换浏览器或 App 被系统暂停后也能自动恢复。模型下载成功后永久复用，不重复下载。',
             ),
+            const SizedBox(height: 8),
+            const Text(
+              'Hugging Face 的 Device OAuth 页面有时会显示 8 位授权码输入框。授权码已自动复制到剪贴板，页面打开后只需粘贴并继续；无需记码，也无需手工创建 Token。',
+            ),
             const SizedBox(height: 10),
             FilledButton.icon(
               onPressed: modelBusy ? null : () => _prepare(authorize: true),
@@ -328,7 +332,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             ),
             const SizedBox(height: 4),
             const Text(
-              '如果刚刚只在许可页接受了条款，点下面按钮会启动官方 OAuth；浏览器显示连接成功后，返回 App 即会自动继续。',
+              '如果刚刚只在许可页接受了条款，点下面按钮会启动官方 OAuth；浏览器完成后返回 App，即会自动领取令牌并继续下载。',
             ),
             TextButton(
               onPressed: modelBusy
