@@ -99,6 +99,35 @@ class KnowledgeRetriever implements KnowledgeRetrievalGateway {
       limit: limit,
     );
     final evidence = evidenceBuilder.build(hybrid);
+
+    // A specific-document scope is an explicit user attachment/selection. In
+    // auto mode it should outrank the generic relevance heuristic. If the user
+    // says something vague such as "总结一下", keyword/vector retrieval may
+    // return nothing; fall back to representative chunks from those selected
+    // documents instead of silently answering from the bare model.
+    if (!scope.isAll) {
+      if (evidence.isNotEmpty) {
+        return RetrievalBundle(
+          lexicalHits: lexical,
+          semanticHits: semantic,
+          hybridHits: hybrid,
+          evidence: evidence,
+          lexicalOnly: !embedderReady,
+          autoRelevantOverride: true,
+        );
+      }
+      final coverage = await _buildCorpusCoverage(scope, limit);
+      final coverageEvidence = evidenceBuilder.build(coverage);
+      return RetrievalBundle(
+        lexicalHits: lexical,
+        semanticHits: semantic,
+        hybridHits: coverage,
+        evidence: coverageEvidence,
+        lexicalOnly: !embedderReady,
+        autoRelevantOverride: coverageEvidence.isNotEmpty,
+      );
+    }
+
     return RetrievalBundle(
       lexicalHits: lexical,
       semanticHits: semantic,
