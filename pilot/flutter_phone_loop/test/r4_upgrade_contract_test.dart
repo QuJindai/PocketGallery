@@ -3,12 +3,12 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('R4.0.2 is an in-place R3 upgrade and never redownloads active models', () async {
+  test('R4.0.3 is an in-place R3 upgrade and never redownloads active models', () async {
     final pubspec = await File('pubspec.yaml').readAsString();
     final bootstrap = await File('scripts/bootstrap_android.sh').readAsString();
     final setup = await File('lib/services/model_setup_service.dart').readAsString();
     final main = await File('lib/main.dart').readAsString();
-    expect(pubspec, contains('version: 0.4.2+9'));
+    expect(pubspec, contains('version: 0.4.3+10'));
     expect(bootstrap, contains('com.qujindai.pocketgallery_phone_pilot.r3'));
     expect(setup, contains('if (!FlutterGemma.hasActiveModel())'));
     expect(setup, contains('if (!FlutterGemma.hasActiveEmbedder())'));
