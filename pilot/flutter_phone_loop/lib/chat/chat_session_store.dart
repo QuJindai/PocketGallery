@@ -183,8 +183,10 @@ class ChatSessionStore {
 
   ChatSession _rowToSession(Row row) {
     final modeName = row['mode'] as String;
-    final mode = ChatMode.values.where((x) => x.name == modeName).firstOrNull ??
-        ChatMode.auto;
+    final mode = ChatMode.values.firstWhere(
+      (x) => x.name == modeName,
+      orElse: () => ChatMode.auto,
+    );
     return ChatSession(
       id: row['session_id'] as String,
       title: row['title'] as String,
