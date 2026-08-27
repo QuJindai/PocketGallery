@@ -26,10 +26,8 @@ class ChatPage extends StatefulWidget {
 class _ChatPageState extends State<ChatPage> {
   final input = TextEditingController();
   final scroll = ScrollController();
-
   ChatSession? session;
   List<ChatMessage> messages = const [];
-  List<ChatSession> sessions = const [];
   List<KnowledgeDocument> documents = const [];
   bool loading = true;
   bool sending = false;
@@ -44,17 +42,16 @@ class _ChatPageState extends State<ChatPage> {
   Future<void> _bootstrap() async {
     try {
       await widget.store.initialize();
-      final existing = await widget.store.listSessions();
-      final docs = await widget.engine.listDocuments();
-      final current = existing.isEmpty
+      final sessions = await widget.store.listSessions();
+      final current = sessions.isEmpty
           ? await widget.orchestrator.newSession()
-          : existing.first;
-      final loadedMessages = await widget.store.messages(current.id);
+          : sessions.first;
+      final history = await widget.store.messages(current.id);
+      final docs = await widget.engine.listDocuments();
       if (!mounted) return;
       setState(() {
         session = current;
-        sessions = existing.isEmpty ? [current] : existing;
-        messages = loadedMessages;
+        messages = history;
         documents = docs;
         loading = false;
       });
@@ -73,13 +70,11 @@ class _ChatPageState extends State<ChatPage> {
     if (current == null) return;
     final loaded = await widget.store.getSession(current.id);
     final history = await widget.store.messages(current.id);
-    final allSessions = await widget.store.listSessions();
     final docs = reloadDocuments ? await widget.engine.listDocuments() : documents;
     if (!mounted) return;
     setState(() {
       session = loaded ?? current;
       messages = history;
-      sessions = allSessions;
       documents = docs;
     });
     _jumpToBottom();
@@ -91,32 +86,17 @@ class _ChatPageState extends State<ChatPage> {
     setState(() {
       session = created;
       messages = const [];
-      sessions = [created, ...sessions];
       error = null;
     });
-  }
-
-  Future<void> _selectSession(ChatSession selected) async {
-    final loaded = await widget.store.getSession(selected.id);
-    final history = await widget.store.messages(selected.id);
-    if (!mounted) return;
-    setState(() {
-      session = loaded ?? selected;
-      messages = history;
-      error = null;
-    });
-    Navigator.of(context).maybePop();
-    _jumpToBottom();
   }
 
   Future<void> _showHistory() async {
-    final currentSessions = await widget.store.listSessions();
+    final sessions = await widget.store.listSessions();
     if (!mounted) return;
-    setState(() => sessions = currentSessions);
     await showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
-      builder: (context) => SafeArea(
+      builder: (sheetContext) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -127,13 +107,24 @@ class _ChatPageState extends State<ChatPage> {
               child: ListView(
                 shrinkWrap: true,
                 children: [
-                  for (final item in currentSessions)
+                  for (final item in sessions)
                     ListTile(
                       selected: item.id == session?.id,
                       leading: const Icon(Icons.chat_bubble_outline),
                       title: Text(item.title, maxLines: 1, overflow: TextOverflow.ellipsis),
                       subtitle: Text('${_modeLabel(item.mode)} · ${_scopeLabel(item.scope)}'),
-                      onTap: () => _selectSession(item),
+                      onTap: () async {
+                        final loaded = await widget.store.getSession(item.id);
+                        final history = await widget.store.messages(item.id);
+                        if (!mounted) return;
+                        setState(() {
+                          session = loaded ?? item;
+                          messages = history;
+                          error = null;
+                        });
+                        if (sheetContext.mounted) Navigator.of(sheetContext).pop();
+                        _jumpToBottom();
+                      },
                       trailing: IconButton(
                         tooltip: '删除会话',
                         icon: const Icon(Icons.delete_outline),
@@ -147,7 +138,7 @@ class _ChatPageState extends State<ChatPage> {
                               messages = const [];
                             });
                           }
-                          if (mounted) Navigator.of(context).pop();
+                          if (sheetContext.mounted) Navigator.of(sheetContext).pop();
                           await _reload();
                         },
                       ),
@@ -187,12 +178,11 @@ class _ChatPageState extends State<ChatPage> {
     final selected = <String>{...?current.scope.documentIds};
     var all = current.scope.isAll;
     if (!mounted) return;
-
     final result = await showModalBottomSheet<KnowledgeScope>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
-      builder: (context) => StatefulBuilder(
+      builder: (sheetContext) => StatefulBuilder(
         builder: (context, setLocalState) => SafeArea(
           child: SizedBox(
             height: MediaQuery.sizeOf(context).height * 0.65,
@@ -200,7 +190,7 @@ class _ChatPageState extends State<ChatPage> {
               children: [
                 const ListTile(
                   title: Text('知识库范围', style: TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: Text('可使用全部知识库，也可以只外挂指定文档。'),
+                  subtitle: Text('全部知识库，或只外挂指定文档。'),
                 ),
                 SwitchListTile(
                   title: const Text('全部知识库'),
@@ -233,7 +223,7 @@ class _ChatPageState extends State<ChatPage> {
                 Padding(
                   padding: const EdgeInsets.all(12),
                   child: FilledButton(
-                    onPressed: () => Navigator.of(context).pop(
+                    onPressed: () => Navigator.of(sheetContext).pop(
                       all
                           ? const KnowledgeScope.all()
                           : KnowledgeScope.documents(selected),
@@ -247,7 +237,6 @@ class _ChatPageState extends State<ChatPage> {
         ),
       ),
     );
-
     if (result == null) return;
     final updated = await widget.orchestrator.setScope(current.id, result);
     if (!mounted) return;
@@ -267,7 +256,6 @@ class _ChatPageState extends State<ChatPage> {
       );
       return;
     }
-
     setState(() {
       sending = true;
       error = null;
@@ -282,7 +270,6 @@ class _ChatPageState extends State<ChatPage> {
       ];
     });
     _jumpToBottom();
-
     try {
       await widget.orchestrator.sendMessage(current.id, text);
       await _reload(reloadDocuments: true);
@@ -352,10 +339,7 @@ class _ChatPageState extends State<ChatPage> {
   Widget build(BuildContext context) {
     final current = session;
     if (loading) return const Center(child: CircularProgressIndicator());
-    if (current == null) {
-      return Center(child: Text(error ?? '无法创建聊天会话'));
-    }
-
+    if (current == null) return Center(child: Text(error ?? '无法创建聊天会话'));
     return Scaffold(
       appBar: AppBar(
         title: Text(current.title),
@@ -397,9 +381,7 @@ class _ChatPageState extends State<ChatPage> {
                         size: 18,
                       ),
                       const SizedBox(width: 6),
-                      Text(FlutterGemma.hasActiveModel()
-                          ? 'Gemma READY'
-                          : 'Gemma 准备中'),
+                      Text(FlutterGemma.hasActiveModel() ? 'Gemma READY' : 'Gemma 准备中'),
                       const Spacer(),
                       TextButton.icon(
                         onPressed: _selectScope,
@@ -416,9 +398,7 @@ class _ChatPageState extends State<ChatPage> {
                       ButtonSegment(value: ChatMode.knowledge, label: Text('强制知识库')),
                     ],
                     selected: {current.mode},
-                    onSelectionChanged: sending
-                        ? null
-                        : (value) => _setMode(value.first),
+                    onSelectionChanged: sending ? null : (value) => _setMode(value.first),
                   ),
                 ],
               ),
@@ -449,7 +429,6 @@ class _ChatPageState extends State<ChatPage> {
                       controller: input,
                       minLines: 1,
                       maxLines: 5,
-                      textInputAction: TextInputAction.newline,
                       decoration: InputDecoration(
                         hintText: current.mode == ChatMode.modelOnly
                             ? '直接和本机模型聊天…'
@@ -465,11 +444,7 @@ class _ChatPageState extends State<ChatPage> {
                     tooltip: '发送',
                     onPressed: sending ? null : _send,
                     icon: sending
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
+                        ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
                         : const Icon(Icons.arrow_upward),
                   ),
                 ],
@@ -526,21 +501,16 @@ class _ChatPageState extends State<ChatPage> {
               const SizedBox(height: 8),
               Wrap(
                 spacing: 6,
-                runSpacing: 4,
                 children: [
                   for (final item in message.evidence)
-                    ActionChip(
-                      label: Text('[${item.anchor}]'),
-                      onPressed: () => _showEvidence(item),
-                    ),
+                    ActionChip(label: Text('[${item.anchor}]'), onPressed: () => _showEvidence(item)),
                 ],
               ),
             ],
             if (!user && message.retrievalMode != null) ...[
               const SizedBox(height: 4),
               Text(
-                message.retrievalMode!.startsWith('modelOnly') ||
-                        message.retrievalMode == 'auto:modelOnly'
+                message.retrievalMode!.startsWith('modelOnly') || message.retrievalMode == 'auto:modelOnly'
                     ? '本机模型'
                     : 'Knowledge ON',
                 style: Theme.of(context).textTheme.labelSmall,
