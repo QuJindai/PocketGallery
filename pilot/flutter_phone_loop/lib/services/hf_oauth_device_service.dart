@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
@@ -81,6 +82,11 @@ class HfOAuthDeviceService {
     return pending != null;
   }
 
+  Future<String?> getPendingUserCode() async {
+    final pending = await _loadPendingAuthorization();
+    return pending?.userCode;
+  }
+
   Future<HfDeviceAuthorization> requestDeviceCode() async {
     final response = await _client.post(
       Uri.parse('$endpoint/oauth/device'),
@@ -120,6 +126,19 @@ class HfOAuthDeviceService {
     // Persist the device transaction before leaving the app. Android may pause
     // or reclaim the Flutter activity while the external browser is open.
     await _savePendingAuthorization(authorization);
+
+    // Hugging Face may legitimately return verification_uri_complete equal to
+    // verification_uri. In that case the official device flow requires the
+    // short user code to be entered on the web page. Put it on the clipboard
+    // before switching apps so the user only needs one paste.
+    try {
+      await Clipboard.setData(ClipboardData(text: authorization.userCode));
+    } catch (_) {
+      // Clipboard handoff is a convenience only; the persisted code remains
+      // available in-app and OAuth must not fail just because clipboard access
+      // is unavailable on a device.
+    }
+
     onDeviceCode?.call(authorization);
 
     final launched = await launchUrl(
