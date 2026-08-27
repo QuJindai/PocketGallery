@@ -30,7 +30,7 @@ void main() {
     expect(loaded.scope.documentIds, {'doc-a'});
     expect(messages.map((m) => m.text).toList(),
         ['31 03 51 01', '车辆仍在处理中 [E1]']);
-    db.dispose();
+    db.close();
   });
 
   test('chat schema is additive and isolated from R3 knowledge DBs', () async {
