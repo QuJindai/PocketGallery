@@ -21,7 +21,7 @@ void main() {
       scope: KnowledgeScope.documents({'b'}));
     expect(hits, isNotEmpty);
     expect(hits.every((h) => h.chunk.documentId == 'b'), isTrue);
-    db.dispose();
+    db.close();
   });
 
   test('zero chunk imports remain visible in metadata', () async {
@@ -34,6 +34,6 @@ void main() {
     expect(docs.single.documentId, 'scan');
     expect(docs.single.chunkCount, 0);
     expect(docs.single.textAvailable, isFalse);
-    db.dispose();
+    db.close();
   });
 }
