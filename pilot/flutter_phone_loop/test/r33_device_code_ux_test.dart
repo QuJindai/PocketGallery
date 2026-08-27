@@ -27,11 +27,11 @@ void main() {
     expect(home, contains('粘贴'));
   });
 
-  test('R3.3 remains an in-place R3 upgrade', () {
+  test('R3.3+ remains an in-place R3-signed upgrade', () {
     final bootstrap = File('scripts/bootstrap_android.sh').readAsStringSync();
     final pubspec = File('pubspec.yaml').readAsStringSync();
 
     expect(bootstrap, contains('com.qujindai.pocketgallery_phone_pilot.r3'));
-    expect(pubspec, contains('version: 0.3.3+6'));
+    expect(pubspec, contains(RegExp(r'version: 0\.(3\.[3-9]|[4-9]\.\d+)\+\d+')));
   });
 }
