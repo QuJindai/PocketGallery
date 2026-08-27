@@ -155,14 +155,16 @@ class _KnowledgePageState extends State<KnowledgePage> {
                   ? const Center(
                       child: Padding(
                         padding: EdgeInsets.all(28),
-                        child: Text('本地知识库为空。导入 TXT、MD 或 PDF 后即可在聊天中外挂使用。',
-                            textAlign: TextAlign.center),
+                        child: Text(
+                          '本地知识库为空。导入 TXT、MD 或 PDF 后即可在聊天中外挂使用。',
+                          textAlign: TextAlign.center,
+                        ),
                       ),
                     )
                   : ListView.separated(
                       padding: const EdgeInsets.only(bottom: 24),
                       itemCount: documents.length,
-                      separatorBuilder: (_, __) => const Divider(height: 1),
+                      separatorBuilder: (_, _) => const Divider(height: 1),
                       itemBuilder: (context, index) {
                         final doc = documents[index];
                         final chunkText = doc.chunkCount == 0
