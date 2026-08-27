@@ -20,6 +20,20 @@ class SemanticStore {
     _initialized = true;
   }
 
+  /// flutter_gemma keeps two embedding states: an active persisted model spec
+  /// and the materialized runtime singleton. `hasActiveEmbedder()` only proves
+  /// the former, while RAG auto-embedding requires the latter. Materialize (or
+  /// reuse) the runtime immediately before every vector operation so an app
+  /// restart/runtime eviction cannot leave a false READY state.
+  Future<void> _ensureEmbeddingRuntime() async {
+    if (!FlutterGemma.hasActiveEmbedder()) {
+      throw StateError(
+        'EmbeddingGemma model identity is not active. Prepare the embedding model first.',
+      );
+    }
+    await FlutterGemma.getActiveEmbedder();
+  }
+
   Future<void> removeIds(Iterable<String> ids) async {
     await initialize();
     for (final id in ids) {
@@ -29,6 +43,7 @@ class SemanticStore {
 
   Future<void> addChunks(Iterable<PgChunk> chunks) async {
     await initialize();
+    await _ensureEmbeddingRuntime();
     for (final c in chunks) {
       await FlutterGemma.rag.addDocument(
         id: c.id,
@@ -51,6 +66,7 @@ class SemanticStore {
     await initialize();
     final ids = scope.documentIds;
     if (!scope.isAll && (ids == null || ids.isEmpty)) return const [];
+    await _ensureEmbeddingRuntime();
 
     final candidateK = scope.isAll ? topK : (topK * 8).clamp(topK, 96).toInt();
     final rows = await FlutterGemma.rag.searchSimilar(
