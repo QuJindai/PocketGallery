@@ -40,9 +40,10 @@ class _HomePageState extends State<HomePage> {
     if (modelBusy) return;
     setState(() => modelBusy = true);
     try {
-      final progress = (ModelSetupSnapshot s) {
+      void progress(ModelSetupSnapshot s) {
         if (mounted) setState(() => modelState = s);
-      };
+      }
+
       final r = authorize
           ? await setup.authorizeAndPrepare(onProgress: progress)
           : await setup.prepareAutomatically(onProgress: progress);
