@@ -215,7 +215,7 @@ class ModelSetupService {
         onProgress?.call(state);
         return state;
       }
-      return prepareAutomatically(onProgress: onProgress);
+      return await prepareAutomatically(onProgress: onProgress);
     } catch (e) {
       final state = ModelSetupSnapshot(
         phase: ModelSetupPhase.authorizationRequired,
