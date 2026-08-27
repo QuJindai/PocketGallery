@@ -121,13 +121,20 @@ class ModelSetupService {
           !FlutterGemma.hasActiveEmbedder()) {
         return emit(
           ModelSetupPhase.failed,
-          '模型文件已处理，但激活自检未通过。可直接重试，不需要重新下载已就绪模型。',
+          '模型文件已处理，但激活身份自检未通过。可直接重试，不需要重新下载已就绪模型。',
         );
       }
 
+      // `hasActiveEmbedder()` only proves that the persisted active embedding
+      // spec exists. RAG add/search needs flutter_gemma's runtime singleton as
+      // well, so materialize it before reporting READY. This loads the already
+      // installed files and never redownloads the model.
+      emit(ModelSetupPhase.checking, 'Embedding runtime 自检…');
+      await FlutterGemma.getActiveEmbedder();
+
       return emit(
         ModelSetupPhase.ready,
-        '本机模型 READY · Gemma 4 + EmbeddingGemma',
+        '本机模型 READY · Gemma 4 + EmbeddingGemma · Embedding runtime READY',
         progress: 100,
       );
     } catch (e) {
