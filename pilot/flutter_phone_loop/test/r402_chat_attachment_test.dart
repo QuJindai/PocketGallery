@@ -13,7 +13,8 @@ void main() {
     final importer = await File('lib/services/document_importer.dart').readAsString();
 
     expect(importer, contains("allowedExtensions: const ['txt', 'md', 'pdf']"));
-    expect(importer, contains('allowMultiple: true'));
+    expect(importer, contains('FilePicker.pickFiles('));
+    expect(importer, isNot(contains('FilePicker.pickFile(')));
   });
 
   test('R4.0.2 chat uploads import into knowledge base and bind current session', () async {
