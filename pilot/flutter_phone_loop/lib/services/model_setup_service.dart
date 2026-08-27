@@ -129,7 +129,7 @@ class ModelSetupService {
           text.contains('gated')) {
         return emit(
           ModelSetupPhase.authorizationRequired,
-          '账号已授权，但还需要接受 EmbeddingGemma 官方许可；接受后点“已完成许可，自动继续”。',
+          '账号已授权，但还需要接受 EmbeddingGemma 官方许可；接受后点“已完成许可，继续官方授权并下载”。',
         );
       }
       return emit(
@@ -165,6 +165,16 @@ class ModelSetupService {
       onProgress?.call(state);
       return state;
     }
+  }
+
+  Future<ModelSetupSnapshot> continueAfterLicense({
+    void Function(ModelSetupSnapshot state)? onProgress,
+  }) async {
+    final token = await oauth.getValidAccessToken();
+    if (token != null && token.isNotEmpty) {
+      return prepareAutomatically(onProgress: onProgress);
+    }
+    return authorizeAndPrepare(onProgress: onProgress);
   }
 
   Future<void> openEmbeddingLicensePage() => oauth.openEmbeddingLicensePage();
