@@ -24,6 +24,7 @@ class _ModelSettingsPageState extends State<ModelSettingsPage>
   );
   bool modelBusy = false;
   bool diagnosticBusy = false;
+  bool _licensePageAutoOpened = false;
   GoldenTestReport? report;
   String diagnosticStatus = '诊断未运行';
 
@@ -47,13 +48,22 @@ class _ModelSettingsPageState extends State<ModelSettingsPage>
     if (state == AppLifecycleState.resumed) {
       Future<void>.delayed(
         const Duration(milliseconds: 400),
-        _resumeOAuthAfterExternalBrowser,
+        _resumeAfterExternalBrowser,
       );
     }
   }
 
-  Future<void> _resumeOAuthAfterExternalBrowser() async {
+  Future<void> _resumeAfterExternalBrowser() async {
     if (!mounted || modelBusy || modelState.ready) return;
+
+    // Returning from the official Gemma license page is different from
+    // returning from Device OAuth. The OAuth token is already stored, so retry
+    // the gated file request directly and never start a second authorization.
+    if (modelState.phase == ModelSetupPhase.licenseRequired) {
+      await _prepare();
+      return;
+    }
+
     if (!await setup.hasPendingAuthorization()) return;
     if (!mounted) return;
     await _prepare(resumePendingAuthorization: true);
@@ -86,7 +96,14 @@ class _ModelSettingsPageState extends State<ModelSettingsPage>
       if (!mounted) return;
       setState(() => modelState = result);
       if (result.ready) {
+        _licensePageAutoOpened = false;
         await widget.engine.syncSemanticIndex();
+      } else if (result.licenseRequired && !_licensePageAutoOpened) {
+        // OAuth succeeded, but Hugging Face reports that gated model access is
+        // still unavailable. Open the official terms page once so the user can
+        // perform the one legal action the app cannot do on their behalf.
+        _licensePageAutoOpened = true;
+        await _openLicense();
       }
     } finally {
       if (mounted) setState(() => modelBusy = false);
@@ -143,6 +160,7 @@ class _ModelSettingsPageState extends State<ModelSettingsPage>
     final embeddingReady = FlutterGemma.hasActiveEmbedder();
     final authorizing = modelState.phase == ModelSetupPhase.authorizing;
     final failed = modelState.phase == ModelSetupPhase.failed;
+    final licenseRequired = modelState.phase == ModelSetupPhase.licenseRequired;
 
     return Scaffold(
       appBar: AppBar(title: const Text('模型 / 设置')),
@@ -170,7 +188,9 @@ class _ModelSettingsPageState extends State<ModelSettingsPage>
                     const Divider(),
                     _statusRow(
                       '本地知识索引',
-                      embeddingReady ? 'FTS5 + Embedding READY' : 'FTS5 READY · lexical-only',
+                      embeddingReady
+                          ? 'FTS5 + Embedding READY'
+                          : 'FTS5 READY · lexical-only',
                       true,
                     ),
                     const SizedBox(height: 12),
@@ -194,7 +214,8 @@ class _ModelSettingsPageState extends State<ModelSettingsPage>
                     if (authorizing && !modelBusy) ...[
                       const SizedBox(height: 10),
                       OutlinedButton.icon(
-                        onPressed: () => _prepare(resumePendingAuthorization: true),
+                        onPressed: () =>
+                            _prepare(resumePendingAuthorization: true),
                         icon: const Icon(Icons.sync),
                         label: const Text('检查授权状态并继续'),
                       ),
@@ -212,30 +233,51 @@ class _ModelSettingsPageState extends State<ModelSettingsPage>
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       const Text(
-                        'EmbeddingGemma 官方授权',
+                        'Hugging Face Device OAuth',
                         style: TextStyle(fontWeight: FontWeight.bold),
                       ),
                       const SizedBox(height: 6),
                       const Text(
-                        '不填写 Token。使用 Hugging Face Device OAuth；授权事务会持久化。已下载模型永久复用，不重复下载。',
+                        '当前还没有可用 OAuth 凭据。无需填写 Token；完成一次官方 Device OAuth 后凭据会安全保存并自动刷新。',
                       ),
                       const SizedBox(height: 10),
                       FilledButton.icon(
-                        onPressed: modelBusy ? null : () => _prepare(authorize: true),
+                        onPressed:
+                            modelBusy ? null : () => _prepare(authorize: true),
                         icon: const Icon(Icons.verified_user),
                         label: const Text('使用 Hugging Face 官方授权'),
                       ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+            if (licenseRequired) ...[
+              const SizedBox(height: 10),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const Text(
+                        'EmbeddingGemma 官方许可',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
                       const SizedBox(height: 6),
-                      OutlinedButton.icon(
-                        onPressed: _openLicense,
-                        icon: const Icon(Icons.open_in_browser),
+                      const Text(
+                        'OAuth 已完成。现在只差一次 EmbeddingGemma / Gemma License 接受。这是 Hugging Face 与 Google 的官方要求，App 不能代替用户同意条款。接受后返回 PocketGallery，会使用现有 OAuth token 自动继续下载，不会再次授权。',
+                      ),
+                      const SizedBox(height: 10),
+                      FilledButton.icon(
+                        onPressed: modelBusy ? null : _openLicense,
+                        icon: const Icon(Icons.gavel_outlined),
                         label: const Text('打开 EmbeddingGemma 官方许可页'),
                       ),
+                      const SizedBox(height: 6),
                       TextButton(
-                        onPressed: modelBusy
-                            ? null
-                            : () => _prepare(continueAfterLicense: true),
-                        child: const Text('已完成许可，继续官方授权并下载'),
+                        onPressed: modelBusy ? null : _prepare,
+                        child: const Text('已接受许可，自动继续下载'),
                       ),
                     ],
                   ),
@@ -274,7 +316,9 @@ class _ModelSettingsPageState extends State<ModelSettingsPage>
                         setState(() => diagnosticStatus = 'Embedding 索引重建完成');
                       }
                     } catch (e) {
-                      if (mounted) setState(() => diagnosticStatus = '重建失败：$e');
+                      if (mounted) {
+                        setState(() => diagnosticStatus = '重建失败：$e');
+                      }
                     }
                   },
                 ),
@@ -282,7 +326,9 @@ class _ModelSettingsPageState extends State<ModelSettingsPage>
                   for (final gate in report!.results)
                     ListTile(
                       dense: true,
-                      leading: Icon(gate.passed ? Icons.check_circle : Icons.cancel),
+                      leading: Icon(
+                        gate.passed ? Icons.check_circle : Icons.cancel,
+                      ),
                       title: Text(gate.name),
                       subtitle: Text(
                         gate.detail,
@@ -314,7 +360,8 @@ class _ModelSettingsPageState extends State<ModelSettingsPage>
       };
 
   String _embeddingPhaseLabel() => switch (modelState.phase) {
-        ModelSetupPhase.authorizationRequired => '需要授权',
+        ModelSetupPhase.authorizationRequired => '需要 OAuth',
+        ModelSetupPhase.licenseRequired => '需要许可',
         ModelSetupPhase.authorizing => '授权中',
         ModelSetupPhase.downloadingEmbedding => '下载中',
         ModelSetupPhase.downloadingTokenizer => 'Tokenizer 下载中',
