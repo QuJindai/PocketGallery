@@ -25,12 +25,17 @@ void main() {
 
   test('R3 application identity and signing chain are stable for upgrades', () async {
     final bootstrap = await File('scripts/bootstrap_android.sh').readAsString();
+    final workflow =
+        await File('../../.github/workflows/pocketgallery-phone-pilot-apk.yml')
+            .readAsString();
+
     expect(
       bootstrap,
       contains('com.qujindai.pocketgallery_phone_pilot.r3'),
     );
     expect(bootstrap, contains('PocketGallery R3'));
-    expect(bootstrap, contains('pocketgallery-pilot.keystore'));
-    expect(bootstrap, contains('signingConfig'));
+    expect(workflow, contains('actions/cache@v5'));
+    expect(workflow, contains('~/.android/debug.keystore'));
+    expect(workflow, contains('pocketgallery-r3-signing-v1'));
   });
 }
