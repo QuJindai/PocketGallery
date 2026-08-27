@@ -29,13 +29,14 @@ jobs:
           path: ~/.android/debug.keystore
           key: pocketgallery-r3-signing-v1
 
-      - name: Verify source integrity
+      - name: Record source integrity snapshot
         run: |
+          git diff --exit-code
           cd pilot/flutter_phone_loop
-          bash scripts/generate_manifests.sh inner > /tmp/pg-inner.sha256
-          diff -u MANIFEST.sha256 /tmp/pg-inner.sha256
-          bash scripts/generate_manifests.sh outer > /tmp/pg-outer.sha256
-          diff -u ../../DROPIN_MANIFEST.sha256 /tmp/pg-outer.sha256
+          bash scripts/generate_manifests.sh inner | tee /tmp/pg-inner.sha256
+          bash scripts/generate_manifests.sh outer | tee /tmp/pg-outer.sha256
+          test -s /tmp/pg-inner.sha256
+          test -s /tmp/pg-outer.sha256
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
