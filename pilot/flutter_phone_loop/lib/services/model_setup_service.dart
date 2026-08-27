@@ -45,6 +45,8 @@ class ModelSetupService {
 
   Future<bool> hasPendingAuthorization() => oauth.hasPendingAuthorization();
 
+  Future<String?> getPendingUserCode() => oauth.getPendingUserCode();
+
   Future<ModelSetupSnapshot> prepareAutomatically({
     void Function(ModelSetupSnapshot state)? onProgress,
   }) async {
@@ -83,9 +85,12 @@ class ModelSetupService {
         final token = await oauth.getValidAccessToken();
         if (token == null || token.isEmpty) {
           if (await oauth.hasPendingAuthorization()) {
+            final code = await oauth.getPendingUserCode();
             return emit(
               ModelSetupPhase.authorizing,
-              '检测到未完成的 Hugging Face 官方授权；返回 App 后会自动领取令牌并继续下载。',
+              code == null
+                  ? '检测到未完成的 Hugging Face 官方授权；返回 App 后会自动领取令牌并继续下载。'
+                  : 'Hugging Face 授权码 $code 已复制到剪贴板；在网页粘贴后返回 App，系统会自动继续。',
             );
           }
           return emit(
@@ -160,14 +165,14 @@ class ModelSetupService {
           onProgress?.call(ModelSetupSnapshot(
             phase: ModelSetupPhase.authorizing,
             message:
-                '浏览器已打开 · 授权码 ${authorization.userCode} · 完成后返回 App，系统会自动继续',
+                '浏览器已打开 · 授权码 ${authorization.userCode} 已复制到剪贴板 · 在网页粘贴并继续，完成后返回 App',
           ));
         },
       );
       final state = ModelSetupSnapshot(
         phase: ModelSetupPhase.authorizing,
         message:
-            '等待 Hugging Face 完成授权 · ${authorization.userCode} · 返回 App 后自动领取令牌',
+            '等待 Hugging Face 完成授权 · ${authorization.userCode} 已复制到剪贴板 · 网页粘贴后返回 App 自动继续',
       );
       onProgress?.call(state);
       return state;
@@ -198,9 +203,12 @@ class ModelSetupService {
       return state;
     }
 
-    onProgress?.call(const ModelSetupSnapshot(
+    final code = await oauth.getPendingUserCode();
+    onProgress?.call(ModelSetupSnapshot(
       phase: ModelSetupPhase.authorizing,
-      message: '已返回 PocketGallery · 正在领取 Hugging Face OAuth 令牌…',
+      message: code == null
+          ? '已返回 PocketGallery · 正在领取 Hugging Face OAuth 令牌…'
+          : '授权码 $code 已复制到剪贴板 · 如果网页仍显示 8 位输入框，请粘贴并继续；App 正在等待授权完成…',
     ));
 
     try {
@@ -208,9 +216,11 @@ class ModelSetupService {
         maxWait: const Duration(seconds: 30),
       );
       if (token == null || token.isEmpty) {
-        final state = const ModelSetupSnapshot(
+        final state = ModelSetupSnapshot(
           phase: ModelSetupPhase.authorizing,
-          message: 'Hugging Face 仍在确认授权；无需重新操作，App 下次恢复会自动继续。',
+          message: code == null
+              ? 'Hugging Face 仍在确认授权；无需重新操作，App 下次恢复会自动继续。'
+              : 'Hugging Face 仍在等待网页确认 · 授权码 $code 已复制到剪贴板；粘贴并完成后返回 App。',
         );
         onProgress?.call(state);
         return state;
