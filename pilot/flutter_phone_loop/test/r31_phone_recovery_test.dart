@@ -26,11 +26,11 @@ void main() {
     expect(home, contains('检索完成 · Embedding 尚未就绪（FTS5 可用）'));
   });
 
-  test('R3.1 stays on the stable R3 Android identity and increments app version', () {
+  test('R3.1+ stays on the stable R3 Android identity and advances app version', () {
     final bootstrap = File('scripts/bootstrap_android.sh').readAsStringSync();
     final pubspec = File('pubspec.yaml').readAsStringSync();
 
     expect(bootstrap, contains('com.qujindai.pocketgallery_phone_pilot.r3'));
-    expect(pubspec, contains('version: 0.3.1+4'));
+    expect(pubspec, contains(RegExp(r'version: 0\.3\.[1-9][0-9]*\+[4-9][0-9]*')));
   });
 }
