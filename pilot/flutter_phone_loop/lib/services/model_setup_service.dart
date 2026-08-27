@@ -43,6 +43,8 @@ class ModelSetupService {
 
   final HfOAuthDeviceService oauth;
 
+  Future<bool> hasPendingAuthorization() => oauth.hasPendingAuthorization();
+
   Future<ModelSetupSnapshot> prepareAutomatically({
     void Function(ModelSetupSnapshot state)? onProgress,
   }) async {
@@ -80,6 +82,12 @@ class ModelSetupService {
       if (!FlutterGemma.hasActiveEmbedder()) {
         final token = await oauth.getValidAccessToken();
         if (token == null || token.isEmpty) {
+          if (await oauth.hasPendingAuthorization()) {
+            return emit(
+              ModelSetupPhase.authorizing,
+              '检测到未完成的 Hugging Face 官方授权；返回 App 后会自动领取令牌并继续下载。',
+            );
+          }
           return emit(
             ModelSetupPhase.authorizationRequired,
             'Gemma 4 已就绪；EmbeddingGemma 需要一次 Hugging Face 官方授权。',
@@ -129,7 +137,7 @@ class ModelSetupService {
           text.contains('gated')) {
         return emit(
           ModelSetupPhase.authorizationRequired,
-          '账号已授权，但还需要接受 EmbeddingGemma 官方许可；接受后点“已完成许可，继续官方授权并下载”。',
+          '账号已授权，但还需要接受 EmbeddingGemma 官方许可；接受后继续官方授权。',
         );
       }
       return emit(
@@ -147,20 +155,71 @@ class ModelSetupService {
       message: '正在启动 Hugging Face 官方授权…',
     ));
     try {
-      await oauth.authorize(
+      final authorization = await oauth.beginAuthorization(
         onDeviceCode: (authorization) {
           onProgress?.call(ModelSetupSnapshot(
             phase: ModelSetupPhase.authorizing,
             message:
-                '浏览器已打开 · 授权码 ${authorization.userCode} · 完成授权后 App 会自动继续',
+                '浏览器已打开 · 授权码 ${authorization.userCode} · 完成后返回 App，系统会自动继续',
           ));
         },
       );
-      return await prepareAutomatically(onProgress: onProgress);
+      final state = ModelSetupSnapshot(
+        phase: ModelSetupPhase.authorizing,
+        message:
+            '等待 Hugging Face 完成授权 · ${authorization.userCode} · 返回 App 后自动领取令牌',
+      );
+      onProgress?.call(state);
+      return state;
     } catch (e) {
       final state = ModelSetupSnapshot(
         phase: ModelSetupPhase.authorizationRequired,
-        message: 'Hugging Face 官方授权未完成：$e',
+        message: 'Hugging Face 官方授权未启动：$e',
+      );
+      onProgress?.call(state);
+      return state;
+    }
+  }
+
+  Future<ModelSetupSnapshot> resumePendingAuthorizationAndPrepare({
+    void Function(ModelSetupSnapshot state)? onProgress,
+  }) async {
+    final current = await oauth.getValidAccessToken();
+    if (current != null && current.isNotEmpty) {
+      return prepareAutomatically(onProgress: onProgress);
+    }
+
+    if (!await oauth.hasPendingAuthorization()) {
+      final state = const ModelSetupSnapshot(
+        phase: ModelSetupPhase.authorizationRequired,
+        message: '没有可恢复的 OAuth 授权，请使用 Hugging Face 官方授权。',
+      );
+      onProgress?.call(state);
+      return state;
+    }
+
+    onProgress?.call(const ModelSetupSnapshot(
+      phase: ModelSetupPhase.authorizing,
+      message: '已返回 PocketGallery · 正在领取 Hugging Face OAuth 令牌…',
+    ));
+
+    try {
+      final token = await oauth.resumePendingAuthorization(
+        maxWait: const Duration(seconds: 30),
+      );
+      if (token == null || token.isEmpty) {
+        final state = const ModelSetupSnapshot(
+          phase: ModelSetupPhase.authorizing,
+          message: 'Hugging Face 仍在确认授权；无需重新操作，App 下次恢复会自动继续。',
+        );
+        onProgress?.call(state);
+        return state;
+      }
+      return prepareAutomatically(onProgress: onProgress);
+    } catch (e) {
+      final state = ModelSetupSnapshot(
+        phase: ModelSetupPhase.authorizationRequired,
+        message: 'Hugging Face 授权回收失败：$e',
       );
       onProgress?.call(state);
       return state;
@@ -173,6 +232,9 @@ class ModelSetupService {
     final token = await oauth.getValidAccessToken();
     if (token != null && token.isNotEmpty) {
       return prepareAutomatically(onProgress: onProgress);
+    }
+    if (await oauth.hasPendingAuthorization()) {
+      return resumePendingAuthorizationAndPrepare(onProgress: onProgress);
     }
     return authorizeAndPrepare(onProgress: onProgress);
   }
