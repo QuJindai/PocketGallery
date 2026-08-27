@@ -20,11 +20,13 @@ void main() {
     expect(source, contains('tokenizerFromNetwork'));
   });
 
-  test('R2 prevents semantic search when embedder is not ready', () {
-    final source = File('lib/services/knowledge_engine.dart').readAsStringSync();
+  test('R2 semantic safety guard remains after R4 retrieval split', () {
+    final engine = File('lib/services/knowledge_engine.dart').readAsStringSync();
+    final retriever = File('lib/services/knowledge_retriever.dart').readAsStringSync();
+    final source = '$engine\n$retriever';
 
     expect(source, contains('FlutterGemma.hasActiveEmbedder()'));
-    expect(source, contains('const <RetrievalHit>[]'));
+    expect(retriever, contains('const <RetrievalHit>[]'));
   });
 
   test('pilot app identity remains isolated from the original R1 package', () {
