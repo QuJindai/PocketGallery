@@ -31,6 +31,7 @@ class _ChatPageState extends State<ChatPage> {
   List<KnowledgeDocument> documents = const [];
   bool loading = true;
   bool sending = false;
+  bool attaching = false;
   String? error;
 
   @override
@@ -246,10 +247,101 @@ class _ChatPageState extends State<ChatPage> {
     });
   }
 
+  Future<void> _attachFiles() async {
+    final current = session;
+    if (current == null || sending || attaching) return;
+    setState(() {
+      attaching = true;
+      error = null;
+    });
+    try {
+      final paths = await widget.engine.importer.pickDocumentPaths();
+      if (paths.isEmpty) return;
+
+      final selectedIds = <String>{...?current.scope.documentIds};
+      final importedDocs = <ImportedDocument>[];
+      final failedFiles = <String>[];
+      for (final path in paths) {
+        try {
+          final doc = await widget.engine.importPath(path);
+          importedDocs.add(doc);
+          selectedIds.add(doc.documentId);
+        } catch (e) {
+          failedFiles.add('${_fileName(path)}: $e');
+        }
+      }
+
+      if (importedDocs.isEmpty) {
+        if (!mounted) return;
+        setState(() => error = '附件导入失败：${failedFiles.join('；')}');
+        return;
+      }
+
+      var updated = current;
+      if (current.mode == ChatMode.modelOnly) {
+        updated = await widget.orchestrator.setMode(
+          current.id,
+          ChatMode.auto,
+        );
+      }
+      updated = await widget.orchestrator.setScope(
+        updated.id,
+        KnowledgeScope.documents(selectedIds),
+      );
+      final docs = await widget.engine.listDocuments();
+      if (!mounted) return;
+
+      final textless = importedDocs.where((doc) => doc.chunks.isEmpty).length;
+      setState(() {
+        session = updated;
+        documents = docs;
+      });
+      var message = '附件已加入知识库并绑定当前聊天 · ${importedDocs.length} 个';
+      if (textless > 0) {
+        message += ' · $textless 个文件未提取到可检索文本';
+      }
+      if (failedFiles.isNotEmpty) {
+        message += ' · ${failedFiles.length} 个文件导入失败';
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
+    } finally {
+      if (mounted) setState(() => attaching = false);
+    }
+  }
+
+  Future<void> _detachDocument(String documentId) async {
+    final current = session;
+    if (current == null || current.scope.isAll || sending || attaching) return;
+    final selectedIds = <String>{...?current.scope.documentIds};
+    if (!selectedIds.remove(documentId)) return;
+    final updated = await widget.orchestrator.setScope(
+      current.id,
+      KnowledgeScope.documents(selectedIds),
+    );
+    if (!mounted) return;
+    setState(() => session = updated);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('已解除当前聊天附件；文件仍保留在知识库')),
+    );
+  }
+
+  List<KnowledgeDocument> _boundDocuments(KnowledgeScope scope) {
+    final ids = scope.documentIds;
+    if (ids == null) return const <KnowledgeDocument>[];
+    return documents.where((doc) => ids.contains(doc.documentId)).toList();
+  }
+
+  String _fileName(String path) {
+    final segments = Uri.file(path).pathSegments;
+    return segments.isEmpty ? path : segments.last;
+  }
+
   Future<void> _send() async {
     final current = session;
     final text = input.text.trim();
-    if (current == null || text.isEmpty || sending) return;
+    if (current == null || text.isEmpty || sending || attaching) return;
     if (!FlutterGemma.hasActiveModel()) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Gemma 4 模型准备中，请在“模型 / 设置”中查看状态。')),
@@ -340,13 +432,14 @@ class _ChatPageState extends State<ChatPage> {
     final current = session;
     if (loading) return const Center(child: CircularProgressIndicator());
     if (current == null) return Center(child: Text(error ?? '无法创建聊天会话'));
+    final boundDocuments = _boundDocuments(current.scope);
     return Scaffold(
       appBar: AppBar(
         title: Text(current.title),
         actions: [
           IconButton(
             tooltip: '新建会话',
-            onPressed: sending ? null : _newSession,
+            onPressed: sending || attaching ? null : _newSession,
             icon: const Icon(Icons.add_comment_outlined),
           ),
           IconButton(
@@ -384,7 +477,7 @@ class _ChatPageState extends State<ChatPage> {
                       Text(FlutterGemma.hasActiveModel() ? 'Gemma READY' : 'Gemma 准备中'),
                       const Spacer(),
                       TextButton.icon(
-                        onPressed: _selectScope,
+                        onPressed: sending || attaching ? null : _selectScope,
                         icon: const Icon(Icons.library_books_outlined, size: 18),
                         label: Text(_scopeLabel(current.scope)),
                       ),
@@ -398,7 +491,9 @@ class _ChatPageState extends State<ChatPage> {
                       ButtonSegment(value: ChatMode.knowledge, label: Text('强制知识库')),
                     ],
                     selected: {current.mode},
-                    onSelectionChanged: sending ? null : (value) => _setMode(value.first),
+                    onSelectionChanged: sending || attaching
+                        ? null
+                        : (value) => _setMode(value.first),
                   ),
                 ],
               ),
@@ -419,11 +514,50 @@ class _ChatPageState extends State<ChatPage> {
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                 child: Text(error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
               ),
+            if (boundDocuments.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 6, 12, 0),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    children: [
+                      for (final doc in boundDocuments)
+                        InputChip(
+                          avatar: const Icon(Icons.attach_file, size: 16),
+                          label: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 220),
+                            child: Text(
+                              doc.sourceName,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          onDeleted: sending || attaching
+                              ? null
+                              : () => _detachDocument(doc.documentId),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 6, 12, 12),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
+                  IconButton.filledTonal(
+                    tooltip: '上传文件',
+                    onPressed: sending || attaching ? null : _attachFiles,
+                    icon: attaching
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.attach_file),
+                  ),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: TextField(
                       controller: input,
@@ -442,7 +576,7 @@ class _ChatPageState extends State<ChatPage> {
                   const SizedBox(width: 8),
                   IconButton.filled(
                     tooltip: '发送',
-                    onPressed: sending ? null : _send,
+                    onPressed: sending || attaching ? null : _send,
                     icon: sending
                         ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
                         : const Icon(Icons.arrow_upward),
