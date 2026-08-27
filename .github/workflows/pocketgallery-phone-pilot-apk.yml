@@ -31,6 +31,7 @@ jobs:
         with:
           path: ~/.android/pocketgallery-r3-signing
           key: pocketgallery-r3-signing-v1
+          save-always: true
 
       - name: Prepare persistent R3 signing identity
         shell: bash
@@ -127,7 +128,8 @@ jobs:
           test "$PKG" = "com.qujindai.pocketgallery_phone_pilot.r3"
 
           APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
-          APK_CERT="$($APKSIGNER verify --print-certs "$APK" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | head -1 | tr '[:upper:]' '[:lower:]')"
+          "$APKSIGNER" verify --verbose --print-certs "$APK" 2>&1 | tee /tmp/apksigner.txt
+          APK_CERT="$(grep -i 'certificate.*sha-256.*digest' /tmp/apksigner.txt | head -1 | sed -E 's/.*[Dd]igest:[[:space:]]*//' | tr -d '[:space:]:' | tr '[:upper:]' '[:lower:]')"
           PASS="$(cat "$HOME/.android/pocketgallery-r3-signing/password")"
           keytool -exportcert \
             -keystore "$HOME/.android/pocketgallery-r3-signing/r3.keystore" \
