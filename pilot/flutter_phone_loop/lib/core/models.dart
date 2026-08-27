@@ -30,6 +30,22 @@ class ImportedDocument {
   final List<PgChunk> chunks;
 }
 
+class KnowledgeDocument {
+  const KnowledgeDocument({
+    required this.documentId,
+    required this.sourceName,
+    required this.sha256,
+    required this.chunkCount,
+  });
+
+  final String documentId;
+  final String sourceName;
+  final String sha256;
+  final int chunkCount;
+
+  bool get textAvailable => chunkCount > 0;
+}
+
 class RetrievalHit {
   const RetrievalHit({
     required this.chunk,
