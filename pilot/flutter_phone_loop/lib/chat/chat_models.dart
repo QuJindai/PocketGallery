@@ -7,7 +7,6 @@ enum ChatMode { modelOnly, auto, knowledge }
 enum ChatRole { user, assistant }
 
 class KnowledgeScope {
-  const KnowledgeScope._(this.documentIds);
   const KnowledgeScope.all() : documentIds = null;
   const KnowledgeScope.documents(Set<String> ids) : documentIds = ids;
 
