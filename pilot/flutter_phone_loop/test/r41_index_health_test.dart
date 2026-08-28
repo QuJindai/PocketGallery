@@ -10,8 +10,8 @@ void main() {
   test('index health detects zero chunks duplicate SHA and missing vectors', () async {
     final lexicalDb = sqlite3.openInMemory();
     final vectorDb = sqlite3.openInMemory();
-    addTearDown(lexicalDb.dispose);
-    addTearDown(vectorDb.dispose);
+    addTearDown(lexicalDb.close);
+    addTearDown(vectorDb.close);
     final lexical = LexicalFtsStore(database: lexicalDb);
     final vectors = VectorObservationStore(database: vectorDb);
     await lexical.initialize();
