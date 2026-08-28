@@ -67,6 +67,10 @@ class HybridHit {
     required this.channels,
     required this.lexicalRank,
     required this.semanticRank,
+    this.lexicalContribution = 0,
+    this.semanticContribution = 0,
+    this.dualChannelContribution = 0,
+    this.exactTermContribution = 0,
   });
 
   final PgChunk chunk;
@@ -74,6 +78,13 @@ class HybridHit {
   final Set<String> channels;
   final int? lexicalRank;
   final int? semanticRank;
+
+  /// DERIVED components that sum to [score]. They are retained so the UI can
+  /// explain why a candidate moved in the final ranking.
+  final double lexicalContribution;
+  final double semanticContribution;
+  final double dualChannelContribution;
+  final double exactTermContribution;
 }
 
 class EvidenceItem {
