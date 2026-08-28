@@ -43,9 +43,17 @@ class ChatSessionStore {
         retrieval_mode TEXT,
         evidence_json TEXT,
         cited_anchors_json TEXT,
+        trace_id TEXT,
         FOREIGN KEY(session_id) REFERENCES chat_sessions(session_id) ON DELETE CASCADE
       );
     ''');
+    final columns = db
+        .select('PRAGMA table_info(chat_messages)')
+        .map((row) => row['name'] as String)
+        .toSet();
+    if (!columns.contains('trace_id')) {
+      db.execute('ALTER TABLE chat_messages ADD COLUMN trace_id TEXT;');
+    }
     db.execute('''
       CREATE INDEX IF NOT EXISTS idx_chat_messages_session_time
       ON chat_messages(session_id, created_at);
@@ -137,8 +145,8 @@ class ChatSessionStore {
     _db!.execute('''
       INSERT INTO chat_messages
       (message_id, session_id, role, text, created_at,
-       retrieval_mode, evidence_json, cited_anchors_json)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+       retrieval_mode, evidence_json, cited_anchors_json, trace_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     ''', [
       message.id,
       message.sessionId,
@@ -148,6 +156,7 @@ class ChatSessionStore {
       message.retrievalMode,
       message.evidenceJson,
       message.citedAnchorsJson,
+      message.traceId,
     ]);
     _db!.execute(
       'UPDATE chat_sessions SET updated_at = ? WHERE session_id = ?',
@@ -159,7 +168,7 @@ class ChatSessionStore {
     await initialize();
     final rows = _db!.select('''
       SELECT message_id, session_id, role, text, created_at,
-             retrieval_mode, evidence_json, cited_anchors_json
+             retrieval_mode, evidence_json, cited_anchors_json, trace_id
       FROM chat_messages
       WHERE session_id = ?
       ORDER BY created_at, rowid
@@ -208,6 +217,7 @@ class ChatSessionStore {
         retrievalMode: row['retrieval_mode'] as String?,
         evidenceJson: row['evidence_json'] as String?,
         citedAnchorsJson: row['cited_anchors_json'] as String?,
+        traceId: row['trace_id'] as String?,
       );
 
   String _nextId(String prefix) {
