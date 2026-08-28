@@ -8,7 +8,7 @@ import 'package:pocketgallery_phone_pilot/observability/vector_observation_store
 void main() {
   test('vector observations round-trip Float32 values and metadata', () async {
     final db = sqlite3.openInMemory();
-    addTearDown(db.dispose);
+    addTearDown(db.close);
     final store = VectorObservationStore(database: db);
     await store.initialize();
 
