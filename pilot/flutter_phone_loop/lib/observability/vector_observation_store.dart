@@ -193,7 +193,7 @@ class VectorObservationStore {
   }
 
   void dispose() {
-    if (_ownsDatabase) _db?.dispose();
+    if (_ownsDatabase) _db?.close();
     _db = null;
     _initialized = false;
   }
