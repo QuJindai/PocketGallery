@@ -93,7 +93,7 @@ class PcaProjector {
       }
       _fixSign(v);
       final cv = _covarianceTimes(centered, v, denominator);
-      final eigenvalue = math.max(0, _dot(v, cv));
+      final eigenvalue = math.max(0.0, _dot(v, cv)).toDouble();
       axes.add(v);
       eigenvalues.add(eigenvalue);
     }
