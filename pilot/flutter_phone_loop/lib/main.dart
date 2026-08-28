@@ -5,6 +5,7 @@ import 'package:flutter_gemma_rag_sqlite/flutter_gemma_rag_sqlite.dart';
 
 import 'chat/chat_orchestrator.dart';
 import 'chat/chat_session_store.dart';
+import 'observability/retrieval_trace_store.dart';
 import 'services/gemma_chat_service.dart';
 import 'services/knowledge_engine.dart';
 import 'ui/main_shell.dart';
@@ -23,11 +24,14 @@ Future<void> main() async {
 
   final chatStore = ChatSessionStore();
   await chatStore.initialize();
+  final traceStore = RetrievalTraceStore();
+  await traceStore.initialize();
   final chatModel = GemmaChatService();
   final orchestrator = ChatOrchestrator(
     store: chatStore,
     retriever: engine.retriever,
     model: chatModel,
+    traceStore: traceStore,
   );
 
   runApp(PocketGalleryPilot(
