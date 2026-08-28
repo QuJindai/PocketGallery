@@ -6,6 +6,7 @@ import '../chat/chat_orchestrator.dart';
 import '../chat/chat_session_store.dart';
 import '../core/models.dart';
 import '../services/knowledge_engine.dart';
+import 'microscope/retrieval_trace_page.dart';
 
 class ChatPage extends StatefulWidget {
   const ChatPage({
@@ -71,7 +72,8 @@ class _ChatPageState extends State<ChatPage> {
     if (current == null) return;
     final loaded = await widget.store.getSession(current.id);
     final history = await widget.store.messages(current.id);
-    final docs = reloadDocuments ? await widget.engine.listDocuments() : documents;
+    final docs =
+        reloadDocuments ? await widget.engine.listDocuments() : documents;
     if (!mounted) return;
     setState(() {
       session = loaded ?? current;
@@ -102,7 +104,10 @@ class _ChatPageState extends State<ChatPage> {
           mainAxisSize: MainAxisSize.min,
           children: [
             const ListTile(
-              title: Text('会话历史', style: TextStyle(fontWeight: FontWeight.bold)),
+              title: Text(
+                '会话历史',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
             ),
             Flexible(
               child: ListView(
@@ -112,8 +117,14 @@ class _ChatPageState extends State<ChatPage> {
                     ListTile(
                       selected: item.id == session?.id,
                       leading: const Icon(Icons.chat_bubble_outline),
-                      title: Text(item.title, maxLines: 1, overflow: TextOverflow.ellipsis),
-                      subtitle: Text('${_modeLabel(item.mode)} · ${_scopeLabel(item.scope)}'),
+                      title: Text(
+                        item.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      subtitle: Text(
+                        '${_modeLabel(item.mode)} · ${_scopeLabel(item.scope)}',
+                      ),
                       onTap: () async {
                         final loaded = await widget.store.getSession(item.id);
                         final history = await widget.store.messages(item.id);
@@ -123,7 +134,9 @@ class _ChatPageState extends State<ChatPage> {
                           messages = history;
                           error = null;
                         });
-                        if (sheetContext.mounted) Navigator.of(sheetContext).pop();
+                        if (sheetContext.mounted) {
+                          Navigator.of(sheetContext).pop();
+                        }
                         _jumpToBottom();
                       },
                       trailing: IconButton(
@@ -132,14 +145,17 @@ class _ChatPageState extends State<ChatPage> {
                         onPressed: () async {
                           await widget.store.deleteSession(item.id);
                           if (item.id == session?.id) {
-                            final created = await widget.orchestrator.newSession();
+                            final created =
+                                await widget.orchestrator.newSession();
                             if (!mounted) return;
                             setState(() {
                               session = created;
                               messages = const [];
                             });
                           }
-                          if (sheetContext.mounted) Navigator.of(sheetContext).pop();
+                          if (sheetContext.mounted) {
+                            Navigator.of(sheetContext).pop();
+                          }
                           await _reload();
                         },
                       ),
@@ -190,7 +206,10 @@ class _ChatPageState extends State<ChatPage> {
             child: Column(
               children: [
                 const ListTile(
-                  title: Text('知识库范围', style: TextStyle(fontWeight: FontWeight.bold)),
+                  title: Text(
+                    '知识库范围',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
                   subtitle: Text('全部知识库，或只外挂指定文档。'),
                 ),
                 SwitchListTile(
@@ -279,10 +298,7 @@ class _ChatPageState extends State<ChatPage> {
 
       var updated = current;
       if (current.mode == ChatMode.modelOnly) {
-        updated = await widget.orchestrator.setMode(
-          current.id,
-          ChatMode.auto,
-        );
+        updated = await widget.orchestrator.setMode(current.id, ChatMode.auto);
       }
       updated = await widget.orchestrator.setScope(
         updated.id,
@@ -303,6 +319,7 @@ class _ChatPageState extends State<ChatPage> {
       if (failedFiles.isNotEmpty) {
         message += ' · ${failedFiles.length} 个文件导入失败';
       }
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(message)),
       );
@@ -325,6 +342,23 @@ class _ChatPageState extends State<ChatPage> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('已解除当前聊天附件；文件仍保留在知识库')),
     );
+  }
+
+  Future<void> _showTrace(ChatMessage message) async {
+    final traceId = message.traceId;
+    final traceStore = widget.orchestrator.traceStore;
+    if (traceId == null || traceStore == null) return;
+    final trace = await traceStore.get(traceId);
+    if (!mounted) return;
+    if (trace == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('该历史回答没有可读取的 Trace。')),
+      );
+      return;
+    }
+    await Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => RetrievalTracePage(trace: trace, engine: widget.engine),
+    ));
   }
 
   List<KnowledgeDocument> _boundDocuments(KnowledgeScope scope) {
@@ -397,8 +431,10 @@ class _ChatPageState extends State<ChatPage> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('[${evidence.anchor}] ${evidence.chunk.sourceName}',
-                  style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                '[${evidence.anchor}] ${evidence.chunk.sourceName}',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               const SizedBox(height: 4),
               Text(evidence.chunk.locator),
               const Divider(),
@@ -474,7 +510,11 @@ class _ChatPageState extends State<ChatPage> {
                         size: 18,
                       ),
                       const SizedBox(width: 6),
-                      Text(FlutterGemma.hasActiveModel() ? 'Gemma READY' : 'Gemma 准备中'),
+                      Text(
+                        FlutterGemma.hasActiveModel()
+                            ? 'Gemma READY'
+                            : 'Gemma 准备中',
+                      ),
                       const Spacer(),
                       TextButton.icon(
                         onPressed: sending || attaching ? null : _selectScope,
@@ -486,9 +526,15 @@ class _ChatPageState extends State<ChatPage> {
                   SegmentedButton<ChatMode>(
                     showSelectedIcon: false,
                     segments: const [
-                      ButtonSegment(value: ChatMode.modelOnly, label: Text('纯模型')),
+                      ButtonSegment(
+                        value: ChatMode.modelOnly,
+                        label: Text('纯模型'),
+                      ),
                       ButtonSegment(value: ChatMode.auto, label: Text('自动')),
-                      ButtonSegment(value: ChatMode.knowledge, label: Text('强制知识库')),
+                      ButtonSegment(
+                        value: ChatMode.knowledge,
+                        label: Text('强制知识库'),
+                      ),
                     ],
                     selected: {current.mode},
                     onSelectionChanged: sending || attaching
@@ -504,15 +550,22 @@ class _ChatPageState extends State<ChatPage> {
                   ? _emptyState(current.mode)
                   : ListView.builder(
                       controller: scroll,
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 12,
+                      ),
                       itemCount: messages.length,
-                      itemBuilder: (context, index) => _messageBubble(messages[index]),
+                      itemBuilder: (context, index) =>
+                          _messageBubble(messages[index]),
                     ),
             ),
             if (error != null)
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                child: Text(error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                child: Text(
+                  error!,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
               ),
             if (boundDocuments.isNotEmpty)
               Padding(
@@ -578,7 +631,11 @@ class _ChatPageState extends State<ChatPage> {
                     tooltip: '发送',
                     onPressed: sending || attaching ? null : _send,
                     icon: sending
-                        ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
                         : const Icon(Icons.arrow_upward),
                   ),
                 ],
@@ -604,7 +661,10 @@ class _ChatPageState extends State<ChatPage> {
           children: [
             const Icon(Icons.forum_outlined, size: 48),
             const SizedBox(height: 12),
-            Text('PocketGallery', style: Theme.of(context).textTheme.headlineSmall),
+            Text(
+              'PocketGallery',
+              style: Theme.of(context).textTheme.headlineSmall,
+            ),
             const SizedBox(height: 8),
             Text(text, textAlign: TextAlign.center),
           ],
@@ -637,17 +697,39 @@ class _ChatPageState extends State<ChatPage> {
                 spacing: 6,
                 children: [
                   for (final item in message.evidence)
-                    ActionChip(label: Text('[${item.anchor}]'), onPressed: () => _showEvidence(item)),
+                    ActionChip(
+                      label: Text('[${item.anchor}]'),
+                      onPressed: () => _showEvidence(item),
+                    ),
                 ],
               ),
             ],
             if (!user && message.retrievalMode != null) ...[
               const SizedBox(height: 4),
-              Text(
-                message.retrievalMode!.startsWith('modelOnly') || message.retrievalMode == 'auto:modelOnly'
-                    ? '本机模型'
-                    : 'Knowledge ON',
-                style: Theme.of(context).textTheme.labelSmall,
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    message.retrievalMode!.startsWith('modelOnly') ||
+                            message.retrievalMode == 'auto:modelOnly'
+                        ? '本机模型'
+                        : 'Knowledge ON',
+                    style: Theme.of(context).textTheme.labelSmall,
+                  ),
+                  if (message.traceId != null &&
+                      widget.orchestrator.traceStore != null) ...[
+                    const SizedBox(width: 8),
+                    TextButton.icon(
+                      style: TextButton.styleFrom(
+                        visualDensity: VisualDensity.compact,
+                        padding: const EdgeInsets.symmetric(horizontal: 6),
+                      ),
+                      onPressed: () => _showTrace(message),
+                      icon: const Icon(Icons.account_tree_outlined, size: 16),
+                      label: const Text('检索依据'),
+                    ),
+                  ],
+                ],
               ),
             ],
           ],
