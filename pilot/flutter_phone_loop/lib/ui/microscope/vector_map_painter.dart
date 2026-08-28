@@ -44,14 +44,14 @@ class VectorMapPainter extends CustomPainter {
     }
 
     const pad = 18.0;
+    final usableWidth = math.max(1.0, size.width - pad * 2).toDouble();
+    final usableHeight = math.max(1.0, size.height - pad * 2).toDouble();
     for (final point in points) {
       final rawX = show3d ? point.x + point.z * 0.35 : point.x;
       final rawY = show3d ? point.y - point.z * 0.22 : point.y;
-      final x = pad +
-          (rawX - minX) / (maxX - minX) * math.max(1, size.width - pad * 2);
+      final x = pad + (rawX - minX) / (maxX - minX) * usableWidth;
       final y = pad +
-          (1 - (rawY - minY) / (maxY - minY)) *
-              math.max(1, size.height - pad * 2);
+          (1 - (rawY - minY) / (maxY - minY)) * usableHeight;
       projected[point] = Offset(x, y);
     }
 
@@ -83,11 +83,12 @@ class VectorMapPainter extends CustomPainter {
         canvas.drawCircle(offset, 11, ring);
         continue;
       }
+      final alpha =
+          (0.38 + 0.58 * ((point.cosineToQuery ?? 0) + 1) / 2)
+              .clamp(0.35, 0.95)
+              .toDouble();
       final paint = Paint()
-        ..color = _documentColor(point.documentId).withValues(
-          alpha: (0.38 + 0.58 * ((point.cosineToQuery ?? 0) + 1) / 2)
-              .clamp(0.35, 0.95),
-        );
+        ..color = _documentColor(point.documentId).withValues(alpha: alpha);
       canvas.drawCircle(offset, 3.4, paint);
     }
   }
