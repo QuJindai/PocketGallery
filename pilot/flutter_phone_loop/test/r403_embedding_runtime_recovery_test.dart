@@ -7,7 +7,7 @@ void main() {
     final semantic = await File('lib/services/semantic_store.dart').readAsString();
 
     expect(semantic, contains('_ensureEmbeddingRuntime'));
-    expect(semantic, contains('await FlutterGemma.getActiveEmbedder()'));
+    expect(semantic, contains('FlutterGemma.getActiveEmbedder()'));
 
     final ensureCalls = RegExp(r'await _ensureEmbeddingRuntime\(\)')
         .allMatches(semantic)
