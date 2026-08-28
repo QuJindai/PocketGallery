@@ -6,6 +6,7 @@ import 'package:sqlite3/sqlite3.dart';
 
 import '../chat/chat_models.dart';
 import '../core/models.dart';
+import '../observability/fts_inspector.dart';
 
 class LexicalFtsStore {
   LexicalFtsStore({Database? database})
@@ -192,27 +193,53 @@ class LexicalFtsStore {
     return _rowToChunk(rows.first);
   }
 
-  Future<List<RetrievalHit>> search(
+  Future<FtsInspectionResult> inspect(
     String query, {
     int topK = 12,
     KnowledgeScope scope = const KnowledgeScope.all(),
   }) async {
     await initialize();
-    final ftsQuery = _buildFtsQuery(query);
-    if (ftsQuery.isEmpty) return const [];
-
     final ids = scope.documentIds?.toList() ?? const <String>[];
-    if (!scope.isAll && ids.isEmpty) return const [];
+    if (!scope.isAll && ids.isEmpty) {
+      return FtsInspectionResult(
+        query: query,
+        normalizedQuery: '',
+        hits: const [],
+        diagnostics: 'empty document scope',
+      );
+    }
+
+    final shortCjkTerms = _shortCjkTerms(query);
+    if (shortCjkTerms.isNotEmpty && _onlyShortCjkTerms(query)) {
+      return _inspectShortCjk(
+        query,
+        shortCjkTerms,
+        ids: ids,
+        scope: scope,
+        topK: topK,
+      );
+    }
+
+    final ftsQuery = _buildFtsQuery(query);
+    if (ftsQuery.isEmpty) {
+      return FtsInspectionResult(
+        query: query,
+        normalizedQuery: '',
+        hits: const [],
+        diagnostics: 'empty normalized FTS query',
+      );
+    }
+
     final scopeSql = scope.isAll
         ? ''
         : ' AND document_id IN (${List.filled(ids.length, '?').join(',')}) ';
     final args = <Object?>[ftsQuery, ...ids, topK];
-
     ResultSet rows;
     try {
       rows = _db!.select('''
         SELECT id, document_id, source_name, locator, ordinal, content,
-               bm25(pg_chunks_fts) AS bm
+               bm25(pg_chunks_fts) AS bm,
+               snippet(pg_chunks_fts, 5, '<mark>', '</mark>', '…', 28) AS snip
         FROM pg_chunks_fts
         WHERE pg_chunks_fts MATCH ? $scopeSql
         ORDER BY bm
@@ -222,7 +249,8 @@ class LexicalFtsStore {
       final quoted = '"${query.replaceAll('"', '""')}"';
       rows = _db!.select('''
         SELECT id, document_id, source_name, locator, ordinal, content,
-               bm25(pg_chunks_fts) AS bm
+               bm25(pg_chunks_fts) AS bm,
+               content AS snip
         FROM pg_chunks_fts
         WHERE pg_chunks_fts MATCH ? $scopeSql
         ORDER BY bm
@@ -230,14 +258,83 @@ class LexicalFtsStore {
       ''', <Object?>[quoted, ...ids, topK]);
     }
 
+    final terms = _queryTerms(query);
+    return FtsInspectionResult(
+      query: query,
+      normalizedQuery: ftsQuery,
+      diagnostics: 'FTS5 trigram + SQLite bm25(); REAL bm25, DERIVED affinity',
+      hits: [
+        for (var i = 0; i < rows.length; i++)
+          FtsInspectionHit(
+            chunk: _rowToChunk(rows[i]),
+            rank: i + 1,
+            rawBm25: (rows[i]['bm'] as num).toDouble(),
+            affinity: _bm25Affinity((rows[i]['bm'] as num).toDouble()),
+            snippet: rows[i]['snip'] as String,
+            matchedTerms: terms
+                .where((term) =>
+                    (rows[i]['content'] as String).toLowerCase().contains(term))
+                .toList(growable: false),
+            matchMode: 'fts5-trigram',
+          ),
+      ],
+    );
+  }
+
+  Future<FtsInspectionResult> _inspectShortCjk(
+    String query,
+    List<String> terms, {
+    required List<String> ids,
+    required KnowledgeScope scope,
+    required int topK,
+  }) async {
+    final likeSql = terms.map((_) => 'content LIKE ?').join(' OR ');
+    final scopeSql = scope.isAll
+        ? ''
+        : ' AND document_id IN (${List.filled(ids.length, '?').join(',')}) ';
+    final patterns = terms.map((e) => '%$e%').toList();
+    final rows = _db!.select('''
+      SELECT id, document_id, source_name, locator, ordinal, content
+      FROM pg_chunks
+      WHERE ($likeSql) $scopeSql
+      ORDER BY document_id, ordinal
+      LIMIT ?
+    ''', <Object?>[...patterns, ...ids, topK]);
+
+    return FtsInspectionResult(
+      query: query,
+      normalizedQuery: terms.join(' OR '),
+      diagnostics:
+          '2-char CJK fallback: FTS5 trigram indexes substrings >=3 chars, so exact LIKE is used and raw BM25 is unavailable',
+      hits: [
+        for (var i = 0; i < rows.length; i++)
+          FtsInspectionHit(
+            chunk: _rowToChunk(rows[i]),
+            rank: i + 1,
+            rawBm25: null,
+            affinity: 1.0 / (i + 1),
+            snippet: _highlightShortTerms(rows[i]['content'] as String, terms),
+            matchedTerms: terms,
+            matchMode: 'cjk-short-exact',
+          ),
+      ],
+    );
+  }
+
+  Future<List<RetrievalHit>> search(
+    String query, {
+    int topK = 12,
+    KnowledgeScope scope = const KnowledgeScope.all(),
+  }) async {
+    final result = await inspect(query, topK: topK, scope: scope);
     return [
-      for (var i = 0; i < rows.length; i++)
+      for (final hit in result.hits)
         RetrievalHit(
-          chunk: _rowToChunk(rows[i]),
-          score: _bm25Affinity((rows[i]['bm'] as num).toDouble()),
+          chunk: hit.chunk,
+          score: hit.affinity,
           channel: 'fts5',
-          rank: i + 1,
-        )
+          rank: hit.rank,
+        ),
     ];
   }
 
@@ -263,6 +360,31 @@ class LexicalFtsStore {
         .toList();
     if (parts.length >= 2) return parts.join(' OR ');
     return '"$q"';
+  }
+
+  List<String> _queryTerms(String query) => query
+      .toLowerCase()
+      .split(RegExp(r'[\s，。；、,.;:：!?！？()\[\]{}]+'))
+      .where((x) => x.trim().isNotEmpty)
+      .take(12)
+      .toList(growable: false);
+
+  List<String> _shortCjkTerms(String query) => _queryTerms(query)
+      .where((term) => RegExp(r'^[\u3400-\u9fff]{2}$').hasMatch(term))
+      .toList(growable: false);
+
+  bool _onlyShortCjkTerms(String query) {
+    final terms = _queryTerms(query);
+    return terms.isNotEmpty &&
+        terms.every((term) => RegExp(r'^[\u3400-\u9fff]{2}$').hasMatch(term));
+  }
+
+  String _highlightShortTerms(String text, List<String> terms) {
+    var out = text;
+    for (final term in terms) {
+      out = out.replaceAll(term, '<mark>$term</mark>');
+    }
+    return out.length <= 220 ? out : '${out.substring(0, 220)}…';
   }
 
   Future<void> clear() async {
