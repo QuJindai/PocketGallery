@@ -1,0 +1,40 @@
+{
+  "name": "PocketGallery Golden Retrieval v1",
+  "cases": [
+    {
+      "id": "calibration-code",
+      "question": "31 03 51 01 获取标定结果时为什么 DSA 可能持续等待？",
+      "expectedDocumentIds": [],
+      "expectedSourceNames": ["pg_golden_calibration.txt"],
+      "tags": ["zh", "identifier", "calibration"]
+    },
+    {
+      "id": "calibration-semantic",
+      "question": "为什么诊断程序一直等不到标定完成状态？",
+      "expectedDocumentIds": [],
+      "expectedSourceNames": ["pg_golden_calibration.txt"],
+      "tags": ["zh", "semantic", "calibration"]
+    },
+    {
+      "id": "robot-overload",
+      "question": "机器人关节过载应该检查什么？",
+      "expectedDocumentIds": [],
+      "expectedSourceNames": ["pg_golden_robot.txt"],
+      "tags": ["zh", "semantic", "robot"]
+    },
+    {
+      "id": "network-session",
+      "question": "DoIP 网络断开后诊断会话会怎样？",
+      "expectedDocumentIds": [],
+      "expectedSourceNames": ["pg_golden_network.txt"],
+      "tags": ["zh", "cross-language", "network"]
+    },
+    {
+      "id": "cjk-short",
+      "question": "标定",
+      "expectedDocumentIds": [],
+      "expectedSourceNames": ["pg_golden_calibration.txt"],
+      "tags": ["zh", "cjk-2char", "fts"]
+    }
+  ]
+}
