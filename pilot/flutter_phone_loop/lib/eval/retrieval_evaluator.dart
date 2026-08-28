@@ -58,7 +58,8 @@ class RetrievalEvaluator {
             found.add('s:${hit.sourceName}');
           }
         }
-        recall5 += (found.length / expectedCount).clamp(0, 1);
+        recall5 +=
+            (found.length / expectedCount).clamp(0.0, 1.0).toDouble();
       }
 
       final firstRelevant = hits.indexWhere(relevant);
