@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 import 'package:sqlite3/sqlite3.dart';
 
 import 'retrieval_trace.dart';
@@ -15,7 +17,11 @@ class RetrievalTraceStore {
 
   Future<void> initialize() async {
     if (_initialized) return;
-    _db ??= sqlite3.openInMemory();
+    if (_db == null) {
+      final dir = await getApplicationDocumentsDirectory();
+      _db = sqlite3.open(p.join(dir.path, 'pocketgallery_observability.db'));
+    }
+    _db!.execute('PRAGMA journal_mode=WAL;');
     _db!.execute('''
       CREATE TABLE IF NOT EXISTS pg_retrieval_traces (
         trace_id TEXT PRIMARY KEY,
