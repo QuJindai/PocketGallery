@@ -1,5 +1,7 @@
 import '../core/evidence.dart';
 import '../core/models.dart';
+import '../observability/retrieval_trace.dart';
+import '../observability/retrieval_trace_store.dart';
 import '../services/knowledge_retriever.dart';
 import 'chat_models.dart';
 import 'chat_session_store.dart';
@@ -10,12 +12,14 @@ class ChatOrchestrator {
     required this.retriever,
     required this.model,
     CitationResolver? citationResolver,
+    this.traceStore,
   }) : citationResolver = citationResolver ?? CitationResolver();
 
   final ChatSessionStore store;
   final KnowledgeRetrievalGateway retriever;
   final ChatModelGateway model;
   final CitationResolver citationResolver;
+  final RetrievalTraceStore? traceStore;
 
   Future<ChatSession> newSession({String title = '新会话'}) =>
       store.createSession(title: title, mode: ChatMode.auto);
@@ -72,12 +76,20 @@ class ChatOrchestrator {
             : 'knowledge',
       );
       await store.appendMessage(reply);
+      await _persistTrace(
+        session: session,
+        query: clean,
+        retrieval: retrieval,
+        citations: const [],
+        generationMs: 0,
+      );
       return reply;
     }
 
     final evidence = useEvidence
         ? retrieval!.evidence
         : const <EvidenceItem>[];
+    final generationWatch = Stopwatch()..start();
     var answer = await model.sendTurn(
       sessionId: sessionId,
       priorMessages: prior,
@@ -85,6 +97,7 @@ class ChatOrchestrator {
       evidence: evidence,
       forceKnowledge: session.mode == ChatMode.knowledge,
     );
+    generationWatch.stop();
 
     var anchors = evidence.isEmpty
         ? const <String>[]
@@ -109,6 +122,41 @@ class ChatOrchestrator {
           anchors.isEmpty ? null : ChatMessage.encodeAnchors(anchors),
     );
     await store.appendMessage(reply);
+    await _persistTrace(
+      session: session,
+      query: clean,
+      retrieval: retrieval,
+      citations: anchors,
+      generationMs: generationWatch.elapsedMilliseconds,
+    );
     return reply;
+  }
+
+  Future<void> _persistTrace({
+    required ChatSession session,
+    required String query,
+    required RetrievalBundle? retrieval,
+    required List<String> citations,
+    required int generationMs,
+  }) async {
+    final target = traceStore;
+    final draft = retrieval?.traceDraft;
+    if (target == null || draft == null) return;
+    await target.save(RetrievalTrace(
+      traceId: '${session.id}-${DateTime.now().microsecondsSinceEpoch}',
+      sessionId: session.id,
+      query: query,
+      mode: session.mode.name,
+      startedAt: draft.startedAt,
+      completedAt: DateTime.now().toUtc(),
+      scopeDocumentIds: session.scope.documentIds ?? const <String>{},
+      timings: draft.timings.copyWith(generationMs: generationMs),
+      lexicalHits: draft.lexicalHits,
+      semanticHits: draft.semanticHits,
+      hybridHits: draft.hybridHits,
+      evidenceAnchors:
+          retrieval!.evidence.map((item) => item.anchor).toList(growable: false),
+      citations: citations,
+    ));
   }
 }
