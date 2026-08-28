@@ -40,7 +40,7 @@ void main() {
 
   tearDown(() {
     store.dispose();
-    db.dispose();
+    db.close();
   });
 
   test('two-character CJK remains searchable and inspector labels fallback', () async {
