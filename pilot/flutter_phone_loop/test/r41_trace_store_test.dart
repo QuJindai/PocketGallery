@@ -7,7 +7,7 @@ import 'package:pocketgallery_phone_pilot/observability/retrieval_trace_store.da
 void main() {
   test('retrieval trace round-trips real scores ranks timings and citations', () async {
     final db = sqlite3.openInMemory();
-    addTearDown(db.dispose);
+    addTearDown(db.close);
     final store = RetrievalTraceStore(database: db);
     await store.initialize();
 
@@ -93,7 +93,7 @@ void main() {
 
   test('trace persistence caps every candidate channel at twenty', () async {
     final db = sqlite3.openInMemory();
-    addTearDown(db.dispose);
+    addTearDown(db.close);
     final store = RetrievalTraceStore(database: db);
     await store.initialize();
 
