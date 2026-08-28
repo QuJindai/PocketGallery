@@ -13,6 +13,21 @@ class TraceStageTiming {
   final int evidenceMs;
   final int generationMs;
 
+  TraceStageTiming copyWith({
+    int? lexicalMs,
+    int? semanticMs,
+    int? fusionMs,
+    int? evidenceMs,
+    int? generationMs,
+  }) =>
+      TraceStageTiming(
+        lexicalMs: lexicalMs ?? this.lexicalMs,
+        semanticMs: semanticMs ?? this.semanticMs,
+        fusionMs: fusionMs ?? this.fusionMs,
+        evidenceMs: evidenceMs ?? this.evidenceMs,
+        generationMs: generationMs ?? this.generationMs,
+      );
+
   Map<String, Object> toJson() => {
         'lexicalMs': lexicalMs,
         'semanticMs': semanticMs,
@@ -57,8 +72,8 @@ class TraceHit {
   final int rank;
 
   /// REAL score returned by the corresponding index/runtime whenever the
-  /// channel exposes one. For hybrid this is the actual final fused score.
-  final double rawScore;
+  /// channel exposes one. Null for explicitly-labelled fallback channels.
+  final double? rawScore;
 
   /// DERIVED score when normalization is necessary for presentation.
   final double normalizedScore;
@@ -93,7 +108,7 @@ class TraceHit {
         sourceName: json['sourceName'] as String,
         locator: json['locator'] as String,
         rank: (json['rank'] as num).toInt(),
-        rawScore: (json['rawScore'] as num).toDouble(),
+        rawScore: (json['rawScore'] as num?)?.toDouble(),
         normalizedScore: (json['normalizedScore'] as num).toDouble(),
         lexicalRank: (json['lexicalRank'] as num?)?.toInt(),
         semanticRank: (json['semanticRank'] as num?)?.toInt(),
