@@ -49,6 +49,27 @@ class ModelSetupService {
 
   Future<String?> getPendingUserCode() => oauth.getPendingUserCode();
 
+  Future<void> _retryCanceledDownload(
+    Future<void> Function() operation, {
+    required void Function(int attempt, int maxRestarts) onRetry,
+    int maxRestarts = 3,
+  }) async {
+    var restartCount = 0;
+    while (true) {
+      try {
+        await operation();
+        return;
+      } on DownloadException catch (e) {
+        if (e.error is! CanceledError || restartCount >= maxRestarts) {
+          rethrow;
+        }
+        restartCount++;
+        onRetry(restartCount, maxRestarts);
+        await Future<void>.delayed(Duration(seconds: restartCount * 2));
+      }
+    }
+  }
+
   Future<ModelSetupSnapshot> prepareAutomatically({
     void Function(ModelSetupSnapshot state)? onProgress,
   }) async {
@@ -70,17 +91,25 @@ class ModelSetupService {
 
     try {
       if (!FlutterGemma.hasActiveModel()) {
-        await FlutterGemma.installModel(
-          modelType: ModelType.gemma4,
-          fileType: ModelFileType.litertlm,
-        )
-            .fromNetwork(gemma4Url, foreground: true)
-            .withProgress((p) => emit(
-                  ModelSetupPhase.downloadingGemma,
-                  '自动下载 Gemma 4 · $p%',
-                  progress: p,
-                ))
-            .install();
+        await _retryCanceledDownload(
+          () async {
+            await FlutterGemma.installModel(
+              modelType: ModelType.gemma4,
+              fileType: ModelFileType.litertlm,
+            )
+                .fromNetwork(gemma4Url, foreground: true)
+                .withProgress((p) => emit(
+                      ModelSetupPhase.downloadingGemma,
+                      '自动下载 Gemma 4 · $p%',
+                      progress: p,
+                    ))
+                .install();
+          },
+          onRetry: (attempt, maxRestarts) => emit(
+            ModelSetupPhase.downloadingGemma,
+            'Gemma 4 下载被系统中断，正在自动恢复 $attempt/$maxRestarts · 无需重新登录',
+          ),
+        );
       }
 
       if (!FlutterGemma.hasActiveEmbedder()) {
@@ -97,31 +126,39 @@ class ModelSetupService {
           }
           return emit(
             ModelSetupPhase.authorizationRequired,
-            'Gemma 4 已就绪；EmbeddingGemma 需要一次 Hugging Face 官方授权。',
+            'Gemma 4 已就绪；EmbeddingGemma 只需要首次 Hugging Face 官方授权。后续原地升级会保留授权与模型。',
           );
         }
 
-        await FlutterGemma.installEmbedder()
-            .modelFromNetwork(embeddingModelUrl, token: token)
-            .tokenizerFromNetwork(embeddingTokenizerUrl, token: token)
-            .withModelProgress((p) => emit(
-                  ModelSetupPhase.downloadingEmbedding,
-                  '自动下载 EmbeddingGemma · $p%',
-                  progress: p,
-                ))
-            .withTokenizerProgress((p) => emit(
-                  ModelSetupPhase.downloadingTokenizer,
-                  '自动下载 Tokenizer · $p%',
-                  progress: p,
-                ))
-            .install();
+        await _retryCanceledDownload(
+          () async {
+            await FlutterGemma.installEmbedder()
+                .modelFromNetwork(embeddingModelUrl, token: token)
+                .tokenizerFromNetwork(embeddingTokenizerUrl, token: token)
+                .withModelProgress((p) => emit(
+                      ModelSetupPhase.downloadingEmbedding,
+                      '自动下载 EmbeddingGemma · $p%',
+                      progress: p,
+                    ))
+                .withTokenizerProgress((p) => emit(
+                      ModelSetupPhase.downloadingTokenizer,
+                      '自动下载 Tokenizer · $p%',
+                      progress: p,
+                    ))
+                .install();
+          },
+          onRetry: (attempt, maxRestarts) => emit(
+            ModelSetupPhase.downloadingEmbedding,
+            'EmbeddingGemma 下载被系统中断，正在自动恢复 $attempt/$maxRestarts · OAuth 已保留',
+          ),
+        );
       }
 
       if (!FlutterGemma.hasActiveModel() ||
           !FlutterGemma.hasActiveEmbedder()) {
         return emit(
           ModelSetupPhase.failed,
-          '模型文件已处理，但激活身份自检未通过。可直接重试，不需要重新下载已就绪模型。',
+          '模型文件已处理，但激活身份自检未通过。可直接重试；已就绪模型与 OAuth 不会被清除。',
         );
       }
 
@@ -137,26 +174,38 @@ class ModelSetupService {
         '本机模型 READY · Gemma 4 + EmbeddingGemma · Embedding runtime READY',
         progress: 100,
       );
-    } catch (e) {
-      final text = e.toString().toLowerCase();
-      if (text.contains('401') || text.contains('unauthorized')) {
+    } on DownloadException catch (e) {
+      final error = e.error;
+      if (error is UnauthorizedError) {
         await oauth.clearTokens();
         return emit(
           ModelSetupPhase.authorizationRequired,
-          'Hugging Face OAuth 已失效，请重新完成一次官方授权。',
+          'Hugging Face 明确返回 401，OAuth 已失效；仅这种情况需要重新授权。',
         );
       }
-      if (text.contains('403') ||
-          text.contains('forbidden') ||
-          text.contains('gated')) {
+      if (error is ForbiddenError) {
         return emit(
           ModelSetupPhase.licenseRequired,
-          'OAuth 已完成，但 Hugging Face 仍拒绝 EmbeddingGemma gated 文件访问。通常只差接受一次官方 Gemma License；接受后返回 App 会使用现有 OAuth token 自动继续下载，不会重新授权。',
+          'OAuth 已保留，但 Hugging Face 拒绝 gated 文件访问。通常只需接受一次官方 Gemma License；返回 App 后自动继续，不会重新登录。',
+        );
+      }
+      if (error is CanceledError) {
+        return emit(
+          ModelSetupPhase.failed,
+          '下载连续被系统中断，已自动恢复 3 次。OAuth 与已下载模型均已保留；稍后重试不会要求重新登录。',
         );
       }
       return emit(
         ModelSetupPhase.failed,
-        '自动准备模型失败：$e',
+        '模型下载暂时失败：${error.toUserMessage()}；OAuth 与已就绪模型均保留。',
+      );
+    } catch (e) {
+      // Non-download runtime failures must never be interpreted as an OAuth
+      // failure. In particular, do not clear credentials based on substring
+      // matching of arbitrary exception text.
+      return emit(
+        ModelSetupPhase.failed,
+        '自动准备模型失败：$e；OAuth 与已就绪模型均保留。',
       );
     }
   }
