@@ -1,8 +1,6 @@
-import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:crypto/crypto.dart';
-import 'package:flutter_gemma/flutter_gemma.dart';
 
 import '../chat/chat_models.dart';
 import '../core/models.dart';
@@ -124,12 +122,14 @@ class VectorMicroscopeService {
     final projection = projector.project(pcaInput, components: 3);
     final coords = {for (final point in projection.points) point.id: point};
 
-    final neighborRows = <({VectorObservation observation, PgChunk chunk, double cosine})>[];
+    final neighborRows =
+        <({VectorObservation observation, PgChunk chunk, double cosine})>[];
     final points = <VectorMapPoint>[];
     for (final observation in selected) {
       final chunk = await lexicalStore.getChunk(observation.chunkId);
       if (chunk == null) continue;
-      final cosine = _cosine(queryVector, queryNorm, observation.vector, observation.norm);
+      final cosine =
+          _cosine(queryVector, queryNorm, observation.vector, observation.norm);
       neighborRows.add((observation: observation, chunk: chunk, cosine: cosine));
       final point = coords[observation.chunkId]!;
       points.add(VectorMapPoint(
@@ -163,8 +163,9 @@ class VectorMicroscopeService {
 
     return VectorMicroscopeSnapshot(
       query: query,
-      modelIdentity: FlutterGemma.activeEmbedderSpec?.name ??
-          (selected.isEmpty ? 'active-embedder' : selected.first.modelIdentity),
+      modelIdentity: selected.isEmpty
+          ? SemanticStore.embeddingModelIdentity
+          : selected.first.modelIdentity,
       dimension: queryVector.length,
       queryNorm: queryNorm,
       queryFingerprint: 'sha256:$fingerprint',
