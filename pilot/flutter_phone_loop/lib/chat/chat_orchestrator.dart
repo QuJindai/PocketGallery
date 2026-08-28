@@ -67,6 +67,13 @@ class ChatOrchestrator {
 
     if (session.mode == ChatMode.knowledge &&
         (retrieval == null || retrieval.evidence.isEmpty)) {
+      final traceId = await _persistTrace(
+        session: session,
+        query: clean,
+        retrieval: retrieval,
+        citations: const [],
+        generationMs: 0,
+      );
       final reply = ChatMessage.assistant(
         id: store.nextMessageId(),
         sessionId: sessionId,
@@ -74,15 +81,9 @@ class ChatOrchestrator {
         retrievalMode: retrieval?.lexicalOnly == true
             ? 'knowledge:lexical-only'
             : 'knowledge',
+        traceId: traceId,
       );
       await store.appendMessage(reply);
-      await _persistTrace(
-        session: session,
-        query: clean,
-        retrieval: retrieval,
-        citations: const [],
-        generationMs: 0,
-      );
       return reply;
     }
 
@@ -112,6 +113,13 @@ class ChatOrchestrator {
         : useEvidence
             ? '${session.mode.name}:${retrieval!.lexicalOnly ? 'lexical-only' : 'hybrid'}'
             : 'auto:modelOnly';
+    final traceId = await _persistTrace(
+      session: session,
+      query: clean,
+      retrieval: retrieval,
+      citations: anchors,
+      generationMs: generationWatch.elapsedMilliseconds,
+    );
     final reply = ChatMessage.assistant(
       id: store.nextMessageId(),
       sessionId: sessionId,
@@ -120,19 +128,13 @@ class ChatOrchestrator {
       evidenceJson: evidence.isEmpty ? null : ChatMessage.encodeEvidence(evidence),
       citedAnchorsJson:
           anchors.isEmpty ? null : ChatMessage.encodeAnchors(anchors),
+      traceId: traceId,
     );
     await store.appendMessage(reply);
-    await _persistTrace(
-      session: session,
-      query: clean,
-      retrieval: retrieval,
-      citations: anchors,
-      generationMs: generationWatch.elapsedMilliseconds,
-    );
     return reply;
   }
 
-  Future<void> _persistTrace({
+  Future<String?> _persistTrace({
     required ChatSession session,
     required String query,
     required RetrievalBundle? retrieval,
@@ -141,9 +143,10 @@ class ChatOrchestrator {
   }) async {
     final target = traceStore;
     final draft = retrieval?.traceDraft;
-    if (target == null || draft == null) return;
+    if (target == null || draft == null) return null;
+    final traceId = '${session.id}-${DateTime.now().microsecondsSinceEpoch}';
     await target.save(RetrievalTrace(
-      traceId: '${session.id}-${DateTime.now().microsecondsSinceEpoch}',
+      traceId: traceId,
       sessionId: session.id,
       query: query,
       mode: session.mode.name,
@@ -158,5 +161,6 @@ class ChatOrchestrator {
           retrieval!.evidence.map((item) => item.anchor).toList(growable: false),
       citations: citations,
     ));
+    return traceId;
   }
 }
