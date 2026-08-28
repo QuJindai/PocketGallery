@@ -15,6 +15,9 @@ class SemanticStore {
     VectorObservationStore? observationStore,
   }) : observationStore = observationStore ?? VectorObservationStore();
 
+  static const embeddingModelIdentity =
+      'EmbeddingGemma-300M_seq256_mixed-precision';
+
   final LexicalFtsStore lexicalStore;
   final VectorObservationStore observationStore;
   bool _initialized = false;
@@ -48,7 +51,6 @@ class SemanticStore {
   Future<void> addChunks(Iterable<PgChunk> chunks) async {
     await initialize();
     final embedder = await _ensureEmbeddingRuntime();
-    final modelIdentity = FlutterGemma.activeEmbedderSpec?.name ?? 'active-embedder';
 
     for (final c in chunks) {
       final embedding = await embedder.generateEmbedding(
@@ -59,7 +61,7 @@ class SemanticStore {
         chunkId: c.id,
         documentId: c.documentId,
         vector: embedding,
-        modelIdentity: modelIdentity,
+        modelIdentity: embeddingModelIdentity,
       );
       await FlutterGemma.rag.addDocumentWithEmbedding(
         id: c.id,
