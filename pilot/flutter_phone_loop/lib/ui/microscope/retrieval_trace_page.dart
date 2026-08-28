@@ -37,7 +37,7 @@ class RetrievalTracePage extends StatelessWidget {
               children: [
                 const Chip(label: Text('REAL · runtime/index')),
                 const Chip(label: Text('DERIVED · fusion/projection')),
-                Chip(label: Text('${trace.mode} · ${totalMs} ms')),
+                Chip(label: Text('${trace.mode} · $totalMs ms')),
               ],
             ),
             const SizedBox(height: 8),
@@ -112,8 +112,10 @@ class RetrievalTracePage extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Trace identity',
-                        style: TextStyle(fontWeight: FontWeight.w600)),
+                    const Text(
+                      'Trace identity',
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
                     const SizedBox(height: 6),
                     SelectableText(trace.traceId),
                     Text(
