@@ -1,8 +1,11 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pocketgallery_phone_pilot/core/models.dart';
 import 'package:pocketgallery_phone_pilot/services/golden_gate_executor.dart';
+import 'package:pocketgallery_phone_pilot/services/golden_test_report_store.dart';
 import 'package:pocketgallery_phone_pilot/services/golden_test_state.dart';
 
 void main() {
@@ -155,4 +158,74 @@ void main() {
       expect(restored.passed, isTrue);
     });
   });
+
+  group('R4.8 recoverable checkpoints', () {
+    test('save writes valid JSON and leaves no temporary file', () async {
+      final directory = await Directory.systemTemp.createTemp('pg-r48-save-');
+      addTearDown(() => directory.delete(recursive: true));
+      final store = GoldenTestReportStore(
+        directoryProvider: () async => directory,
+      );
+
+      final file = await store.save(_checkpointSnapshot('r48-save'));
+
+      expect(jsonDecode(await file.readAsString()), isA<Map<String, dynamic>>());
+      expect(File('${file.path}.tmp').existsSync(), isFalse);
+      expect((await store.readLast())!.runId, 'r48-save');
+    });
+
+    test('readLast falls back to a valid backup after an interrupted swap',
+        () async {
+      final directory = await Directory.systemTemp.createTemp('pg-r48-bak-');
+      addTearDown(() => directory.delete(recursive: true));
+      final store = GoldenTestReportStore(
+        directoryProvider: () async => directory,
+      );
+      final file = await store.save(_checkpointSnapshot('previous-valid'));
+      await file.rename('${file.path}.bak');
+      await file.writeAsString('{incomplete');
+
+      final restored = await store.readLast();
+
+      expect(restored, isNotNull);
+      expect(restored!.runId, 'previous-valid');
+      expect(restored.gates.single.detail, 'line 1\nline 2: StateError');
+    });
+
+    test('readLast returns null when primary and backup are both malformed',
+        () async {
+      final directory = await Directory.systemTemp.createTemp('pg-r48-bad-');
+      addTearDown(() => directory.delete(recursive: true));
+      final store = GoldenTestReportStore(
+        directoryProvider: () async => directory,
+      );
+      await File('${directory.path}/PG_GOLDEN_LAST.json')
+          .writeAsString('{bad-primary');
+      await File('${directory.path}/PG_GOLDEN_LAST.json.bak')
+          .writeAsString('bad-backup');
+
+      expect(await store.readLast(), isNull);
+    });
+  });
+}
+
+GoldenTestSnapshot _checkpointSnapshot(String runId) {
+  final startedAt = DateTime.utc(2026, 8, 29, 13);
+  return GoldenTestSnapshot(
+    runId: runId,
+    phase: GoldenRunPhase.running,
+    startedAt: startedAt,
+    updatedAt: startedAt.add(const Duration(seconds: 2)),
+    gates: [
+      GoldenGateSnapshot(
+        name: 'F1_IMPORT_CHUNK',
+        label: 'Import and chunk fixture',
+        timeout: const Duration(seconds: 45),
+        status: GoldenGateStatus.failed,
+        detail: 'line 1\nline 2: StateError',
+        startedAt: startedAt,
+        finishedAt: startedAt.add(const Duration(seconds: 2)),
+      ),
+    ],
+  );
 }
