@@ -132,6 +132,8 @@ class GemmaChatService implements ChatModelGateway {
           outputTokens: null,
           decodeTokensPerSecond: null,
           backend: null,
+          nativeSessionRebuilt: true,
+          sessionResetReason: 'fresh_turn_context_bound',
         ),
       );
     } finally {

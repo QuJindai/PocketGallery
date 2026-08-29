@@ -124,6 +124,8 @@ class GoldenTestRunner {
         store: chatStore,
         retriever: engine.retriever,
         model: chatModel,
+        lineageRecorder: engine.runtimeLineageRecorder,
+        lineageStore: engine.lineageStore,
       );
       var session = await orchestrator.newSession(title: 'Golden real chat');
       session = await orchestrator.setMode(session.id, ChatMode.knowledge);

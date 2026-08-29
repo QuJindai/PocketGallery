@@ -206,7 +206,7 @@ class RuntimeLineageRecorder {
           traceId: record.traceId,
           stage: 'context',
           kind: 'context.budgeted',
-          truthKind: TruthKind.real,
+          truthKind: TruthKind.derived,
           durationUs: null,
           payload: {
             'modelContextLimit': record.modelContextLimit,

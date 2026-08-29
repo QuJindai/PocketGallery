@@ -32,6 +32,8 @@ Future<void> main() async {
     retriever: engine.retriever,
     model: chatModel,
     traceStore: traceStore,
+    lineageRecorder: engine.runtimeLineageRecorder,
+    lineageStore: engine.lineageStore,
   );
 
   runApp(PocketGalleryPilot(

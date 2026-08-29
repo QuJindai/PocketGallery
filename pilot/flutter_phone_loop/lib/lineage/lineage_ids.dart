@@ -60,6 +60,9 @@ abstract final class LineageIds {
   ) =>
       _id('ev', '$traceId|$strategyId|$chunkId');
 
+  static String citationId(String traceId, String anchor) =>
+      _id('cit', '$traceId|$anchor');
+
   static String vectorIndexEntryId(
     String embeddingId,
     String backendId,

@@ -33,6 +33,8 @@ class GenerationTelemetry {
     this.outputTokens,
     this.decodeTokensPerSecond,
     this.backend,
+    this.nativeSessionRebuilt = false,
+    this.sessionResetReason,
   });
 
   final int generationMs;
@@ -40,6 +42,8 @@ class GenerationTelemetry {
   final int? outputTokens;
   final double? decodeTokensPerSecond;
   final String? backend;
+  final bool nativeSessionRebuilt;
+  final String? sessionResetReason;
 }
 
 class ChatTurnResult {
