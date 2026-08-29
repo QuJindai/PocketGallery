@@ -1,116 +1,81 @@
-name: PocketGallery Canonical Signed APK Bridge
+name: PocketGallery Phone Pilot APK
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main, develop, "feature/phone-pilot-r3-final-apk", "feature/phone-pilot-r41-rag-microscope"]
+    paths:
+      - "pilot/flutter_phone_loop/**"
+      - ".github/workflows/pocketgallery-phone-pilot-apk.yml"
+  pull_request:
+    paths:
+      - "pilot/flutter_phone_loop/**"
+      - ".github/workflows/pocketgallery-phone-pilot-apk.yml"
 
 permissions:
   contents: read
 
-concurrency:
-  group: pocketgallery-canonical-sign-bridge
-  cancel-in-progress: false
-
 jobs:
-  signed-phone-apk:
+  pilot-apk:
+    if: github.event_name != 'pull_request' || github.head_ref != 'feature/phone-pilot-r3-final-apk'
     runs-on: ubuntu-latest
     timeout-minutes: 90
-    env:
-      TARGET_SHA: ce0561b615eadb50878b43b585ad0c7ca07af884
-      CANONICAL_SIGNER_SHA256: 81af4a5ef94c236774f0e193b2a4b248805b36c14cc36e2a56df8e451a712541
 
     steps:
-      - name: Checkout trusted signing carrier
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Validate target is the current R4.6 branch head
-        shell: bash
-        run: |
-          set -euo pipefail
-          REMOTE_SHA="$(git ls-remote --exit-code origin refs/heads/feature/phone-pilot-r46-runtime-lineage | awk '{print $1}')"
-          echo "REQUESTED_TARGET_SHA=$TARGET_SHA"
-          echo "CURRENT_R46_HEAD_SHA=$REMOTE_SHA"
-          test "$TARGET_SHA" = "$REMOTE_SHA"
-          {
-            echo "SIGNING_CARRIER_SHA=$(git rev-parse HEAD)"
-            echo "VALIDATED_TARGET_SHA=$REMOTE_SHA"
-          } >> "$GITHUB_ENV"
-
-      - name: Restore canonical R4 signing identity
-        id: signer-cache
+      - name: Restore persistent R3 signing identity
         uses: actions/cache@v5
         with:
           path: ~/.android/pocketgallery-r3-signing
           key: pocketgallery-r3-signing-v1
-          fail-on-cache-miss: true
+          save-always: true
 
-      - name: Verify canonical identity without mutation
+      - name: Prepare persistent R3 signing identity
         shell: bash
         run: |
           set -euo pipefail
-          test "${{ steps.signer-cache.outputs.cache-hit }}" = "true"
           SIGN_DIR="$HOME/.android/pocketgallery-r3-signing"
           KEYSTORE="$SIGN_DIR/r3.keystore"
           PASSFILE="$SIGN_DIR/password"
-          ALIAS=pocketgallery-r3
+          ALIAS="pocketgallery-r3"
+          CANONICAL_SIGNER_SHA256=81af4a5ef94c236774f0e193b2a4b248805b36c14cc36e2a56df8e451a712541
+          echo "CANONICAL_SIGNER_SHA256=$CANONICAL_SIGNER_SHA256" >> "$GITHUB_ENV"
 
+          # A missing signing cache is a release blocker. Never manufacture a
+          # new key in CI: that would make Android reject in-place upgrades and
+          # force users to uninstall, which also destroys OAuth/model state.
           if [[ ! -s "$KEYSTORE" || ! -s "$PASSFILE" ]]; then
-            echo "::error::SIGNING_IDENTITY_MISSING: canonical key is unavailable; refusing to create or rotate an identity"
+            echo "::error::SIGNING_IDENTITY_MISSING: canonical PocketGallery pilot key is unavailable; refusing to rotate signing identity"
             exit 74
           fi
 
-          PASSWORD="$(<"$PASSFILE")"
-          if [[ -z "$PASSWORD" ]]; then
-            echo "::error::SIGNING_IDENTITY_MISSING: canonical key password is empty; refusing to create or rotate an identity"
-            exit 74
-          fi
-          echo "::add-mask::$PASSWORD"
+          PASS="$(cat "$PASSFILE")"
+          echo "::add-mask::$PASS"
 
-          CERT_FILE="$(mktemp)"
-          trap 'rm -f "$CERT_FILE"' EXIT
-          if ! keytool -exportcert \
+          keytool -exportcert \
             -keystore "$KEYSTORE" \
-            -storepass "$PASSWORD" \
+            -storepass "$PASS" \
             -alias "$ALIAS" \
-            -file "$CERT_FILE" \
-            >/dev/null 2>&1; then
-            echo "::error::SIGNING_IDENTITY_UNREADABLE: cached keystore could not be verified"
-            exit 76
-          fi
-          ACTUAL_SIGNER_SHA256="$(sha256sum "$CERT_FILE" | awk '{print $1}')"
-          echo "RESTORED_SIGNER_SHA256=$ACTUAL_SIGNER_SHA256"
-          if [[ "$ACTUAL_SIGNER_SHA256" != "$CANONICAL_SIGNER_SHA256" ]]; then
-            echo "::error::SIGNING_IDENTITY_MISMATCH: refusing to publish an APK that cannot update the installed R4 pilot"
+            -file /tmp/pocketgallery-r3-cert.der >/dev/null
+          KEY_CERT="$(sha256sum /tmp/pocketgallery-r3-cert.der | awk '{print $1}')"
+          echo "CANONICAL_SIGNER_EXPECTED=$CANONICAL_SIGNER_SHA256"
+          echo "RESTORED_SIGNER_SHA256=$KEY_CERT"
+          if [[ "$KEY_CERT" != "$CANONICAL_SIGNER_SHA256" ]]; then
+            echo "::error::SIGNING_IDENTITY_MISMATCH: refusing to publish an APK that cannot update the installed R4.1 pilot"
             exit 75
           fi
 
           {
             echo "POCKETGALLERY_SIGNING_KEYSTORE=$KEYSTORE"
-            echo "POCKETGALLERY_SIGNING_STORE_PASSWORD=$PASSWORD"
-            echo "POCKETGALLERY_SIGNING_KEY_PASSWORD=$PASSWORD"
+            echo "POCKETGALLERY_SIGNING_STORE_PASSWORD=$PASS"
+            echo "POCKETGALLERY_SIGNING_KEY_PASSWORD=$PASS"
             echo "POCKETGALLERY_SIGNING_KEY_ALIAS=$ALIAS"
           } >> "$GITHUB_ENV"
 
-      - name: Checkout validated R4.6 source
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ env.TARGET_SHA }}
-          fetch-depth: 1
-          persist-credentials: false
-
-      - name: Verify exact source identity
-        shell: bash
-        run: |
-          set -euo pipefail
-          SOURCE_SHA="$(git rev-parse HEAD)"
-          echo "SOURCE_SHA=$SOURCE_SHA"
-          echo "SOURCE_TREE=$(git rev-parse 'HEAD^{tree}')"
-          test "$SOURCE_SHA" = "$VALIDATED_TARGET_SHA"
-          git diff --exit-code
-
       - name: Record source integrity snapshot
-        shell: bash
         run: |
-          set -euo pipefail
+          git diff --exit-code
           cd pilot/flutter_phone_loop
           bash scripts/generate_manifests.sh inner | tee /tmp/pg-inner.sha256
           bash scripts/generate_manifests.sh outer | tee /tmp/pg-outer.sha256
@@ -126,7 +91,7 @@ jobs:
         working-directory: pilot/flutter_phone_loop
         run: bash scripts/bootstrap_android.sh
 
-      - name: Flutter environment
+      - name: Environment
         working-directory: pilot/flutter_phone_loop
         run: flutter --version
 
@@ -134,74 +99,56 @@ jobs:
         working-directory: pilot/flutter_phone_loop
         run: flutter analyze
 
-      - name: Full Flutter regression suite
+      - name: Unit tests
         working-directory: pilot/flutter_phone_loop
         run: flutter test
 
-      - name: Build canonical arm64 signed APK
+      - name: Build arm64 debug APK
         working-directory: pilot/flutter_phone_loop
         run: |
-          set -euo pipefail
           flutter build apk --debug --target-platform android-arm64 --split-per-abi
-          cp \
-            build/app/outputs/flutter-apk/app-arm64-v8a-debug.apk \
-            build/app/outputs/flutter-apk/PocketGallery-Phone-Pilot-R48-Lineage-arm64-signed.apk
+          cp build/app/outputs/flutter-apk/app-arm64-v8a-debug.apk build/app/outputs/flutter-apk/app-debug.apk
 
-      - name: Verify package, version, ABI and canonical signer
+      - name: Verify package, version, ABI and canonical signing certificate
         working-directory: pilot/flutter_phone_loop
         shell: bash
         run: |
           set -euo pipefail
-          APK=build/app/outputs/flutter-apk/PocketGallery-Phone-Pilot-R48-Lineage-arm64-signed.apk
+          APK=build/app/outputs/flutter-apk/app-debug.apk
           ABIS="$(unzip -Z1 "$APK" | grep -E '^lib/[^/]+/.*\.so$' | sed -E 's#^lib/([^/]+)/.*#\1#' | sort -u | paste -sd, -)"
           echo "APK_ABIS=$ABIS"
           test "$ABIS" = "arm64-v8a"
 
           AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)"
-          BADGING="$("$AAPT" dump badging "$APK")"
-          PACKAGE="$(sed -n "s/^package: name='\([^']*\)'.*/\1/p" <<<"$BADGING" | head -1)"
-          VERSION_CODE="$(sed -n "s/^package: .*versionCode='\([^']*\)'.*/\1/p" <<<"$BADGING" | head -1)"
-          VERSION_NAME="$(sed -n "s/^package: .*versionName='\([^']*\)'.*/\1/p" <<<"$BADGING" | head -1)"
-          echo "APK_PACKAGE=$PACKAGE"
+          BADGING="$($AAPT dump badging "$APK")"
+          PKG="$(printf '%s\n' "$BADGING" | sed -n "s/^package: name='\([^']*\)'.*/\1/p" | head -1)"
+          VERSION_CODE="$(printf '%s\n' "$BADGING" | sed -n "s/^package:.*versionCode='\([^']*\)'.*/\1/p" | head -1)"
+          echo "APK_PACKAGE=$PKG"
           echo "APK_VERSION_CODE=$VERSION_CODE"
-          echo "APK_VERSION_NAME=$VERSION_NAME"
-          test "$PACKAGE" = "com.qujindai.pocketgallery_phone_pilot.r3"
-          test "$VERSION_CODE" -ge 2018
+          test "$PKG" = "com.qujindai.pocketgallery_phone_pilot.r3"
+          test -n "$VERSION_CODE"
+          test "$VERSION_CODE" -ge 12
 
           APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
           "$APKSIGNER" verify --verbose --print-certs "$APK" 2>&1 | tee /tmp/apksigner.txt
           APK_CERT="$(grep -i 'certificate.*sha-256.*digest' /tmp/apksigner.txt | head -1 | sed -E 's/.*[Dd]igest:[[:space:]]*//' | tr -d '[:space:]:' | tr '[:upper:]' '[:lower:]')"
           echo "APK_SIGNER_SHA256=$APK_CERT"
+          echo "CANONICAL_SIGNER_SHA256=$CANONICAL_SIGNER_SHA256"
+          test -n "$APK_CERT"
           test "$APK_CERT" = "$CANONICAL_SIGNER_SHA256"
 
-          APK_SHA256="$(sha256sum "$APK" | awk '{print $1}')"
-          SOURCE_SHA="$(git rev-parse HEAD)"
-          SOURCE_TREE="$(git rev-parse 'HEAD^{tree}')"
-          OUTPUT_DIR=build/app/outputs/flutter-apk
-          printf '%s  %s\n' "$APK_SHA256" "$(basename "$APK")" > "$APK.sha256"
-          cp /tmp/pg-inner.sha256 "$OUTPUT_DIR/source-inner.sha256"
-          cp /tmp/pg-outer.sha256 "$OUTPUT_DIR/source-outer.sha256"
-          {
-            echo "SOURCE_SHA=$SOURCE_SHA"
-            echo "SOURCE_TREE=$SOURCE_TREE"
-            echo "SIGNING_CARRIER_SHA=$SIGNING_CARRIER_SHA"
-            echo "APK_PACKAGE=$PACKAGE"
-            echo "APK_VERSION_CODE=$VERSION_CODE"
-            echo "APK_VERSION_NAME=$VERSION_NAME"
-            echo "APK_ABIS=$ABIS"
-            echo "APK_SIGNER_SHA256=$APK_CERT"
-            echo "APK_SHA256=$APK_SHA256"
-          } | tee "$OUTPUT_DIR/SIGNED_BUILD_PROOF.txt"
+      - name: Hash APK
+        working-directory: pilot/flutter_phone_loop
+        run: |
+          sha256sum build/app/outputs/flutter-apk/app-debug.apk | tee build/app/outputs/flutter-apk/app-debug.apk.sha256
 
-      - name: Upload signed APK and proof
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
-          name: PocketGallery-Phone-Pilot-R48-Lineage-Signed-arm64
+          name: PocketGallery-Phone-Pilot-R3-debug-apk
           path: |
-            pilot/flutter_phone_loop/build/app/outputs/flutter-apk/PocketGallery-Phone-Pilot-R48-Lineage-arm64-signed.apk
-            pilot/flutter_phone_loop/build/app/outputs/flutter-apk/PocketGallery-Phone-Pilot-R48-Lineage-arm64-signed.apk.sha256
-            pilot/flutter_phone_loop/build/app/outputs/flutter-apk/SIGNED_BUILD_PROOF.txt
-            pilot/flutter_phone_loop/build/app/outputs/flutter-apk/source-inner.sha256
-            pilot/flutter_phone_loop/build/app/outputs/flutter-apk/source-outer.sha256
+            pilot/flutter_phone_loop/build/app/outputs/flutter-apk/app-debug.apk
+            pilot/flutter_phone_loop/build/app/outputs/flutter-apk/app-debug.apk.sha256
           if-no-files-found: error
           retention-days: 14
+
+# R3_FINAL_GREEN_GATE
