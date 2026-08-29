@@ -53,6 +53,14 @@ abstract final class LineageIds {
   ) =>
       _id('ev', '$traceId|$strategyId|$chunkId');
 
+  static String vectorIndexEntryId(
+    String embeddingId,
+    String backendId,
+    String strategyId,
+    RetrievalLane lane,
+  ) =>
+      _id('idx', '$embeddingId|$backendId|$strategyId|${lane.dbValue}');
+
   static String buildJobId(String documentId, String strategyId) =>
       _id('job', '$documentId|$strategyId');
 }
