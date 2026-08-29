@@ -7,6 +7,7 @@ import '../chat/chat_session_store.dart';
 import '../core/models.dart';
 import '../services/knowledge_engine.dart';
 import 'microscope/retrieval_trace_page.dart';
+import 'microscope/rag_lineage_dashboard_page.dart';
 
 class ChatPage extends StatefulWidget {
   const ChatPage({
@@ -346,8 +347,24 @@ class _ChatPageState extends State<ChatPage> {
 
   Future<void> _showTrace(ChatMessage message) async {
     final traceId = message.traceId;
+    if (traceId == null) return;
+    final lineageStore = widget.orchestrator.lineageStore;
+    if (lineageStore != null) {
+      final lineageTrace = await lineageStore.traceById(traceId);
+      if (!mounted) return;
+      if (lineageTrace != null) {
+        await Navigator.of(context).push(MaterialPageRoute<void>(
+          builder: (_) => RagLineageDashboardPage(
+            engine: widget.engine,
+            lineageStore: lineageStore,
+            traceId: traceId,
+          ),
+        ));
+        return;
+      }
+    }
     final traceStore = widget.orchestrator.traceStore;
-    if (traceId == null || traceStore == null) return;
+    if (traceStore == null) return;
     final trace = await traceStore.get(traceId);
     if (!mounted) return;
     if (trace == null) {
@@ -724,7 +741,8 @@ class _ChatPageState extends State<ChatPage> {
                     ),
                   ),
                   if (message.traceId != null &&
-                      widget.orchestrator.traceStore != null) ...[
+                      (widget.orchestrator.lineageStore != null ||
+                          widget.orchestrator.traceStore != null)) ...[
                     const SizedBox(width: 8),
                     TextButton.icon(
                       style: TextButton.styleFrom(
