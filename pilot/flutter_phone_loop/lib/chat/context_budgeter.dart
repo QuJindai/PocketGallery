@@ -9,6 +9,8 @@ class ContextBudgeter {
   static const outputReserve = 700;
   static const evidenceReserveMax = 1900;
   static const safetyReserve = 600;
+  static const _evidenceHeaderTokenCap = 96;
+  static const _truncationMarker = '…[context budget truncated]';
 
   int estimateTokens(String text) {
     final cjk = RegExp(r'[\u3400-\u9FFF]').allMatches(text).length;
@@ -24,27 +26,101 @@ class ContextBudgeter {
     if (evidence.isEmpty || maxTokens <= 0 || maxItems <= 0) return '';
 
     final selected = evidence.take(maxItems).toList(growable: false);
-    final blocks = <String>[];
-    for (var i = 0; i < selected.length; i++) {
-      final used = blocks.isEmpty ? 0 : estimateTokens(blocks.join('\n\n'));
-      final remaining = maxTokens - used;
-      if (remaining <= 0) break;
+    final perHeaderBudget = maxTokens ~/ selected.length;
+    final headerBudget = perHeaderBudget < _evidenceHeaderTokenCap
+        ? perHeaderBudget
+        : _evidenceHeaderTokenCap;
+    var headers = [
+      for (final item in selected)
+        _composeEvidenceHeader(item, headerBudget),
+    ];
+    var headerContext = headers.join('\n\n');
 
-      final remainingItems = selected.length - i;
-      final share = (remaining / remainingItems).floor();
-      final item = selected[i];
-      final header = '[${item.anchor}] source="${item.chunk.sourceName}" '
-          'location="${item.chunk.locator}" chunk="${item.chunk.id}"';
-      final bodyBudget = share - estimateTokens(header);
-      final body = bodyBudget <= 0
-          ? ''
-          : trimTextToTokenBudget(item.chunk.text, bodyBudget);
-      blocks.add(body.isEmpty ? header : '$header\n$body');
+    if (estimateTokens(headerContext) > maxTokens) {
+      headers = [for (final item in selected) '[${item.anchor}]'];
+      headerContext = headers.join('\n\n');
+      if (estimateTokens(headerContext) > maxTokens) {
+        // A partial anchor list would misrepresent which evidence was supplied.
+        return '';
+      }
     }
 
-    final context = blocks.join('\n\n');
+    final bodyTokenBudget = maxTokens - estimateTokens(headerContext);
+    if (bodyTokenBudget <= 0) return headerContext;
+
+    final baseBodyBudget = bodyTokenBudget ~/ selected.length;
+    final extraBodyTokens = bodyTokenBudget % selected.length;
+    final bodies = <String>[];
+    for (var i = 0; i < selected.length; i++) {
+      final itemBudget = baseBodyBudget + (i < extraBodyTokens ? 1 : 0);
+      bodies.add(trimTextToTokenBudget(selected[i].chunk.text, itemBudget));
+    }
+
+    final context = [
+      for (var i = 0; i < selected.length; i++)
+        bodies[i].isEmpty ? headers[i] : '${headers[i]}\n${bodies[i]}',
+    ].join('\n\n');
     if (estimateTokens(context) <= maxTokens) return context;
-    return trimTextToTokenBudget(context, maxTokens);
+
+    // Header reservations are authoritative. If estimator rounding ever makes
+    // the combined bodies overflow, retain every identity and discard bodies.
+    return headerContext;
+  }
+
+  String _composeEvidenceHeader(EvidenceItem item, int maxTokens) {
+    final anchor = '[${item.anchor}]';
+    final chunk = item.chunk;
+    final fullHeader = '$anchor source="${chunk.sourceName}" '
+        'location="${chunk.locator}" chunk="${chunk.id}"';
+    if (estimateTokens(fullHeader) <= maxTokens) return fullHeader;
+
+    final longestField = [
+      chunk.sourceName.length,
+      chunk.locator.length,
+      chunk.id.length,
+    ].reduce((a, b) => a > b ? a : b);
+    var low = 1;
+    var high = longestField;
+    String? best;
+    while (low <= high) {
+      final fieldLimit = (low + high) >> 1;
+      final candidate = '$anchor '
+          'source="${_compactMetadata(chunk.sourceName, fieldLimit)}" '
+          'location="${_compactMetadata(chunk.locator, fieldLimit)}" '
+          'chunk="${_compactMetadata(chunk.id, fieldLimit)}"';
+      if (estimateTokens(candidate) <= maxTokens) {
+        best = candidate;
+        low = fieldLimit + 1;
+      } else {
+        high = fieldLimit - 1;
+      }
+    }
+    if (best != null) return best;
+
+    final sourceIdentity = '#${_stableFingerprint(chunk.sourceName)}';
+    final compactHeader = '$anchor source="$sourceIdentity"';
+    return estimateTokens(compactHeader) <= maxTokens ? compactHeader : anchor;
+  }
+
+  String _compactMetadata(String value, int maxChars) {
+    if (value.isEmpty || maxChars <= 0) return '';
+    if (value.length <= maxChars) return value;
+
+    final suffix = '…#${_stableFingerprint(value)}';
+    if (maxChars <= suffix.length) {
+      return suffix.substring(suffix.length - maxChars);
+    }
+    final prefixLength = maxChars - suffix.length;
+    return '${value.substring(0, prefixLength)}$suffix';
+  }
+
+  String _stableFingerprint(String value) {
+    var hash = 0x811c9dc5;
+    for (final codeUnit in value.codeUnits) {
+      hash ^= codeUnit;
+      hash = (hash * 0x01000193) & 0xffffffff;
+    }
+    return hash.toRadixString(16).padLeft(8, '0');
   }
 
   int availableHistoryTokens({
@@ -89,21 +165,24 @@ class ContextBudgeter {
   String trimTextToTokenBudget(String text, int maxTokens) {
     if (text.isEmpty || maxTokens <= 0) return '';
     if (estimateTokens(text) <= maxTokens) return text;
+    if (estimateTokens(_truncationMarker) > maxTokens) return '';
 
     var low = 0;
     var high = text.length;
-    var best = 0;
+    var best = _truncationMarker;
     while (low <= high) {
       final mid = (low + high) >> 1;
-      final candidate = text.substring(0, mid);
+      final prefix = text.substring(0, mid).trimRight();
+      final candidate = prefix.isEmpty
+          ? _truncationMarker
+          : '$prefix\n$_truncationMarker';
       if (estimateTokens(candidate) <= maxTokens) {
-        best = mid;
+        best = candidate;
         low = mid + 1;
       } else {
         high = mid - 1;
       }
     }
-    if (best <= 0) return '';
-    return '${text.substring(0, best).trimRight()}\n…[context budget truncated]';
+    return best;
   }
 }
