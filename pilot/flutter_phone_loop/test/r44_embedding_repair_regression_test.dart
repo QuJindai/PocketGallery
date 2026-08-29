@@ -49,10 +49,11 @@ void main() {
     expect(fixture, contains('cleanupReservedGoldenDocuments'));
   });
 
-  test('R4.4 advances install version for in-place update', () async {
+  test('R4.4+ keeps a monotonic install version for in-place update', () async {
     final pubspec = await File('pubspec.yaml').readAsString();
-    final match = RegExp(r'^version:\s*0\.4\.13\+14\s*$', multiLine: true)
+    final match = RegExp(r'^version:\s*0\.4\.\d+\+(\d+)\s*$', multiLine: true)
         .firstMatch(pubspec);
     expect(match, isNotNull);
+    expect(int.parse(match!.group(1)!), greaterThanOrEqualTo(14));
   });
 }
