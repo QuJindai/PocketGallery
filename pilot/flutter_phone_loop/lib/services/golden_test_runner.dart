@@ -11,6 +11,9 @@ import '../chat/chat_session_store.dart';
 import '../core/evidence.dart';
 import '../core/models.dart';
 import '../eval/retrieval_benchmark_fixture.dart';
+import '../lineage/lineage_ids.dart';
+import '../lineage/lineage_models.dart';
+import '../lineage/lineage_store.dart';
 import 'gemma_chat_service.dart';
 import 'knowledge_engine.dart';
 import 'knowledge_retriever.dart';
@@ -27,6 +30,163 @@ class GoldenTestReport {
         'passed': passed,
         'results': results.map((e) => e.toJson()).toList(),
       };
+}
+
+class GoldenLineageVerifier {
+  const GoldenLineageVerifier();
+
+  static const requiredRuntimeEventKinds = <String>{
+    'trace.started',
+    'fts.search_completed',
+    'embedding.query_completed',
+    'vector.search_completed',
+    'fusion.completed',
+    'candidate.pool_built',
+    'router.evaluated',
+    'evidence.selected',
+    'context.budgeted',
+    'generation.completed',
+    'citation.resolved',
+    'trace.completed',
+  };
+
+  Future<List<GateResult>> verify(
+    LineageStore store,
+    String? traceId,
+  ) async {
+    if (traceId == null || traceId.trim().isEmpty) {
+      return const <GateResult>[
+        GateResult('F8_RUNTIME_LINEAGE', false, 'traceId 未捕获'),
+        GateResult('F9_QUERY_VECTOR_IDENTITY', false, 'traceId 未捕获'),
+        GateResult('F10_CONTEXT_BUDGET', false, 'traceId 未捕获'),
+      ];
+    }
+
+    final trace = await store.traceById(traceId);
+    final events = await store.eventsForTrace(traceId);
+    final activeEvents = trace == null
+        ? const <TraceEventRecord>[]
+        : events
+            .where(
+              (event) =>
+                  event.lane == RetrievalLane.active &&
+                  event.strategyId == trace.activeStrategyId,
+            )
+            .toList(growable: false);
+    final capturedKinds = activeEvents.map((event) => event.kind).toSet();
+    final missingKinds = requiredRuntimeEventKinds.difference(capturedKinds);
+    final f8Passed =
+        trace?.status == TraceStatus.complete && missingKinds.isEmpty;
+    final f8 = GateResult(
+      'F8_RUNTIME_LINEAGE',
+      f8Passed,
+      trace == null
+          ? 'trace row 未捕获 · $traceId'
+          : 'status=${trace.status.name} · ACTIVE events=${capturedKinds.length} · missing=${missingKinds.isEmpty ? 'none' : missingKinds.join(',')}',
+    );
+
+    final queryEmbeddingId = LineageIds.queryEmbeddingId(traceId);
+    final embedding = await store.embeddingById(queryEmbeddingId);
+    final embeddingEvent = _event(activeEvents, 'embedding.query_completed');
+    final vectorEvent = _event(activeEvents, 'vector.search_completed');
+    final embeddingPayload = _payload(embeddingEvent);
+    final vectorPayload = _payload(vectorEvent);
+    var embeddingValid = false;
+    if (embedding != null) {
+      try {
+        embedding.validate();
+        embeddingValid =
+            embedding.embeddingId == queryEmbeddingId &&
+            embedding.sourceKind == 'query' &&
+            embedding.sourceId == traceId &&
+            embedding.chunkId == null &&
+            embedding.representation == EmbeddingRepresentation.query &&
+            embedding.modelIdentity.isNotEmpty &&
+            embedding.taskMode == 'retrieval_query';
+      } catch (_) {
+        embeddingValid = false;
+      }
+    }
+    final f9Passed =
+        embeddingValid &&
+        embeddingPayload['embeddingId'] == queryEmbeddingId &&
+        embeddingPayload['modelIdentity'] == embedding?.modelIdentity &&
+        embeddingPayload['dimension'] == embedding?.dimension &&
+        embeddingPayload['vectorSha256'] == embedding?.vectorSha256 &&
+        vectorPayload['queryEmbeddingId'] == queryEmbeddingId;
+    final f9 = GateResult(
+      'F9_QUERY_VECTOR_IDENTITY',
+      f9Passed,
+      embedding == null
+          ? 'query embedding row 未捕获 · $queryEmbeddingId'
+          : 'id=$queryEmbeddingId · dim=${embedding.dimension} · sha=${_short(embedding.vectorSha256)} · vectorEvent=${vectorPayload['queryEmbeddingId'] ?? '未捕获'}',
+    );
+
+    final budget = await store.promptBudgetForTrace(traceId);
+    final componentSum = budget == null
+        ? null
+        : budget.systemTokens +
+            budget.historyTokens +
+            budget.evidenceTokens +
+            budget.queryTokens;
+    final componentsNonNegative = budget != null &&
+        <int>[
+          budget.systemTokens,
+          budget.historyTokens,
+          budget.evidenceTokens,
+          budget.queryTokens,
+          budget.outputReserveTokens,
+          budget.totalPrefillTokens,
+          budget.remainingTokens,
+        ].every((value) => value >= 0);
+    final f10Passed =
+        budget != null &&
+        budget.lane == RetrievalLane.active &&
+        budget.strategyId == trace?.activeStrategyId &&
+        budget.modelContextLimit > 0 &&
+        componentsNonNegative &&
+        componentSum == budget.totalPrefillTokens &&
+        budget.totalPrefillTokens + budget.outputReserveTokens <=
+            budget.modelContextLimit &&
+        budget.remainingTokens ==
+            budget.modelContextLimit -
+                budget.totalPrefillTokens -
+                budget.outputReserveTokens;
+    final f10 = GateResult(
+      'F10_CONTEXT_BUDGET',
+      f10Passed,
+      budget == null
+          ? 'prompt budget row 未捕获'
+          : 'components=$componentSum · prefill=${budget.totalPrefillTokens} · reserve=${budget.outputReserveTokens} · limit=${budget.modelContextLimit} · remaining=${budget.remainingTokens}',
+    );
+
+    return <GateResult>[f8, f9, f10];
+  }
+
+  TraceEventRecord? _event(
+    List<TraceEventRecord> events,
+    String kind,
+  ) {
+    for (final event in events) {
+      if (event.kind == kind) return event;
+    }
+    return null;
+  }
+
+  Map<String, dynamic> _payload(TraceEventRecord? event) {
+    if (event == null) return const <String, dynamic>{};
+    try {
+      final decoded = jsonDecode(event.payloadJson);
+      return decoded is Map<String, dynamic>
+          ? decoded
+          : const <String, dynamic>{};
+    } catch (_) {
+      return const <String, dynamic>{};
+    }
+  }
+
+  String _short(String value) =>
+      value.length <= 12 ? value : '${value.substring(0, 12)}…';
 }
 
 class GoldenTestRunner {
@@ -164,6 +324,12 @@ class GoldenTestRunner {
         heavyReply.text.trim().isNotEmpty,
         'second-turn=${heavyReply.text.replaceAll('\n', ' ').substring(0, heavyReply.text.length > 160 ? 160 : heavyReply.text.length)}',
       ));
+      results.addAll(
+        await const GoldenLineageVerifier().verify(
+          engine.lineageStore,
+          reply.traceId,
+        ),
+      );
     } catch (e, st) {
       results.add(GateResult('RUNTIME_EXCEPTION', false, '$e\n$st'));
     } finally {

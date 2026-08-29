@@ -3,7 +3,7 @@ name: PocketGallery Phone Pilot APK
 on:
   workflow_dispatch:
   push:
-    branches: [main, develop, "feature/phone-pilot-r3-final-apk", "feature/phone-pilot-r41-rag-microscope"]
+    branches: [main, develop, "feature/phone-pilot-r3-final-apk", "feature/phone-pilot-r41-rag-microscope", "feature/phone-pilot-r46-runtime-lineage"]
     paths:
       - "pilot/flutter_phone_loop/**"
       - ".github/workflows/pocketgallery-phone-pilot-apk.yml"
@@ -127,7 +127,7 @@ jobs:
           echo "APK_VERSION_CODE=$VERSION_CODE"
           test "$PKG" = "com.qujindai.pocketgallery_phone_pilot.r3"
           test -n "$VERSION_CODE"
-          test "$VERSION_CODE" -ge 12
+          test "$VERSION_CODE" -ge 2018
 
           APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
           "$APKSIGNER" verify --verbose --print-certs "$APK" 2>&1 | tee /tmp/apksigner.txt

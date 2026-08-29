@@ -30,29 +30,6 @@ jobs:
       - name: Analyze R4.6 batch 1
         working-directory: pilot/flutter_phone_loop
         run: flutter analyze
-      - name: R4.6 Tasks 1-3 and frozen regressions
+      - name: Full Flutter regression suite
         working-directory: pilot/flutter_phone_loop
-        run: >-
-          flutter test
-          test/r46_lineage_store_test.dart
-          test/r46_vector_index_test.dart
-          test/r46_vector_migration_test.dart
-          test/r46_vector_migration_wiring_test.dart
-          test/r46_import_lineage_test.dart
-          test/r46_query_embedding_identity_test.dart
-          test/r46_runtime_lineage_recorder_test.dart
-          test/r46_retrieval_runtime_test.dart
-          test/r46_router_evidence_lineage_test.dart
-          test/r46_context_generation_lineage_test.dart
-          test/r46_chat_lineage_integration_test.dart
-          test/r46_vector_health_test.dart
-          test/r46_lineage_ui_test.dart
-          test/r46_upgrade_golden_contract_test.dart
-          test/r41_trace_store_test.dart
-          test/r41_vector_observation_test.dart
-          test/r41_upgrade_contract_test.dart
-          test/r403_embedding_runtime_recovery_test.dart
-          test/r44_embedding_repair_regression_test.dart
-          test/r3_model_cache_contract_test.dart
-          test/r4_knowledge_retriever_test.dart
-          test/r4_chat_session_store_test.dart
+        run: flutter test
