@@ -121,6 +121,42 @@ void main() {
     expect(budgeter.estimateTokens(context), lessThanOrEqualTo(maxTokens));
   });
 
+  test('shared header budget retains every source fingerprint at 45 tokens', () {
+    const budgeter = ContextBudgeter();
+    const maxTokens = 45;
+    final evidence = [
+      for (var i = 0; i < 6; i++)
+        EvidenceItem(
+          anchor: 'E${i + 1}',
+          chunk: PgChunk(
+            id: 'chunk-$i-${List.filled(1500, 'c').join()}',
+            documentId: 'document-$i',
+            sourceName: 'document-$i-${List.filled(1500, 's').join()}',
+            locator: 'section-$i-${List.filled(1500, 'l').join()}',
+            ordinal: 0,
+            text: 'body $i',
+          ),
+          score: 1,
+        ),
+    ];
+
+    final context = budgeter.composeEvidenceContext(
+      evidence,
+      maxTokens: maxTokens,
+      maxItems: 8,
+    );
+    final fingerprints = RegExp(r'source="#[0-9a-f]{8}"')
+        .allMatches(context)
+        .map((match) => match.group(0))
+        .toSet();
+
+    for (var i = 0; i < 6; i++) {
+      expect(context, contains('[E${i + 1}]'));
+    }
+    expect(fingerprints, hasLength(6));
+    expect(budgeter.estimateTokens(context), lessThanOrEqualTo(maxTokens));
+  });
+
   test('truncation marker is included inside the requested token budget', () {
     const budgeter = ContextBudgeter();
     const maxTokens = 24;
@@ -132,6 +168,39 @@ void main() {
 
     expect(trimmed, contains('[context budget truncated]'));
     expect(budgeter.estimateTokens(trimmed), lessThanOrEqualTo(maxTokens));
+  });
+
+  test('empty and sub-marker results never exceed tiny token budgets', () {
+    const budgeter = ContextBudgeter();
+    const evidence = [
+      EvidenceItem(
+        anchor: 'E1',
+        chunk: PgChunk(
+          id: 'chunk-1',
+          documentId: 'document-1',
+          sourceName: 'document-1.md',
+          locator: 'section 1',
+          ordinal: 0,
+          text: 'body',
+        ),
+        score: 1,
+      ),
+    ];
+
+    expect(budgeter.estimateTokens(''), 0);
+    for (final maxTokens in [1, 7, 8]) {
+      final context = budgeter.composeEvidenceContext(
+        evidence,
+        maxTokens: maxTokens,
+      );
+      final trimmed = budgeter.trimTextToTokenBudget(
+        List.filled(1000, 'abcdef').join(),
+        maxTokens,
+      );
+
+      expect(budgeter.estimateTokens(context), lessThanOrEqualTo(maxTokens));
+      expect(budgeter.estimateTokens(trimmed), lessThanOrEqualTo(maxTokens));
+    }
   });
 
   test('R4.7 advances the in-place update build number beyond R4.6', () async {
