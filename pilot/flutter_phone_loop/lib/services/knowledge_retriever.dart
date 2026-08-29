@@ -20,8 +20,12 @@ class RetrievalBundle {
     this.traceDraft,
   });
 
-  static const semanticOnlyAutoThreshold = 0.60;
-  static const semanticOnlyKnowledgeThreshold = 0.58;
+  static const semanticOnlyAutoStrongThreshold = 0.62;
+  static const semanticOnlyAutoFloor = 0.52;
+  static const semanticOnlyAutoGap = 0.035;
+  static const semanticOnlyKnowledgeStrongThreshold = 0.58;
+  static const semanticOnlyKnowledgeFloor = 0.50;
+  static const semanticOnlyKnowledgeGap = 0.025;
 
   final List<RetrievalHit> lexicalHits;
   final List<RetrievalHit> semanticHits;
@@ -34,25 +38,40 @@ class RetrievalBundle {
   double? get topSemanticScore =>
       semanticHits.isEmpty ? null : semanticHits.first.score;
 
+  double get semanticTopGap {
+    if (semanticHits.isEmpty) return 0;
+    if (semanticHits.length == 1) return semanticHits.first.score;
+    return semanticHits.first.score - semanticHits[1].score;
+  }
+
   bool get relevantForAuto {
     final override = autoRelevantOverride;
     if (override != null) return override;
     if (evidence.isEmpty || hybridHits.isEmpty) return false;
 
-    // A hybrid RRF score is a ranking score, not an absolute relevance
-    // probability. Preserve genuinely dual-channel evidence, but for
-    // semantic-only candidates use the REAL raw embedding similarity instead
-    // of treating an RRF score such as 0.03 as a confidence threshold.
+    // Dual-channel agreement is strong evidence because lexical and semantic
+    // retrieval independently selected the same candidate.
     if (hybridHits.first.channels.length > 1) return true;
     if (lexicalHits.isNotEmpty) return true;
-    return (topSemanticScore ?? 0) >= semanticOnlyAutoThreshold;
+
+    // Raw cosine is not globally calibrated enough for one hard threshold.
+    // Accept either a very strong absolute winner, or a moderately strong
+    // winner that is clearly separated from the second candidate. This keeps
+    // weak semantic noise out while allowing real queries such as
+    // "端侧模型如何测试" to use a clearly leading local document.
+    final top = topSemanticScore ?? 0;
+    return top >= semanticOnlyAutoStrongThreshold ||
+        (top >= semanticOnlyAutoFloor && semanticTopGap >= semanticOnlyAutoGap);
   }
 
   bool get relevantForKnowledge {
     if (evidence.isEmpty || hybridHits.isEmpty) return false;
     if (hybridHits.first.channels.length > 1) return true;
     if (lexicalHits.isNotEmpty) return true;
-    return (topSemanticScore ?? 0) >= semanticOnlyKnowledgeThreshold;
+    final top = topSemanticScore ?? 0;
+    return top >= semanticOnlyKnowledgeStrongThreshold ||
+        (top >= semanticOnlyKnowledgeFloor &&
+            semanticTopGap >= semanticOnlyKnowledgeGap);
   }
 }
 
