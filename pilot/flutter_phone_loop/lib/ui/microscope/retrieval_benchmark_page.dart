@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/hybrid_ranker.dart';
 import '../../eval/retrieval_benchmark.dart';
+import '../../eval/retrieval_benchmark_fixture.dart';
 import '../../eval/retrieval_evaluator.dart';
 import '../../services/knowledge_engine.dart';
 
@@ -56,10 +57,22 @@ class _RetrievalBenchmarkPageState extends State<RetrievalBenchmarkPage> {
     setState(() {
       running = true;
       error = null;
-      status = '运行检索基准…';
+      status = '准备临时 Golden 基准语料…';
       metrics.clear();
     });
+
+    RetrievalBenchmarkLease? lease;
+    var completed = false;
     try {
+      // The benchmark labels refer to pg_golden_* sources. Running those cases
+      // against an arbitrary user corpus made every metric appear as 0.0 even
+      // when retrieval was healthy. Seed the deterministic fixture only for
+      // this run, then remove it again so diagnostics never pollute the library.
+      lease = await RetrievalBenchmarkFixture.prepare(
+        widget.engine,
+        resetKnownFixtures: true,
+      );
+
       final runner = RetrievalBenchmarkRunner(
         lexicalStore: widget.engine.lexicalStore,
         semanticStore: widget.engine.semanticStore,
@@ -77,16 +90,27 @@ class _RetrievalBenchmarkPageState extends State<RetrievalBenchmarkPage> {
         final results = await runner.runDataset(data, strategy);
         metrics[strategy] = evaluator.aggregate(data.cases, results);
       }
-      if (!mounted) return;
-      setState(() => status = '完成 · ${data.cases.length} cases');
+      completed = true;
+      if (mounted) {
+        setState(() => status = '评估完成，正在清理临时 Golden 语料…');
+      }
     } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        error = e;
-        status = '运行失败';
-      });
+      if (mounted) {
+        setState(() {
+          error = e;
+          status = '运行失败';
+        });
+      }
     } finally {
-      if (mounted) setState(() => running = false);
+      await lease?.cleanup();
+      if (mounted) {
+        setState(() {
+          running = false;
+          if (completed) {
+            status = '完成 · ${data.cases.length} cases · 临时 Golden 已清理';
+          }
+        });
+      }
     }
   }
 
@@ -104,7 +128,7 @@ class _RetrievalBenchmarkPageState extends State<RetrievalBenchmarkPage> {
                   style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 4),
               Text(
-                '${dataset!.cases.length} 个带人工期望来源的本地 Golden cases · 指标只在真实运行后显示',
+                '${dataset!.cases.length} 个带人工期望来源的 Golden cases · 运行时自动装载临时基准语料，结束后清理',
               ),
             ],
             const SizedBox(height: 8),
@@ -162,7 +186,7 @@ class _RetrievalBenchmarkPageState extends State<RetrievalBenchmarkPage> {
               _metricsCard(strategy, metrics[strategy]),
             const SizedBox(height: 8),
             Text(
-              'Hit@K / Recall / MRR / Context Precision 均为 DERIVED 指标；每个候选命中与排名来自真实 FTS5 / Embedding 运行。未运行时不显示占位百分比。',
+              'Hit@K / Recall / MRR / Context Precision 均为 DERIVED 指标；每个候选命中与排名来自真实 FTS5 / Embedding 运行。临时 Golden 语料只在本次评估期间存在。',
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ],
