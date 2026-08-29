@@ -166,7 +166,7 @@ class GoldenGateExecutor {
     GoldenProgressCallback? onProgress,
     GoldenCheckpointCallback? onCheckpoint,
   ) async {
-    onProgress?.call(snapshot);
     await onCheckpoint?.call(snapshot);
+    onProgress?.call(snapshot);
   }
 }
