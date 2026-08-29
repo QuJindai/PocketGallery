@@ -3,9 +3,11 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pocketgallery_phone_pilot/chat/chat_models.dart';
 import 'package:pocketgallery_phone_pilot/core/models.dart';
 import 'package:pocketgallery_phone_pilot/services/golden_gate_executor.dart';
 import 'package:pocketgallery_phone_pilot/services/golden_test_report_store.dart';
+import 'package:pocketgallery_phone_pilot/services/golden_test_runner.dart';
 import 'package:pocketgallery_phone_pilot/services/golden_test_state.dart';
 
 void main() {
@@ -205,6 +207,76 @@ void main() {
           .writeAsString('bad-backup');
 
       expect(await store.readLast(), isNull);
+    });
+  });
+
+  group('R4.8 strict F7 assertion', () {
+    const validAnchors = {'E1', 'E2', 'E3', 'E4', 'E5', 'E6'};
+
+    test('rejects a non-empty second turn that never reaches E6', () {
+      final reply = ChatMessage.assistant(
+        id: 'a1',
+        sessionId: 's1',
+        text: '上下文正常 [E1]',
+        retrievalMode: 'knowledge:lexical-only',
+        citedAnchorsJson: ChatMessage.encodeAnchors(['E1']),
+      );
+
+      final result = GoldenF7Assertion.evaluate(reply, validAnchors);
+
+      expect(result.name, 'F7_CHAT_REALWORLD');
+      expect(result.passed, isFalse);
+      expect(result.detail, contains('sentinel=false'));
+      expect(result.detail, contains('citesE6=false'));
+    });
+
+    test('rejects an out-of-pack citation even when E6 is present', () {
+      final reply = ChatMessage.assistant(
+        id: 'a2',
+        sessionId: 's1',
+        text: 'PG_EVIDENCE_LAST_6 [E6] [E9]',
+        retrievalMode: 'knowledge:lexical-only',
+        citedAnchorsJson: ChatMessage.encodeAnchors(['E6', 'E9']),
+      );
+
+      final result = GoldenF7Assertion.evaluate(reply, validAnchors);
+
+      expect(result.passed, isFalse);
+      expect(result.detail, contains('validCitations=false'));
+    });
+
+    test('rejects model-only retrieval even with the sentinel and E6', () {
+      final reply = ChatMessage.assistant(
+        id: 'a3',
+        sessionId: 's1',
+        text: 'PG_EVIDENCE_LAST_6 [E6]',
+        retrievalMode: 'modelOnly',
+        citedAnchorsJson: ChatMessage.encodeAnchors(['E6']),
+      );
+
+      final result = GoldenF7Assertion.evaluate(reply, validAnchors);
+
+      expect(result.passed, isFalse);
+      expect(result.detail, contains('knowledgeMode=false'));
+    });
+
+    test('passes only the final sentinel with a valid E6 knowledge citation',
+        () {
+      final reply = ChatMessage.assistant(
+        id: 'a4',
+        sessionId: 's1',
+        text: '最后标记是 PG_EVIDENCE_LAST_6 [E6]',
+        retrievalMode: 'knowledge:hybrid',
+        citedAnchorsJson: ChatMessage.encodeAnchors(['E6']),
+      );
+
+      final result = GoldenF7Assertion.evaluate(reply, validAnchors);
+
+      expect(result.passed, isTrue);
+      expect(result.detail, contains('sentinel=true'));
+      expect(result.detail, contains('citesE6=true'));
+      expect(result.detail, contains('validCitations=true'));
+      expect(result.detail, contains('knowledgeMode=true'));
     });
   });
 }
