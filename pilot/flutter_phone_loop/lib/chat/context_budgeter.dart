@@ -1,3 +1,4 @@
+import '../core/models.dart';
 import 'chat_models.dart';
 
 class ContextBudgeter {
@@ -13,6 +14,37 @@ class ContextBudgeter {
     final cjk = RegExp(r'[\u3400-\u9FFF]').allMatches(text).length;
     final nonCjk = text.length - cjk;
     return cjk + (nonCjk / 4).ceil() + 8;
+  }
+
+  String composeEvidenceContext(
+    List<EvidenceItem> evidence, {
+    int maxTokens = evidenceReserveMax,
+    int maxItems = 8,
+  }) {
+    if (evidence.isEmpty || maxTokens <= 0 || maxItems <= 0) return '';
+
+    final selected = evidence.take(maxItems).toList(growable: false);
+    final blocks = <String>[];
+    for (var i = 0; i < selected.length; i++) {
+      final used = blocks.isEmpty ? 0 : estimateTokens(blocks.join('\n\n'));
+      final remaining = maxTokens - used;
+      if (remaining <= 0) break;
+
+      final remainingItems = selected.length - i;
+      final share = (remaining / remainingItems).floor();
+      final item = selected[i];
+      final header = '[${item.anchor}] source="${item.chunk.sourceName}" '
+          'location="${item.chunk.locator}" chunk="${item.chunk.id}"';
+      final bodyBudget = share - estimateTokens(header);
+      final body = bodyBudget <= 0
+          ? ''
+          : trimTextToTokenBudget(item.chunk.text, bodyBudget);
+      blocks.add(body.isEmpty ? header : '$header\n$body');
+    }
+
+    final context = blocks.join('\n\n');
+    if (estimateTokens(context) <= maxTokens) return context;
+    return trimTextToTokenBudget(context, maxTokens);
   }
 
   int availableHistoryTokens({

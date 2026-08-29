@@ -2,7 +2,6 @@ import 'package:flutter_gemma/flutter_gemma.dart';
 
 import '../chat/chat_models.dart';
 import '../chat/context_budgeter.dart';
-import '../core/evidence.dart';
 import '../core/models.dart';
 
 class GemmaChatService implements ChatModelGateway {
@@ -24,14 +23,10 @@ class GemmaChatService implements ChatModelGateway {
   }
 
   String _boundedEvidenceContext(List<EvidenceItem> evidence) {
-    if (evidence.isEmpty) return '';
-    final raw = const EvidencePackBuilder(
-      maxEvidence: 5,
-      maxCharsPerEvidence: 700,
-    ).toPromptContext(evidence);
-    return budgeter.trimTextToTokenBudget(
-      raw,
-      ContextBudgeter.evidenceReserveMax,
+    return budgeter.composeEvidenceContext(
+      evidence,
+      maxTokens: ContextBudgeter.evidenceReserveMax,
+      maxItems: 8,
     );
   }
 
