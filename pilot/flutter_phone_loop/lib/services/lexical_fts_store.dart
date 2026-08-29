@@ -220,6 +220,7 @@ class LexicalFtsStore {
       );
     }
 
+    final cjkWindows = _cjkTrigramWindows(query);
     final ftsQuery = _buildFtsQuery(query);
     if (ftsQuery.isEmpty) {
       return FtsInspectionResult(
@@ -258,11 +259,13 @@ class LexicalFtsStore {
       ''', <Object?>[quoted, ...ids, topK]);
     }
 
-    final terms = _queryTerms(query);
+    final terms = cjkWindows.isNotEmpty ? cjkWindows : _queryTerms(query);
     return FtsInspectionResult(
       query: query,
       normalizedQuery: ftsQuery,
-      diagnostics: 'FTS5 trigram + SQLite bm25(); REAL bm25, DERIVED affinity',
+      diagnostics: cjkWindows.isNotEmpty
+          ? 'FTS5 CJK trigram-window OR + SQLite bm25(); REAL bm25, DERIVED affinity'
+          : 'FTS5 trigram + SQLite bm25(); REAL bm25, DERIVED affinity',
       hits: [
         for (var i = 0; i < rows.length; i++)
           FtsInspectionHit(
@@ -275,7 +278,8 @@ class LexicalFtsStore {
                 .where((term) =>
                     (rows[i]['content'] as String).toLowerCase().contains(term))
                 .toList(growable: false),
-            matchMode: 'fts5-trigram',
+            matchMode:
+                cjkWindows.isNotEmpty ? 'cjk-trigram-window' : 'fts5-trigram',
           ),
       ],
     );
@@ -350,16 +354,45 @@ class LexicalFtsStore {
   double _bm25Affinity(double bm) => 1.0 / (1.0 + bm.abs());
 
   String _buildFtsQuery(String query) {
-    final q = query.trim().replaceAll('"', '""');
+    final q = query.trim();
     if (q.isEmpty) return '';
-    final parts = q
+
+    // SQLite FTS5's trigram tokenizer can index Chinese well, but a single
+    // quoted continuous Chinese question is still interpreted as one phrase.
+    // That made "端侧模型如何测试" miss text such as "端侧模型性能测试方法".
+    // Build overlapping 3-character windows so BM25 can rank partial lexical
+    // agreement while Embedding remains responsible for semantic similarity.
+    final cjkWindows = _cjkTrigramWindows(q);
+    final nonCjk = q
+        .replaceAll(RegExp(r'[\u3400-\u9fff]+'), ' ')
         .split(RegExp(r'[\s，。；、,.;:：!?！？()\[\]{}]+'))
-        .where((x) => x.trim().length >= 3)
-        .take(10)
-        .map((x) => '"$x"')
-        .toList();
-    if (parts.length >= 2) return parts.join(' OR ');
-    return '"$q"';
+        .map((x) => x.trim().toLowerCase())
+        .where((x) => x.length >= 3)
+        .take(8);
+
+    final terms = <String>{...cjkWindows, ...nonCjk}.take(16).toList();
+    if (terms.isNotEmpty) {
+      return terms
+          .map((x) => '"${x.replaceAll('"', '""')}"')
+          .join(' OR ');
+    }
+
+    final escaped = q.replaceAll('"', '""');
+    return '"$escaped"';
+  }
+
+  List<String> _cjkTrigramWindows(String query) {
+    final out = <String>[];
+    final seen = <String>{};
+    for (final match in RegExp(r'[\u3400-\u9fff]{3,}').allMatches(query)) {
+      final run = match.group(0)!;
+      for (var i = 0; i <= run.length - 3; i++) {
+        final window = run.substring(i, i + 3);
+        if (seen.add(window)) out.add(window);
+        if (out.length >= 12) return out;
+      }
+    }
+    return out;
   }
 
   List<String> _queryTerms(String query) => query
