@@ -48,11 +48,16 @@ class SemanticStore {
     await observationStore.removeChunkIds(materialized);
   }
 
-  Future<void> addChunks(Iterable<PgChunk> chunks) async {
+  Future<void> addChunks(
+    Iterable<PgChunk> chunks, {
+    void Function(int completed, int total, PgChunk current)? onProgress,
+  }) async {
     await initialize();
     final embedder = await _ensureEmbeddingRuntime();
+    final materialized = chunks.toList(growable: false);
 
-    for (final c in chunks) {
+    for (var i = 0; i < materialized.length; i++) {
+      final c = materialized[i];
       final embedding = await embedder.generateEmbedding(
         c.text,
         taskType: TaskType.retrievalDocument,
@@ -74,6 +79,10 @@ class SemanticStore {
           'ordinal': c.ordinal,
         }),
       );
+      // Emit only after both durable observation and RAG writes succeed. If a
+      // later chunk fails or the app is killed, already completed chunks stay
+      // checkpointed and the next repair run will skip them.
+      onProgress?.call(i + 1, materialized.length, c);
     }
   }
 
