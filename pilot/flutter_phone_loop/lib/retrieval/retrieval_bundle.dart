@@ -1,5 +1,5 @@
 import '../core/models.dart';
-import '../observability/retrieval_trace.dart';
+import '../observability/retrieval_trace_recorder.dart';
 
 class RetrievalBundle {
   const RetrievalBundle({
