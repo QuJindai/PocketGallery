@@ -54,7 +54,9 @@ void main() {
             run: () => Completer<GateResult>().future,
           ),
         ],
-        onGateTimeout: (_) async => timeoutCleanupCalls += 1,
+        onGateTimeout: (_) async {
+          timeoutCleanupCalls += 1;
+        },
       );
 
       expect(result.gates.single.status, GoldenGateStatus.timedOut);
