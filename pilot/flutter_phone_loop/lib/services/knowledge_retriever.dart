@@ -39,8 +39,7 @@ class RetrievalBundle {
       semanticHits.isEmpty ? null : semanticHits.first.score;
 
   double get semanticTopGap {
-    if (semanticHits.isEmpty) return 0;
-    if (semanticHits.length == 1) return semanticHits.first.score;
+    if (semanticHits.length < 2) return 0;
     return semanticHits.first.score - semanticHits[1].score;
   }
 
