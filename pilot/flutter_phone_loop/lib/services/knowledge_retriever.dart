@@ -40,15 +40,17 @@ class RetrievalBundle {
     if (evidence.isEmpty || hybridHits.isEmpty) return false;
 
     // A hybrid RRF score is a ranking score, not an absolute relevance
-    // probability. The previous `score >= 0.03` rule made almost every
-    // semantic-only Top-1 look relevant. Prefer real lexical evidence or a
-    // sufficiently strong raw embedding cosine.
+    // probability. Preserve genuinely dual-channel evidence, but for
+    // semantic-only candidates use the REAL raw embedding similarity instead
+    // of treating an RRF score such as 0.03 as a confidence threshold.
+    if (hybridHits.first.channels.length > 1) return true;
     if (lexicalHits.isNotEmpty) return true;
     return (topSemanticScore ?? 0) >= semanticOnlyAutoThreshold;
   }
 
   bool get relevantForKnowledge {
     if (evidence.isEmpty || hybridHits.isEmpty) return false;
+    if (hybridHits.first.channels.length > 1) return true;
     if (lexicalHits.isNotEmpty) return true;
     return (topSemanticScore ?? 0) >= semanticOnlyKnowledgeThreshold;
   }
