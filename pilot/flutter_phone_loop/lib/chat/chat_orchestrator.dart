@@ -62,11 +62,15 @@ class ChatOrchestrator {
     var useEvidence = false;
     if (session.mode != ChatMode.modelOnly) {
       retrieval = await retriever.retrieve(clean, scope: session.scope);
-      useEvidence = session.mode == ChatMode.knowledge || retrieval.relevantForAuto;
+      useEvidence = session.mode == ChatMode.knowledge
+          ? retrieval.relevantForKnowledge
+          : retrieval.relevantForAuto;
     }
 
     if (session.mode == ChatMode.knowledge &&
-        (retrieval == null || retrieval.evidence.isEmpty)) {
+        (retrieval == null ||
+            retrieval.evidence.isEmpty ||
+            !retrieval.relevantForKnowledge)) {
       final traceId = await _persistTrace(
         session: session,
         query: clean,
@@ -77,10 +81,10 @@ class ChatOrchestrator {
       final reply = ChatMessage.assistant(
         id: store.nextMessageId(),
         sessionId: sessionId,
-        text: '本地资料不足，当前知识库范围内没有找到足够证据。',
+        text: '本地资料不足：当前知识库虽然可能存在语义相近片段，但不足以可靠回答这个问题。',
         retrievalMode: retrieval?.lexicalOnly == true
-            ? 'knowledge:lexical-only'
-            : 'knowledge',
+            ? 'knowledge:lexical-only-insufficient'
+            : 'knowledge:insufficient',
         traceId: traceId,
       );
       await store.appendMessage(reply);
