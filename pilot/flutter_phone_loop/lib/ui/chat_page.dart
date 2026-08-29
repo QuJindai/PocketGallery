@@ -456,6 +456,13 @@ class _ChatPageState extends State<ChatPage> {
       ? '全部知识库'
       : '指定文档 ${scope.documentIds?.length ?? 0}';
 
+  String _retrievalRouteLabel(String mode) {
+    if (mode.startsWith('modelOnly')) return '本机模型';
+    if (mode == 'auto:modelOnly') return 'Auto → Model';
+    if (mode.startsWith('auto:')) return 'Auto → Knowledge';
+    return 'Knowledge ON';
+  }
+
   @override
   void dispose() {
     input.dispose();
@@ -709,12 +716,12 @@ class _ChatPageState extends State<ChatPage> {
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    message.retrievalMode!.startsWith('modelOnly') ||
-                            message.retrievalMode == 'auto:modelOnly'
-                        ? '本机模型'
-                        : 'Knowledge ON',
-                    style: Theme.of(context).textTheme.labelSmall,
+                  Tooltip(
+                    message: message.retrievalMode!,
+                    child: Text(
+                      _retrievalRouteLabel(message.retrievalMode!),
+                      style: Theme.of(context).textTheme.labelSmall,
+                    ),
                   ),
                   if (message.traceId != null &&
                       widget.orchestrator.traceStore != null) ...[
