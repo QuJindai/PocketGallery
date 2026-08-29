@@ -14,13 +14,15 @@ class EvidencePackBuilder {
   List<EvidenceItem> build(
     List<HybridHit> hits, {
     bool conservative = true,
+    int? maxItems,
   }) {
-    if (hits.isEmpty || maxEvidence <= 0) return const [];
+    final itemLimit = maxItems ?? maxEvidence;
+    if (hits.isEmpty || itemLimit <= 0) return const [];
 
     final out = <EvidenceItem>[];
     final topScore = hits.first.score;
     for (final hit in hits) {
-      if (out.length >= maxEvidence) break;
+      if (out.length >= itemLimit) break;
       if (conservative && out.isNotEmpty && topScore > 0) {
         final relative = hit.score / topScore;
         if (relative < minRelativeScore) break;

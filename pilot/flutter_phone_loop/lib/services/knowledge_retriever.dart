@@ -102,7 +102,11 @@ class KnowledgeRetriever implements KnowledgeRetrievalGateway {
       final coverage = await _buildCorpusCoverage(scope, limit);
       fusionWatch.stop();
       final evidenceWatch = Stopwatch()..start();
-      final evidence = evidenceBuilder.build(coverage, conservative: false);
+      final evidence = evidenceBuilder.build(
+        coverage,
+        conservative: false,
+        maxItems: limit,
+      );
       evidenceWatch.stop();
       return RetrievalBundle(
         lexicalHits: const <RetrievalHit>[],
@@ -194,8 +198,11 @@ class KnowledgeRetriever implements KnowledgeRetrievalGateway {
       final coverage = await _buildCorpusCoverage(scope, limit);
       fallbackWatch.stop();
       final fallbackEvidenceWatch = Stopwatch()..start();
-      final coverageEvidence =
-          evidenceBuilder.build(coverage, conservative: false);
+      final coverageEvidence = evidenceBuilder.build(
+        coverage,
+        conservative: false,
+        maxItems: limit,
+      );
       fallbackEvidenceWatch.stop();
       return RetrievalBundle(
         lexicalHits: lexical,

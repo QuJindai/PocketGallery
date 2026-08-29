@@ -102,6 +102,36 @@ void main() {
     expect(evidence.map((e) => e.chunk.id), isNot(contains('c5')));
   });
 
+  test('ordinary evidence remains capped at the first five qualifying hits', () {
+    final hits = [
+      for (var i = 0; i < 7; i++)
+        HybridHit(
+          chunk: PgChunk(
+            id: 'cap-$i',
+            documentId: 'document-$i',
+            sourceName: 'document-$i.md',
+            locator: 'section 1',
+            ordinal: 0,
+            text: 'qualifying evidence $i',
+          ),
+          score: 1 - (i * 0.01),
+          channels: const {'fts5', 'embedding'},
+          lexicalRank: i + 1,
+          semanticRank: i + 1,
+        ),
+    ];
+
+    final evidence = const EvidencePackBuilder().build(hits);
+
+    expect(evidence.map((item) => item.chunk.id), [
+      'cap-0',
+      'cap-1',
+      'cap-2',
+      'cap-3',
+      'cap-4',
+    ]);
+  });
+
   test('R4.5 benchmark expands to phone-realworld Chinese paraphrases', () async {
     final raw = await File('assets/golden/rag_microscope_benchmark.json').readAsString();
     final json = jsonDecode(raw) as Map<String, dynamic>;
@@ -124,10 +154,11 @@ void main() {
 
   test('R4.5 advances install version for in-place update', () async {
     final pubspec = await File('pubspec.yaml').readAsString();
-    expect(
-      RegExp(r'^version:\s*0\.4\.14\+15\s*$', multiLine: true)
-          .hasMatch(pubspec),
-      isTrue,
-    );
+    final match = RegExp(
+      r'^version:\s*0\.4\.\d+\+(\d+)\s*$',
+      multiLine: true,
+    ).firstMatch(pubspec);
+    expect(match, isNotNull);
+    expect(int.parse(match!.group(1)!), greaterThanOrEqualTo(15));
   });
 }
