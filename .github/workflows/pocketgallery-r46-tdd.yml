@@ -1,0 +1,32 @@
+name: PocketGallery R4.6 TDD
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["feature/phone-pilot-r46-runtime-lineage"]
+    paths:
+      - "pilot/flutter_phone_loop/**"
+      - ".github/workflows/pocketgallery-r46-tdd.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  r46-tdd:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Flutter environment
+        working-directory: pilot/flutter_phone_loop
+        run: flutter --version
+      - name: Resolve dependencies
+        working-directory: pilot/flutter_phone_loop
+        run: flutter pub get
+      - name: R4.6 focused contract
+        working-directory: pilot/flutter_phone_loop
+        run: flutter test test/r46_lineage_store_test.dart
