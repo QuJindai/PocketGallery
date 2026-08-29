@@ -3,6 +3,10 @@ import 'package:flutter_gemma/flutter_gemma.dart';
 import '../core/evidence.dart';
 import '../core/hybrid_ranker.dart';
 import '../core/models.dart';
+import '../lineage/lineage_store.dart';
+import '../lineage/r45_vector_migration.dart';
+import '../retrieval/active_vector_index.dart';
+import '../retrieval/sqlite_active_vector_index.dart';
 import 'document_importer.dart';
 import 'gemma_service.dart';
 import 'knowledge_retriever.dart';
@@ -30,10 +34,27 @@ class KnowledgeEngine {
     LexicalFtsStore? lexicalStore,
     DocumentImporter? importer,
     GemmaService? gemma,
+    LineageStore? lineageStore,
+    ActiveVectorIndex? activeVectorIndex,
   })  : lexicalStore = lexicalStore ?? LexicalFtsStore(),
         importer = importer ?? DocumentImporter(),
         gemma = gemma ?? GemmaService() {
     semanticStore = SemanticStore(this.lexicalStore);
+    this.lineageStore = lineageStore ?? LineageStore();
+    this.activeVectorIndex = activeVectorIndex ?? SqliteActiveVectorIndex();
+    r45VectorMigration = R45VectorMigration(
+      lexicalStore: this.lexicalStore,
+      observationStore: semanticStore.observationStore,
+      lineageStore: this.lineageStore,
+      activeVectorIndex: this.activeVectorIndex,
+      embeddingGenerator: (chunk) async {
+        final embedder = FlutterGemma.getActiveEmbedder();
+        return embedder.generateEmbedding(
+          chunk.text,
+          taskType: TaskType.retrievalDocument,
+        );
+      },
+    );
     retriever = KnowledgeRetriever(
       lexicalStore: this.lexicalStore,
       semanticStore: semanticStore,
@@ -45,15 +66,36 @@ class KnowledgeEngine {
   final LexicalFtsStore lexicalStore;
   late final SemanticStore semanticStore;
   late final KnowledgeRetriever retriever;
+  late final LineageStore lineageStore;
+  late final ActiveVectorIndex activeVectorIndex;
+  late final R45VectorMigration r45VectorMigration;
   final DocumentImporter importer;
   final GemmaService gemma;
   final HybridRanker ranker = const HybridRanker();
   final EvidencePackBuilder evidenceBuilder = const EvidencePackBuilder();
   final CitationResolver citationResolver = CitationResolver();
+  bool _r46MigrationReady = false;
 
   Future<void> initialize() async {
     await lexicalStore.initialize();
     await semanticStore.initialize();
+    await lineageStore.initialize();
+    await activeVectorIndex.initialize();
+
+    // Keep the R4.5 retrieval stores intact. R4.6 only copies healthy Float32
+    // observations into its own lineage/index and generates a body embedding
+    // when the old observation is missing, stale or invalid. If the embedder
+    // is not active yet, a later initialize() call after model setup resumes
+    // this gate without triggering a model download here.
+    if (!_r46MigrationReady && FlutterGemma.hasActiveEmbedder()) {
+      final embedder = FlutterGemma.getActiveEmbedder();
+      final expectedDimension = await embedder.getDimension();
+      final report = await r45VectorMigration.migrateActiveBodyVectors(
+        activeModelIdentity: SemanticStore.embeddingModelIdentity,
+        expectedDimension: expectedDimension,
+      );
+      _r46MigrationReady = report.failed == 0;
+    }
   }
 
   Future<ImportedDocument> importPath(String path) async {
@@ -153,14 +195,17 @@ class KnowledgeEngine {
       currentChunkId: pendingChunks.first.id,
     ));
 
-    await semanticStore.addChunks(pendingChunks, onProgress: (completed, total, current) {
-      onProgress?.call(SemanticSyncProgress(
-        total: total,
-        completed: completed,
-        currentSource: current.sourceName,
-        currentChunkId: current.id,
-      ));
-    });
+    await semanticStore.addChunks(
+      pendingChunks,
+      onProgress: (completed, total, current) {
+        onProgress?.call(SemanticSyncProgress(
+          total: total,
+          completed: completed,
+          currentSource: current.sourceName,
+          currentChunkId: current.id,
+        ));
+      },
+    );
   }
 
   Future<void> syncSemanticIndex() => syncMissingSemanticIndex();
@@ -212,6 +257,9 @@ class KnowledgeEngine {
 
   Future<void> close() async {
     await gemma.close();
+    await activeVectorIndex.close();
+    lineageStore.dispose();
     lexicalStore.dispose();
+    _r46MigrationReady = false;
   }
 }
