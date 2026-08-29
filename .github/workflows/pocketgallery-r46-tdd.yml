@@ -27,6 +27,12 @@ jobs:
       - name: Resolve dependencies
         working-directory: pilot/flutter_phone_loop
         run: flutter pub get
-      - name: R4.6 Task 2 focused contract
+      - name: R4.6 Tasks 1-2 plus vector regressions
         working-directory: pilot/flutter_phone_loop
-        run: flutter test test/r46_vector_index_test.dart
+        run: >-
+          flutter test
+          test/r46_lineage_store_test.dart
+          test/r46_vector_index_test.dart
+          test/r41_vector_observation_test.dart
+          test/r403_embedding_runtime_recovery_test.dart
+          test/r4_knowledge_retriever_test.dart
