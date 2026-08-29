@@ -29,8 +29,10 @@ void main() {
     final engine = await File('lib/services/knowledge_engine.dart').readAsString();
 
     final syncStart = engine.indexOf('syncMissingSemanticIndex');
+    final syncEnd = engine.indexOf('Future<void> syncSemanticIndex', syncStart);
     expect(syncStart, greaterThanOrEqualTo(0));
-    final syncBody = engine.substring(syncStart);
+    expect(syncEnd, greaterThan(syncStart));
+    final syncBody = engine.substring(syncStart, syncEnd);
     expect(syncBody, isNot(contains('semanticStore.clear()')));
     expect(syncBody, contains('semanticStore.addChunks(pendingChunks'));
   });
