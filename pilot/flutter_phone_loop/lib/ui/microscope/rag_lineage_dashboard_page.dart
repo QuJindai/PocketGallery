@@ -417,15 +417,15 @@ class _RagLineageDashboardPageState
               const SizedBox(height: 6),
               const Text('以下对照实验属于 R4.6-B；尚未实现的数据不会伪装成可用入口。'),
               const SizedBox(height: 8),
-              const OutlinedButton.icon(
+              OutlinedButton.icon(
                 onPressed: null,
-                icon: Icon(Icons.scatter_plot_outlined),
-                label: Text('Embedding 表征对照 · R4.6-B'),
+                icon: const Icon(Icons.scatter_plot_outlined),
+                label: const Text('Embedding 表征对照 · R4.6-B'),
               ),
-              const OutlinedButton.icon(
+              OutlinedButton.icon(
                 onPressed: null,
-                icon: Icon(Icons.compare_arrows),
-                label: Text('候选/路由策略对照 · R4.6-B'),
+                icon: const Icon(Icons.compare_arrows),
+                label: const Text('候选/路由策略对照 · R4.6-B'),
               ),
             ],
           ),
