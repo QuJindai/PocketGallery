@@ -38,6 +38,7 @@ jobs:
           test/r46_vector_index_test.dart
           test/r46_vector_migration_test.dart
           test/r46_vector_migration_wiring_test.dart
+          test/r46_import_lineage_test.dart
           test/r41_trace_store_test.dart
           test/r41_vector_observation_test.dart
           test/r41_upgrade_contract_test.dart
