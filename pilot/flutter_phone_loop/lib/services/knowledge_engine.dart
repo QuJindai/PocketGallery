@@ -48,7 +48,7 @@ class KnowledgeEngine {
       lineageStore: this.lineageStore,
       activeVectorIndex: this.activeVectorIndex,
       embeddingGenerator: (chunk) async {
-        final embedder = FlutterGemma.getActiveEmbedder();
+        final embedder = await FlutterGemma.getActiveEmbedder();
         return embedder.generateEmbedding(
           chunk.text,
           taskType: TaskType.retrievalDocument,
@@ -88,7 +88,7 @@ class KnowledgeEngine {
     // is not active yet, a later initialize() call after model setup resumes
     // this gate without triggering a model download here.
     if (!_r46MigrationReady && FlutterGemma.hasActiveEmbedder()) {
-      final embedder = FlutterGemma.getActiveEmbedder();
+      final embedder = await FlutterGemma.getActiveEmbedder();
       final expectedDimension = await embedder.getDimension();
       final report = await r45VectorMigration.migrateActiveBodyVectors(
         activeModelIdentity: SemanticStore.embeddingModelIdentity,
