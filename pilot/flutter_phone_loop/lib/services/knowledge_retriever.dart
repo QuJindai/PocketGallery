@@ -20,6 +20,9 @@ class RetrievalBundle {
     this.traceDraft,
   });
 
+  static const semanticOnlyAutoThreshold = 0.60;
+  static const semanticOnlyKnowledgeThreshold = 0.58;
+
   final List<RetrievalHit> lexicalHits;
   final List<RetrievalHit> semanticHits;
   final List<HybridHit> hybridHits;
@@ -28,12 +31,26 @@ class RetrievalBundle {
   final bool? autoRelevantOverride;
   final RetrievalTraceDraft? traceDraft;
 
+  double? get topSemanticScore =>
+      semanticHits.isEmpty ? null : semanticHits.first.score;
+
   bool get relevantForAuto {
     final override = autoRelevantOverride;
     if (override != null) return override;
     if (evidence.isEmpty || hybridHits.isEmpty) return false;
-    final top = hybridHits.first;
-    return top.channels.length > 1 || top.score >= 0.03;
+
+    // A hybrid RRF score is a ranking score, not an absolute relevance
+    // probability. The previous `score >= 0.03` rule made almost every
+    // semantic-only Top-1 look relevant. Prefer real lexical evidence or a
+    // sufficiently strong raw embedding cosine.
+    if (lexicalHits.isNotEmpty) return true;
+    return (topSemanticScore ?? 0) >= semanticOnlyAutoThreshold;
+  }
+
+  bool get relevantForKnowledge {
+    if (evidence.isEmpty || hybridHits.isEmpty) return false;
+    if (lexicalHits.isNotEmpty) return true;
+    return (topSemanticScore ?? 0) >= semanticOnlyKnowledgeThreshold;
   }
 }
 
