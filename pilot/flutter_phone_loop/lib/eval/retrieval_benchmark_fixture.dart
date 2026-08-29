@@ -20,13 +20,13 @@ class RetrievalBenchmarkLease {
   Future<void> cleanup() async {
     if (_cleaned) return;
     _cleaned = true;
-    for (final documentId in importedDocumentIds.reversed) {
-      try {
-        await engine.removeDocument(documentId);
-      } catch (_) {
-        // Best-effort cleanup: a failed cleanup must not hide benchmark output.
-      }
-    }
+
+    // All files created by this lease use reserved pg_golden_* source names.
+    // Force-remove those names from the lexical library even if native vector
+    // cleanup has failed previously. This makes diagnostics non-destructive to
+    // the user's real knowledge library.
+    await RetrievalBenchmarkFixture.cleanupReservedGoldenDocuments(engine);
+
     try {
       if (await directory.exists()) {
         await directory.delete(recursive: true);
@@ -52,24 +52,41 @@ class RetrievalBenchmarkFixture {
 
   static Set<String> get sourceNames => documents.keys.toSet();
 
-  /// Remove only PocketGallery-owned deterministic benchmark sources. These
-  /// names are reserved for the built-in Golden fixture and must never remain
-  /// in the user's normal knowledge library after diagnostics.
-  static Future<void> removeKnownFixtures(KnowledgeEngine engine) async {
+  /// Hard cleanup for PocketGallery-owned deterministic benchmark sources.
+  ///
+  /// We intentionally make lexical deletion independent from the native RAG
+  /// database. Semantic search always resolves returned ids through the
+  /// lexical store, so an orphaned native row cannot become user evidence.
+  /// Removing the observation rows also keeps Index Health truthful.
+  static Future<void> cleanupReservedGoldenDocuments(
+    KnowledgeEngine engine,
+  ) async {
+    await engine.initialize();
     final existing = await engine.listDocuments();
     for (final doc in existing) {
-      if (sourceNames.contains(doc.sourceName)) {
-        await engine.removeDocument(doc.documentId);
+      if (!sourceNames.contains(doc.sourceName)) continue;
+      final ids = await engine.lexicalStore.chunkIdsForDocument(doc.documentId);
+      try {
+        await engine.lexicalStore.removeDocument(doc.documentId);
+      } finally {
+        if (ids.isNotEmpty) {
+          try {
+            await engine.semanticStore.observationStore.removeChunkIds(ids);
+          } catch (_) {}
+        }
       }
     }
   }
+
+  static Future<void> removeKnownFixtures(KnowledgeEngine engine) =>
+      cleanupReservedGoldenDocuments(engine);
 
   static Future<RetrievalBenchmarkLease> prepare(
     KnowledgeEngine engine, {
     bool resetKnownFixtures = false,
   }) async {
     if (resetKnownFixtures) {
-      await removeKnownFixtures(engine);
+      await cleanupReservedGoldenDocuments(engine);
     }
 
     final existing = await engine.listDocuments();
