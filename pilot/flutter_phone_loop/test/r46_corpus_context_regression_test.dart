@@ -134,7 +134,7 @@ void main() {
     expect(budgeter.estimateTokens(trimmed), lessThanOrEqualTo(maxTokens));
   });
 
-  test('R4.6 advances the in-place update build number beyond R4.5', () async {
+  test('R4.7 advances the in-place update build number beyond R4.6', () async {
     final pubspec = await File('pubspec.yaml').readAsString();
     final match = RegExp(
       r'^version:\s*0\.4\.\d+\+(\d+)\s*$',
@@ -142,6 +142,6 @@ void main() {
     ).firstMatch(pubspec);
 
     expect(match, isNotNull);
-    expect(int.parse(match!.group(1)!), greaterThanOrEqualTo(16));
+    expect(int.parse(match!.group(1)!), greaterThanOrEqualTo(17));
   });
 }
