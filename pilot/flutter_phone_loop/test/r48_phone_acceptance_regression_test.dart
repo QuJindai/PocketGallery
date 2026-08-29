@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pocketgallery_phone_pilot/chat/chat_models.dart';
 import 'package:pocketgallery_phone_pilot/core/models.dart';
@@ -9,6 +10,7 @@ import 'package:pocketgallery_phone_pilot/services/golden_gate_executor.dart';
 import 'package:pocketgallery_phone_pilot/services/golden_test_report_store.dart';
 import 'package:pocketgallery_phone_pilot/services/golden_test_runner.dart';
 import 'package:pocketgallery_phone_pilot/services/golden_test_state.dart';
+import 'package:pocketgallery_phone_pilot/ui/model_settings_page.dart';
 
 void main() {
   group('R4.8 bounded phone acceptance', () {
@@ -159,6 +161,40 @@ void main() {
       expect(restored.gates.single.duration, const Duration(seconds: 3));
       expect(restored.passed, isTrue);
     });
+
+    test('a checkpoint is durable before its progress becomes visible',
+        () async {
+      final events = <String>[];
+
+      await GoldenGateExecutor().execute(
+        runId: 'r48-checkpoint-order',
+        gates: [
+          GoldenGateSpec(
+            name: 'F1_IMPORT_CHUNK',
+            label: 'Import and chunk fixture',
+            timeout: const Duration(seconds: 1),
+            run: () async =>
+                const GateResult('F1_IMPORT_CHUNK', true, 'chunks=3'),
+          ),
+        ],
+        onCheckpoint: (snapshot) async {
+          events.add('saved:${snapshot.phase.name}:${snapshot.percent}');
+        },
+        onProgress: (snapshot) {
+          events.add('shown:${snapshot.phase.name}:${snapshot.percent}');
+        },
+      );
+
+      expect(events.first, 'saved:preparing:0');
+      for (var index = 0; index < events.length; index += 2) {
+        expect(events[index], startsWith('saved:'));
+        expect(events[index + 1], startsWith('shown:'));
+        expect(
+          events[index].substring('saved:'.length),
+          events[index + 1].substring('shown:'.length),
+        );
+      }
+    });
   });
 
   group('R4.8 recoverable checkpoints', () {
@@ -279,6 +315,106 @@ void main() {
       expect(result.detail, contains('knowledgeMode=true'));
     });
   });
+
+  group('R4.8 live phone progress UI', () {
+    testWidgets('renders determinate live progress and checkpoint state',
+        (tester) async {
+      final now = DateTime.utc(2026, 8, 29, 14, 0, 12);
+      final snapshot = GoldenTestSnapshot(
+        runId: 'r48-ui-running',
+        phase: GoldenRunPhase.running,
+        startedAt: now.subtract(const Duration(seconds: 12)),
+        updatedAt: now,
+        gates: [
+          _uiGate(1, GoldenGateStatus.passed),
+          _uiGate(2, GoldenGateStatus.running),
+          for (var number = 3; number <= 7; number += 1)
+            _uiGate(number, GoldenGateStatus.pending),
+        ],
+      );
+
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: GoldenTestProgressPanel(snapshot: snapshot, now: now),
+        ),
+      ));
+
+      final progress = tester.widget<LinearProgressIndicator>(
+        find.byType(LinearProgressIndicator),
+      );
+      expect(progress.value, closeTo(0.13, 0.001));
+      expect(find.text('13%'), findsOneWidget);
+      expect(find.text('当前：F2/7 · Gate 2'), findsOneWidget);
+      expect(find.text('已完成：1/7'), findsOneWidget);
+      expect(find.text('已用时：00:12'), findsOneWidget);
+      expect(find.text('检查点：PG_GOLDEN_LAST.json · 已保存'), findsOneWidget);
+      expect(find.textContaining('F6/F7 需在实体手机'), findsOneWidget);
+    });
+
+    testWidgets('renders all six gate statuses with distinct icons',
+        (tester) async {
+      final now = DateTime.utc(2026, 8, 29, 14, 1);
+      final statuses = GoldenGateStatus.values;
+      final snapshot = GoldenTestSnapshot(
+        runId: 'r48-ui-statuses',
+        phase: GoldenRunPhase.running,
+        startedAt: now,
+        updatedAt: now,
+        gates: [
+          for (var index = 0; index < statuses.length; index += 1)
+            _uiGate(index + 1, statuses[index]),
+        ],
+      );
+
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: GoldenTestProgressPanel(snapshot: snapshot, now: now),
+          ),
+        ),
+      ));
+
+      for (final label in ['等待', '运行中', '通过', '失败', '超时', '已阻断']) {
+        expect(find.text(label), findsOneWidget);
+      }
+      for (final icon in [
+        Icons.schedule_outlined,
+        Icons.sync,
+        Icons.check_circle,
+        Icons.cancel,
+        Icons.timer_off,
+        Icons.block,
+      ]) {
+        expect(find.byIcon(icon), findsOneWidget);
+      }
+    });
+
+    testWidgets('renders the final PASS verdict after completed cleanup',
+        (tester) async {
+      final now = DateTime.utc(2026, 8, 29, 14, 2);
+      final snapshot = GoldenTestSnapshot(
+        runId: 'r48-ui-pass',
+        phase: GoldenRunPhase.completed,
+        startedAt: now.subtract(const Duration(seconds: 20)),
+        updatedAt: now,
+        gates: [
+          for (var number = 1; number <= 7; number += 1)
+            _uiGate(number, GoldenGateStatus.passed),
+        ],
+      );
+
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: GoldenTestProgressPanel(snapshot: snapshot, now: now),
+          ),
+        ),
+      ));
+
+      expect(find.text('PHONE_FUNCTION_LOOP = PASS'), findsOneWidget);
+      expect(find.text('100%'), findsOneWidget);
+    });
+  });
 }
 
 GoldenTestSnapshot _checkpointSnapshot(String runId) {
@@ -299,5 +435,15 @@ GoldenTestSnapshot _checkpointSnapshot(String runId) {
         finishedAt: startedAt.add(const Duration(seconds: 2)),
       ),
     ],
+  );
+}
+
+GoldenGateSnapshot _uiGate(int number, GoldenGateStatus status) {
+  return GoldenGateSnapshot(
+    name: 'F${number}_GATE',
+    label: 'Gate $number',
+    timeout: const Duration(seconds: 30),
+    status: status,
+    detail: status.isTerminal ? 'gate-$number detail' : '',
   );
 }
