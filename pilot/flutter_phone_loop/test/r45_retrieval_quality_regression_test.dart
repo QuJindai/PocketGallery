@@ -87,12 +87,12 @@ void main() {
       PgChunk(id: 'c4', documentId: 'd3', sourceName: 'c', locator: '1', ordinal: 0, text: 'd'),
       PgChunk(id: 'c5', documentId: 'd4', sourceName: 'd', locator: '1', ordinal: 0, text: 'e'),
     ];
-    const hits = [
-      HybridHit(chunk: chunks[0], score: 1.00, channels: {'fts5', 'embedding'}, lexicalRank: 1, semanticRank: 1),
-      HybridHit(chunk: chunks[1], score: 0.91, channels: {'embedding'}, lexicalRank: null, semanticRank: 2),
-      HybridHit(chunk: chunks[2], score: 0.69, channels: {'embedding'}, lexicalRank: null, semanticRank: 3),
-      HybridHit(chunk: chunks[3], score: 0.54, channels: {'embedding'}, lexicalRank: null, semanticRank: 4),
-      HybridHit(chunk: chunks[4], score: 0.40, channels: {'embedding'}, lexicalRank: null, semanticRank: 5),
+    final hits = [
+      HybridHit(chunk: chunks[0], score: 1.00, channels: const {'fts5', 'embedding'}, lexicalRank: 1, semanticRank: 1),
+      HybridHit(chunk: chunks[1], score: 0.91, channels: const {'embedding'}, lexicalRank: null, semanticRank: 2),
+      HybridHit(chunk: chunks[2], score: 0.69, channels: const {'embedding'}, lexicalRank: null, semanticRank: 3),
+      HybridHit(chunk: chunks[3], score: 0.54, channels: const {'embedding'}, lexicalRank: null, semanticRank: 4),
+      HybridHit(chunk: chunks[4], score: 0.40, channels: const {'embedding'}, lexicalRank: null, semanticRank: 5),
     ];
 
     final evidence = const EvidencePackBuilder().build(hits);
