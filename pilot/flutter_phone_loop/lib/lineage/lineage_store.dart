@@ -314,6 +314,20 @@ class LineageStore {
     _initialized = true;
   }
 
+  Future<T> runInTransaction<T>(Future<T> Function() operation) async {
+    await initialize();
+    final db = _db!;
+    db.execute('BEGIN IMMEDIATE;');
+    try {
+      final result = await operation();
+      db.execute('COMMIT;');
+      return result;
+    } catch (_) {
+      db.execute('ROLLBACK;');
+      rethrow;
+    }
+  }
+
   Future<void> upsertLineageDocument({
     required String documentId,
     required String sourceName,
