@@ -195,8 +195,7 @@ class KnowledgeEngine {
       currentChunkId: pendingChunks.first.id,
     ));
 
-    await semanticStore.addChunks(
-      pendingChunks,
+    await semanticStore.addChunks(pendingChunks,
       onProgress: (completed, total, current) {
         onProgress?.call(SemanticSyncProgress(
           total: total,
