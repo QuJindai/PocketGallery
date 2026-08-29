@@ -43,6 +43,7 @@ jobs:
           test/r46_runtime_lineage_recorder_test.dart
           test/r46_retrieval_runtime_test.dart
           test/r46_router_evidence_lineage_test.dart
+          test/r46_context_generation_lineage_test.dart
           test/r41_trace_store_test.dart
           test/r41_vector_observation_test.dart
           test/r41_upgrade_contract_test.dart
