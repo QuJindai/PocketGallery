@@ -9,6 +9,22 @@ import 'knowledge_retriever.dart';
 import 'lexical_fts_store.dart';
 import 'semantic_store.dart';
 
+class SemanticSyncProgress {
+  const SemanticSyncProgress({
+    required this.total,
+    required this.completed,
+    this.currentSource,
+    this.currentChunkId,
+  });
+
+  final int total;
+  final int completed;
+  final String? currentSource;
+  final String? currentChunkId;
+
+  double get percent => total == 0 ? 1.0 : completed / total;
+}
+
 class KnowledgeEngine {
   KnowledgeEngine({
     LexicalFtsStore? lexicalStore,
@@ -62,10 +78,29 @@ class KnowledgeEngine {
   Future<void> removeDocument(String documentId) async {
     await initialize();
     final ids = await lexicalStore.chunkIdsForDocument(documentId);
-    if (FlutterGemma.hasActiveEmbedder() && ids.isNotEmpty) {
-      await semanticStore.removeIds(ids);
+
+    // Make the user-visible lexical/document deletion authoritative. A native
+    // vector-store cleanup failure must never leave a supposedly temporary or
+    // deleted document visible in the real knowledge library.
+    try {
+      await lexicalStore.removeDocument(documentId);
+    } finally {
+      if (ids.isNotEmpty) {
+        try {
+          if (FlutterGemma.hasActiveEmbedder()) {
+            await semanticStore.removeIds(ids);
+          } else {
+            await semanticStore.observationStore.removeChunkIds(ids);
+          }
+        } catch (_) {
+          // The RAG DB can retain an orphan row after a native cleanup error,
+          // but semantic search resolves every hit back through lexicalStore
+          // and therefore ignores it. Always remove the observability row so
+          // index-health accounting remains truthful.
+          await semanticStore.observationStore.removeChunkIds(ids);
+        }
+      }
     }
-    await lexicalStore.removeDocument(documentId);
   }
 
   Future<void> rebuildDocumentEmbedding(String documentId) async {
@@ -85,12 +120,50 @@ class KnowledgeEngine {
     if (chunks.isNotEmpty) await semanticStore.addChunks(chunks);
   }
 
-  Future<void> syncSemanticIndex() async {
+  Future<void> syncMissingSemanticIndex({
+    void Function(SemanticSyncProgress progress)? onProgress,
+  }) async {
     if (!FlutterGemma.hasActiveEmbedder()) return;
     await initialize();
+
     final chunks = await lexicalStore.allChunks();
-    if (chunks.isNotEmpty) await semanticStore.addChunks(chunks);
+    final observations = await semanticStore.observationStore.listAll();
+    final observationsByChunk = {
+      for (final observation in observations) observation.chunkId: observation,
+    };
+
+    // Do not re-embed healthy chunks. This operation is deliberately
+    // checkpoint/resume friendly: every successful add is persisted, and a
+    // later run recomputes only the remaining missing/stale set.
+    final pendingChunks = chunks.where((chunk) {
+      final observation = observationsByChunk[chunk.id];
+      return observation == null ||
+          observation.modelIdentity != SemanticStore.embeddingModelIdentity;
+    }).toList(growable: false);
+
+    if (pendingChunks.isEmpty) {
+      onProgress?.call(const SemanticSyncProgress(total: 0, completed: 0));
+      return;
+    }
+
+    onProgress?.call(SemanticSyncProgress(
+      total: pendingChunks.length,
+      completed: 0,
+      currentSource: pendingChunks.first.sourceName,
+      currentChunkId: pendingChunks.first.id,
+    ));
+
+    await semanticStore.addChunks(pendingChunks, onProgress: (completed, total, current) {
+      onProgress?.call(SemanticSyncProgress(
+        total: total,
+        completed: completed,
+        currentSource: current.sourceName,
+        currentChunkId: current.id,
+      ));
+    });
   }
+
+  Future<void> syncSemanticIndex() => syncMissingSemanticIndex();
 
   Future<KnowledgeAnswer> ask(String question) async {
     await initialize();
