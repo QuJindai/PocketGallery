@@ -94,15 +94,14 @@ class ChatOrchestrator {
     final evidence = useEvidence
         ? retrieval!.evidence
         : const <EvidenceItem>[];
-    final generationWatch = Stopwatch()..start();
-    var answer = await model.sendTurn(
+    final turnResult = await model.sendTurn(
       sessionId: sessionId,
       priorMessages: prior,
       userText: clean,
       evidence: evidence,
       forceKnowledge: session.mode == ChatMode.knowledge,
     );
-    generationWatch.stop();
+    var answer = turnResult.text;
 
     var anchors = evidence.isEmpty
         ? const <String>[]
@@ -122,7 +121,7 @@ class ChatOrchestrator {
       query: clean,
       retrieval: retrieval,
       citations: anchors,
-      generationMs: generationWatch.elapsedMilliseconds,
+      generationMs: turnResult.generation.generationMs,
     );
     final reply = ChatMessage.assistant(
       id: store.nextMessageId(),

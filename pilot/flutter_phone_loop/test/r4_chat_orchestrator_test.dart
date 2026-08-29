@@ -4,6 +4,7 @@ import 'package:pocketgallery_phone_pilot/chat/chat_models.dart';
 import 'package:pocketgallery_phone_pilot/chat/chat_orchestrator.dart';
 import 'package:pocketgallery_phone_pilot/chat/chat_session_store.dart';
 import 'package:pocketgallery_phone_pilot/core/models.dart';
+import 'package:pocketgallery_phone_pilot/lineage/generation_models.dart';
 import 'package:pocketgallery_phone_pilot/services/knowledge_retriever.dart';
 
 class FakeRetriever implements KnowledgeRetrievalGateway {
@@ -25,7 +26,7 @@ class FakeModel implements ChatModelGateway {
   List<EvidenceItem> lastEvidence = const [];
   List<ChatMessage> lastPrior = const [];
   @override
-  Future<String> sendTurn({
+  Future<ChatTurnResult> sendTurn({
     required String sessionId,
     required List<ChatMessage> priorMessages,
     required String userText,
@@ -35,7 +36,23 @@ class FakeModel implements ChatModelGateway {
     calls++;
     lastEvidence = evidence;
     lastPrior = priorMessages;
-    return evidence.isEmpty ? '模型回答' : '依据资料回答 [E1]';
+    return ChatTurnResult(
+      text: evidence.isEmpty ? '模型回答' : '依据资料回答 [E1]',
+      budget: const ContextBudgetDecision(
+        modelContextLimit: 8192,
+        systemTokens: 100,
+        historyTokens: 0,
+        evidenceTokens: 0,
+        queryTokens: 20,
+        outputReserveTokens: 700,
+        totalPrefillTokens: 120,
+        remainingTokens: 7372,
+        trimmedHistoryMessages: 0,
+        trimmedEvidenceItems: 0,
+        trimDetails: <String>[],
+      ),
+      generation: const GenerationTelemetry(generationMs: 1),
+    );
   }
   @override
   Future<void> resetSession(String sessionId) async {}
