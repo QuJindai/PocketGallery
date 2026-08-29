@@ -160,9 +160,21 @@ void main() {
     expect(missing.map((gate) => gate.name), gates.map((gate) => gate.name));
   });
 
-  test('F11 is not reported as a placeholder pass', () async {
+  test('F8-F10 stay wired after F7 and F11 is not a placeholder pass',
+      () async {
     final golden =
         await File('lib/services/golden_test_runner.dart').readAsString();
+    final f7 = golden.indexOf("name: 'F7_CHAT_REALWORLD'");
+    final f8 = golden.indexOf("name: 'F8_RUNTIME_LINEAGE'");
+    final f9 = golden.indexOf("name: 'F9_QUERY_VECTOR_IDENTITY'");
+    final f10 = golden.indexOf("name: 'F10_CONTEXT_BUDGET'");
+
+    expect(f7, greaterThanOrEqualTo(0));
+    expect(f8, greaterThan(f7));
+    expect(f9, greaterThan(f8));
+    expect(f10, greaterThan(f9));
+    expect(golden, contains('lineageRecorder: engine.runtimeLineageRecorder'));
+    expect(golden, contains('lineageTraceId = reply.traceId'));
     expect(golden, isNot(contains("GateResult('F11_CITATION_LINEAGE', true")));
   });
 }
