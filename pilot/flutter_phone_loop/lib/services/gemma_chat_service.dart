@@ -11,7 +11,6 @@ class GemmaChatService implements ChatModelGateway {
   final ContextBudgeter budgeter;
   InferenceModel? _model;
   InferenceChat? _chat;
-  String? _activeSessionId;
 
   Future<void> _ensureModel() async {
     if (_model != null) return;
@@ -19,21 +18,37 @@ class GemmaChatService implements ChatModelGateway {
       throw StateError('Gemma 4 尚未就绪');
     }
     _model = await FlutterGemma.getActiveModel(
-      maxTokens: 8192,
+      maxTokens: ContextBudgeter.modelMaxTokens,
       preferredBackend: PreferredBackend.gpu,
     );
   }
 
-  Future<void> _ensureChat(
-    String sessionId,
+  String _boundedEvidenceContext(List<EvidenceItem> evidence) {
+    if (evidence.isEmpty) return '';
+    final raw = const EvidencePackBuilder(
+      maxEvidence: 5,
+      maxCharsPerEvidence: 700,
+    ).toPromptContext(evidence);
+    return budgeter.trimTextToTokenBudget(
+      raw,
+      ContextBudgeter.evidenceReserveMax,
+    );
+  }
+
+  Future<InferenceChat> _createTurnChat(
     List<ChatMessage> priorMessages, {
-    int evidenceTokens = 0,
+    required int evidenceTokens,
+    required int currentTurnTokens,
   }) async {
     await _ensureModel();
-    if (_chat != null && _activeSessionId == sessionId) return;
 
+    // Native LiteRT chat state is bounded. Reusing one session forever makes
+    // the state grow beyond the model's remaining prefill capacity and also
+    // leaves a closed session cached after a runtime failure. Rebuild a fresh
+    // native chat from the bounded persisted history for every user turn while
+    // keeping the heavyweight model itself resident.
     await _closeNativeChat();
-    _chat = await _model!.createChat(
+    final chat = await _model!.createChat(
       modelType: ModelType.gemma4,
       temperature: 0.35,
       topK: 32,
@@ -43,28 +58,24 @@ class GemmaChatService implements ChatModelGateway {
           'You are PocketGallery, an on-device assistant. Continue the user conversation naturally. '
           'When a user turn contains [LOCAL_KNOWLEDGE], use that evidence for local factual claims and cite [E#]. '
           'When a turn contains [FORCED_KNOWLEDGE], answer local factual claims only from the supplied evidence. '
+          'If supplied evidence cannot answer the question, say the local evidence is insufficient instead of giving a generic answer. '
           'Never invent an [E#] that is not present in the supplied evidence. '
           'Prior evidence blocks belong to their original turns and must not be reused as evidence for a later turn unless re-supplied.',
     );
-    _activeSessionId = sessionId;
+    _chat = chat;
 
     final selected = budgeter.selectHistory(
       priorMessages,
       evidenceTokens: evidenceTokens,
+      currentTurnTokens: currentTurnTokens,
     );
     for (final message in selected) {
-      if (message.role == ChatRole.user) {
-        await _chat!.addQueryChunk(Message.text(
-          text: message.text,
-          isUser: true,
-        ));
-      } else {
-        await _chat!.addQueryChunk(Message.text(
-          text: message.text,
-          isUser: false,
-        ));
-      }
+      await chat.addQueryChunk(Message.text(
+        text: message.text,
+        isUser: message.role == ChatRole.user,
+      ));
     }
+    return chat;
   }
 
   @override
@@ -75,46 +86,56 @@ class GemmaChatService implements ChatModelGateway {
     required List<EvidenceItem> evidence,
     required bool forceKnowledge,
   }) async {
-    final context = evidence.isEmpty
-        ? ''
-        : const EvidencePackBuilder().toPromptContext(evidence);
+    final context = _boundedEvidenceContext(evidence);
+    final marker = forceKnowledge ? '[FORCED_KNOWLEDGE]' : '[LOCAL_KNOWLEDGE]';
+    final currentTurn = evidence.isEmpty
+        ? userText
+        : '$marker\n\nUSER MESSAGE:\n$userText';
     final evidenceTokens = budgeter.estimateTokens(context);
-    await _ensureChat(
-      sessionId,
+    final currentTurnTokens = budgeter.estimateTokens(currentTurn);
+
+    final chat = await _createTurnChat(
       priorMessages,
       evidenceTokens: evidenceTokens,
+      currentTurnTokens: currentTurnTokens,
     );
 
     final payload = evidence.isEmpty
         ? userText
-        : '${forceKnowledge ? '[FORCED_KNOWLEDGE]' : '[LOCAL_KNOWLEDGE]'}\n'
-            '$context\n\nUSER MESSAGE:\n$userText';
+        : '$marker\n$context\n\nUSER MESSAGE:\n$userText';
 
-    await _chat!.addQueryChunk(Message.text(text: payload, isUser: true));
-    final response = await _chat!.generateChatResponse();
-    if (response is TextResponse) return response.token.trim();
-    return response.toString().trim();
+    try {
+      await chat.addQueryChunk(Message.text(text: payload, isUser: true));
+      final response = await chat.generateChatResponse();
+      if (response is TextResponse) return response.token.trim();
+      return response.toString().trim();
+    } finally {
+      // A failed prefill/generation may already have closed the native session.
+      // Always invalidate our reference so the next turn can never reuse a
+      // poisoned/closed chat object.
+      await _closeNativeChat();
+    }
   }
 
   @override
-  Future<void> resetSession(String sessionId) async {
-    if (_activeSessionId != sessionId) return;
-    await _closeNativeChat();
-    _activeSessionId = null;
-  }
+  Future<void> resetSession(String sessionId) => _closeNativeChat();
 
   Future<void> _closeNativeChat() async {
     final chat = _chat;
     _chat = null;
-    if (chat != null) {
+    if (chat == null) return;
+    try {
       await chat.session.close();
+    } catch (_) {
+      // The plugin may close the native session itself after an inference
+      // failure. Closing twice must not turn a recoverable state into another
+      // user-visible "Session is closed" error.
     }
   }
 
   @override
   Future<void> close() async {
     await _closeNativeChat();
-    _activeSessionId = null;
     await _model?.close();
     _model = null;
   }
