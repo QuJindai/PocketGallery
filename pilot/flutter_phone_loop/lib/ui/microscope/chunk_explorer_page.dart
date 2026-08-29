@@ -3,6 +3,7 @@ import 'package:flutter_gemma/flutter_gemma.dart';
 
 import '../../core/models.dart';
 import '../../eval/retrieval_benchmark_fixture.dart';
+import '../../lineage/vector_index_health_service.dart';
 import '../../observability/index_health_service.dart';
 import '../../services/knowledge_engine.dart';
 import '../../services/semantic_store.dart';
@@ -41,6 +42,12 @@ class _ChunkExplorerPageState extends State<ChunkExplorerPage> {
       activeModelIdentity: () => FlutterGemma.hasActiveEmbedder()
           ? SemanticStore.embeddingModelIdentity
           : '',
+      activeVectorHealthService: VectorIndexHealthService(
+        lexicalStore: widget.engine.lexicalStore,
+        lineageStore: widget.engine.lineageStore,
+        activeVectorIndex: widget.engine.activeVectorIndex,
+        activeModelIdentity: () => SemanticStore.embeddingModelIdentity,
+      ),
     );
     selectedDocumentId = widget.initialDocumentId;
     _load();
@@ -196,6 +203,7 @@ class _ChunkExplorerPageState extends State<ChunkExplorerPage> {
 
   Widget _healthCard(BuildContext context, IndexHealthSnapshot h) {
     final p = repairProgress;
+    final active = h.activeVectorHealth;
     final needsRepair = h.missingVectorCount > 0 || h.staleVectorCount > 0;
     final progressLabel = p == null
         ? '补建中…'
@@ -222,17 +230,46 @@ class _ChunkExplorerPageState extends State<ChunkExplorerPage> {
                 _metric('Documents', '${h.documentCount}'),
                 _metric('Chunks', '${h.chunkCount}'),
                 _metric('FTS', '${h.ftsIndexedCount}/${h.chunkCount}'),
-                _metric('Vector', '${h.vectorIndexedCount}/${h.chunkCount}'),
-                _metric('Missing Vector', '${h.missingVectorCount}'),
-                _metric('Stale', '${h.staleVectorCount}'),
+                _metric('Legacy observation',
+                    '${h.vectorIndexedCount}/${h.chunkCount}'),
+                _metric('Legacy missing', '${h.missingVectorCount}'),
+                _metric('Legacy stale', '${h.staleVectorCount}'),
                 _metric('0-chunk', '${h.zeroChunkDocuments}'),
                 _metric('Duplicate SHA', '${h.duplicateShaGroups}'),
               ],
             ),
             const SizedBox(height: 10),
             Text(
-              'REAL index coverage · FTS ${(h.ftsCoverage * 100).toStringAsFixed(1)}% · Vector ${(h.vectorCoverage * 100).toStringAsFixed(1)}%',
+              'REAL index coverage · FTS ${(h.ftsCoverage * 100).toStringAsFixed(1)}% · Legacy observation ${(h.vectorCoverage * 100).toStringAsFixed(1)}%',
             ),
+            const SizedBox(height: 12),
+            Text(
+              'R4.6 ACTIVE Vector',
+              style: Theme.of(context).textTheme.titleSmall,
+            ),
+            const SizedBox(height: 6),
+            if (active != null) ...[
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _metric('Generated', '${active.generated}/${active.required}'),
+                  _metric('Persisted', '${active.persisted}/${active.required}'),
+                  _metric('Indexed', '${active.indexed}/${active.required}'),
+                  _metric('Search Verified', active.searchVerified ? 'YES' : 'NO'),
+                  _metric('Pending', '${active.pending}'),
+                  _metric('Failed', '${active.failed}'),
+                  _metric('Stale model', '${active.staleModel}'),
+                  _metric('ACTIVE readiness', active.ready ? 'READY' : 'NOT READY'),
+                ],
+              ),
+              const SizedBox(height: 5),
+              Text(
+                'READY 仅由持久化 body embedding、ACTIVE commit 与真实检索自检共同决定；SHADOW 不参与门禁。',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ] else
+              const Text('ACTIVE 健康数据未捕获。'),
             if (h.ftsDbBytes != null || h.vectorDbBytes != null) ...[
               const SizedBox(height: 4),
               Text(
@@ -307,7 +344,9 @@ class _ChunkExplorerPageState extends State<ChunkExplorerPage> {
                   ),
                   Chip(
                     visualDensity: VisualDensity.compact,
-                    label: Text(item.vectorReady ? 'Vector ✓' : 'Vector —'),
+                    label: Text(item.vectorReady
+                        ? 'Legacy observation ✓'
+                        : 'Legacy observation —'),
                   ),
                 ],
               ),
