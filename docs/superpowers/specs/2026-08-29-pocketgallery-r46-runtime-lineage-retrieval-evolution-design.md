@@ -173,19 +173,29 @@ abstract interface class ActiveVectorIndex {
 }
 ```
 
-The implementation SHALL use the explicit embedding-search capability exposed by the local vector-store backend rather than calling a text-query method that re-embeds internally. This guarantees that the query vector displayed by the microscope is the vector used by retrieval.
+The implementation SHALL use the explicit `queryEmbedding` search capability exposed by the local `flutter_gemma_rag_sqlite` vector-store layer rather than calling a text-query helper that re-embeds internally. R4.6 owns the query embedding and therefore can prove that the vector displayed by the microscope is the vector used by retrieval.
+
+The production R4.6 vector database file is `pocketgallery_vectors_v46.db`; the R4.5 vector DB remains untouched as a rollback source until R4.6 phone acceptance is complete.
 
 ### 6.3 Vector-index migration without re-embedding healthy chunks
 
 R4.6 introduces a PocketGallery-managed ACTIVE vector index whose entries are keyed by `embedding_id`, not by `chunk_id`.
+
+A “healthy existing body vector” means:
+
+- observation row exists;
+- model identity equals the active EmbeddingGemma identity;
+- dimension is the expected active dimension;
+- vector BLOB decodes successfully;
+- norm is finite and non-zero.
 
 Upgrade migration order:
 
 1. Read existing chunks from the R4.5 lexical store.
 2. Read existing healthy body vectors from `VectorObservationStore`.
 3. Create R4.6 `pg_embeddings` body rows using those existing Float32 values.
-4. Insert the same values into the R4.6 vector index with a new `embedding_id`.
-5. Only generate embeddings for missing/stale body representations.
+4. Insert the same values into `pocketgallery_vectors_v46.db` with a new `embedding_id`.
+5. Only generate embeddings for missing/stale/invalid body representations.
 6. Checkpoint each successful insert.
 7. Keep the old vector DB and observation DB unchanged for rollback until R4.6 is accepted.
 
@@ -197,13 +207,25 @@ PocketGallery does not currently retain every original imported source file. Exa
 
 Existing documents migrate with `provenance_quality = legacy`:
 
-- document identity, source name, SHA and current chunk text are preserved.
-- `section_id` is synthesized from existing locator/page metadata where possible.
-- unavailable raw offsets are stored as NULL, never invented.
-- the UI clearly labels legacy provenance.
+- document identity, source name, SHA and current chunk text are preserved;
+- `section_id` is synthesized from existing locator/page metadata where possible;
+- unavailable raw offsets are stored as NULL, never invented;
+- the UI clearly labels legacy provenance;
 - re-importing a source file is optional and upgrades lineage quality to `exact`.
 
 New R4.6 imports record exact parse/section/chunk lineage from the start.
+
+### 6.5 Cross-store consistency
+
+R4.6 spans the existing lexical DB, the lineage DB and the new vector DB, so a single SQLite transaction cannot be assumed across all stores. Consistency is maintained with an explicit per-document build state rather than pretending the writes are atomic.
+
+Document/index operations use the state sequence:
+
+```text
+prepared -> lexical_committed -> lineage_committed -> vector_committed -> ready
+```
+
+If the app is killed or a write fails, the build job remains incomplete and repair resumes from the last committed checkpoint. `ready` is never inferred from partial row counts.
 
 ## 7. Persistent data model
 
@@ -378,9 +400,13 @@ drop_reason TEXT
 
 ### 7.9 `pg_router_decisions`
 
+Router decisions can exist for ACTIVE and comparison strategies, so identity is strategy-scoped rather than trace-scoped.
+
 ```text
-trace_id TEXT PRIMARY KEY
+decision_id TEXT PRIMARY KEY
+trace_id TEXT NOT NULL
 strategy_id TEXT NOT NULL
+lane TEXT NOT NULL
 fts_hit_count INTEGER NOT NULL
 top1_cosine REAL
 top2_cosine REAL
@@ -392,14 +418,19 @@ semantic_gap_gate_pass INTEGER NOT NULL
 final_use_knowledge INTEGER NOT NULL
 rule_profile TEXT NOT NULL
 decision_reason TEXT NOT NULL
+UNIQUE(trace_id, strategy_id, lane)
 ```
 
 ### 7.10 `pg_evidence`
 
+Evidence selection can also be evaluated in SHADOW without affecting the answer.
+
 ```text
 evidence_id TEXT PRIMARY KEY
 trace_id TEXT NOT NULL
-anchor TEXT NOT NULL
+strategy_id TEXT NOT NULL
+lane TEXT NOT NULL
+anchor TEXT
 candidate_id TEXT NOT NULL
 chunk_id TEXT NOT NULL
 selection_rank INTEGER NOT NULL
@@ -408,12 +439,16 @@ token_count INTEGER NOT NULL
 selection_reason TEXT NOT NULL
 ```
 
-Dropped candidates remain in `pg_candidates` with `drop_reason`; they are not silently discarded from lineage.
+For ACTIVE/EXPERIMENTAL answer-producing lanes, `anchor` is `E1..En`. SHADOW evidence can omit an answer anchor while still recording the selection set. Dropped candidates remain in `pg_candidates` with `drop_reason`; they are not silently discarded from lineage.
 
 ### 7.11 `pg_prompt_budgets`
 
+Only the lane that actually produces the answer owns the prompt budget for a trace.
+
 ```text
 trace_id TEXT PRIMARY KEY
+strategy_id TEXT NOT NULL
+lane TEXT NOT NULL
 model_context_limit INTEGER NOT NULL
 system_tokens INTEGER NOT NULL
 history_tokens INTEGER NOT NULL
@@ -431,6 +466,8 @@ trim_detail_json TEXT NOT NULL
 
 ```text
 trace_id TEXT PRIMARY KEY
+strategy_id TEXT NOT NULL
+lane TEXT NOT NULL
 ttft_ms INTEGER
 generation_ms INTEGER NOT NULL
 output_tokens INTEGER
@@ -466,6 +503,26 @@ started_at TEXT NOT NULL
 completed_at TEXT
 metric_json TEXT
 failure_code TEXT
+```
+
+### 7.15 `pg_build_jobs`
+
+This table provides resumable migration and experiment-vector construction.
+
+```text
+job_id TEXT PRIMARY KEY
+job_type TEXT NOT NULL                 -- active-migration | heading-build | sentence-build
+strategy_id TEXT NOT NULL
+document_id TEXT
+status TEXT NOT NULL                   -- pending | running | complete | failed | cancelled
+total_items INTEGER NOT NULL
+completed_items INTEGER NOT NULL
+checkpoint_json TEXT NOT NULL
+current_source TEXT
+failure_code TEXT
+failure_detail TEXT
+created_at TEXT NOT NULL
+updated_at TEXT NOT NULL
 ```
 
 ## 8. Trace event model
@@ -520,17 +577,17 @@ R4.6 SHALL replace the ambiguous single `Vector ✓` concept with a four-stage m
 
 1. **Generated** — embedding vector exists.
 2. **Persisted** — vector is durably stored in `pg_embeddings`.
-3. **Indexed** — vector backend add/commit succeeded for the ACTIVE strategy.
-4. **Search Verified** — ACTIVE index health probe succeeds and logical/indexed counts match the expected ACTIVE representation set.
+3. **Indexed** — vector backend add/commit succeeded for the relevant strategy/lane.
+4. **Search Verified** — ACTIVE index health probe succeeds and logical/indexed counts match the representation set required by the current ACTIVE strategy.
 
 A global `Vector READY` badge is allowed only when:
 
-- every required ACTIVE body representation is persisted;
-- every required ACTIVE body representation is committed to the ACTIVE vector index;
+- every representation required by the current ACTIVE strategy is persisted (R4.6 baseline requires body representations);
+- every required ACTIVE representation is committed to the ACTIVE vector index;
 - active model identity matches the index model identity;
 - vector backend initialization passes;
 - search probe passes;
-- no pending/failed ACTIVE index entries remain.
+- no pending/failed required ACTIVE index entries remain.
 
 SHADOW representation gaps never make the production index unhealthy; they appear separately under experiment health.
 
@@ -566,7 +623,7 @@ The ACTIVE descriptor is snapshotted into each trace. Changing settings later ne
 - body-vector cosine
 - RRF/hybrid behavior compatible with R4.5
 - R4.5 Auto routing thresholds/gap logic
-- conservative dynamic Evidence behavior
+- R4.5 conservative Evidence behavior
 
 This strategy exists as the rollback/control lane.
 
@@ -1080,6 +1137,13 @@ If retrieval or generation fails:
 - persistent knowledge embeddings are never evicted by trace retention
 - shadow representations can be deleted/rebuilt separately from ACTIVE body vectors
 
+### 18.5 Import/build consistency failure
+
+- `pg_build_jobs` preserves the last successful checkpoint;
+- `ready` is never set if lexical, lineage or required ACTIVE vector commit is incomplete;
+- restart reconciles build state against actual stores and resumes only missing work;
+- a failed new import remains visible as a failed/incomplete build and never silently appears as a healthy document.
+
 ## 19. Test architecture
 
 R4.6 follows RED-first TDD. New gates must cover behavior, not merely source-string presence wherever practical.
@@ -1104,6 +1168,7 @@ R4.6 follows RED-first TDD. New gates must cover behavior, not merely source-str
 - generated but unindexed != READY.
 - persisted but failed commit != READY.
 - stale model identity != READY.
+- missing representation required by a promoted ACTIVE multi-vector strategy != READY.
 - healthy committed index + probe => READY.
 - SHADOW missing vectors do not fail ACTIVE health.
 
@@ -1122,6 +1187,7 @@ R4.6 follows RED-first TDD. New gates must cover behavior, not merely source-str
 - weak semantic-only retrieval remains Auto -> Model.
 - strong/gapped semantic result can become Auto -> Knowledge.
 - dual-channel strong evidence remains accepted.
+- ACTIVE and SHADOW router decisions can coexist for one trace without overwriting each other.
 
 ### 19.6 Evidence/context tests
 
@@ -1131,6 +1197,7 @@ R4.6 follows RED-first TDD. New gates must cover behavior, not merely source-str
 - ContextBudgeter reports System/History/Evidence/Query/Reserve counts.
 - trimmed history/evidence is recorded.
 - prefill budget cannot exceed the model limit.
+- SHADOW evidence sets do not change ACTIVE prompt evidence.
 
 ### 19.7 Experiment isolation tests
 
@@ -1185,10 +1252,11 @@ The Golden UI reports partial failures by stage; it never prints `PHONE_FUNCTION
 
 Deliver:
 
-- new branch and additive lineage DB
+- additive lineage DB and resumable build-state table
 - IDs/schema/migrations
 - exact one-time ACTIVE query embedding path
 - PocketGallery-owned explicit vector-search adapter
+- new `pocketgallery_vectors_v46.db`
 - R4.5 body-vector migration from existing observation values
 - event recorder
 - Router decision capture
@@ -1203,6 +1271,7 @@ Acceptance:
 - Chunk and Embedding identities are distinct
 - no model redownload
 - no full body re-embedding when healthy observation values exist
+- interrupted migration/import resumes from checkpoints
 - R4.5 functionality remains green
 
 ### R4.6-B — Full 10-stage microscope
@@ -1293,7 +1362,7 @@ Generation remains the dominant latency on current phone workloads; R4.6 must no
 R4.6 remains reversible:
 
 - R4.5 FTS/chat/model data are not destructively replaced.
-- R4.6 lineage/vector-v46 stores use separate files/tables.
+- R4.6 lineage and `pocketgallery_vectors_v46.db` stores are separate.
 - disabling R4.6 strategy runtime can return retrieval to the R4.5-compatible ACTIVE adapter while retaining lineage DB for diagnostics.
 - experiments are independently removable without deleting production chunks or body embeddings.
 
