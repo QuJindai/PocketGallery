@@ -415,6 +415,19 @@ void main() {
       expect(find.text('100%'), findsOneWidget);
     });
   });
+
+  group('R4.8 release contract', () {
+    test('build number advances beyond the R4.7 APK', () async {
+      final pubspec = await File('pubspec.yaml').readAsString();
+      final match = RegExp(
+        r'^version:\s*0\.4\.17\+(\d+)\s*$',
+        multiLine: true,
+      ).firstMatch(pubspec);
+
+      expect(match, isNotNull, reason: 'R4.8 must use version 0.4.17');
+      expect(int.parse(match!.group(1)!), greaterThanOrEqualTo(18));
+    });
+  });
 }
 
 GoldenTestSnapshot _checkpointSnapshot(String runId) {
