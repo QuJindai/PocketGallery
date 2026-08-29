@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pocketgallery_phone_pilot/chat/context_budgeter.dart';
 import 'package:pocketgallery_phone_pilot/core/models.dart';
@@ -91,5 +93,16 @@ void main() {
       budgeter.estimateTokens(context),
       lessThanOrEqualTo(ContextBudgeter.evidenceReserveMax),
     );
+  });
+
+  test('R4.6 advances the in-place update build number beyond R4.5', () async {
+    final pubspec = await File('pubspec.yaml').readAsString();
+    final match = RegExp(
+      r'^version:\s*0\.4\.\d+\+(\d+)\s*$',
+      multiLine: true,
+    ).firstMatch(pubspec);
+
+    expect(match, isNotNull);
+    expect(int.parse(match!.group(1)!), greaterThanOrEqualTo(16));
   });
 }
