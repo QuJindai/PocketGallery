@@ -15,30 +15,63 @@ class ContextBudgeter {
     return cjk + (nonCjk / 4).ceil() + 8;
   }
 
-  List<ChatMessage> selectHistory(
-    List<ChatMessage> messages, {
+  int availableHistoryTokens({
     int evidenceTokens = 0,
+    int currentTurnTokens = 0,
   }) {
     final evidenceReserve = evidenceTokens.clamp(0, evidenceReserveMax);
     final budget = modelMaxTokens -
         systemReserve -
         outputReserve -
         safetyReserve -
-        evidenceReserve;
+        evidenceReserve -
+        currentTurnTokens;
+    return budget < 0 ? 0 : budget;
+  }
+
+  List<ChatMessage> selectHistory(
+    List<ChatMessage> messages, {
+    int evidenceTokens = 0,
+    int currentTurnTokens = 0,
+  }) {
+    final budget = availableHistoryTokens(
+      evidenceTokens: evidenceTokens,
+      currentTurnTokens: currentTurnTokens,
+    );
     if (budget <= 0 || messages.isEmpty) return const [];
 
     var used = 0;
     final selected = <ChatMessage>[];
     for (var i = messages.length - 1; i >= 0; i--) {
       final cost = estimateTokens(messages[i].text);
-      if (selected.isNotEmpty && used + cost > budget) break;
-      if (cost > budget && selected.isEmpty) {
-        selected.add(messages[i]);
-        break;
+      if (cost > budget || used + cost > budget) {
+        continue;
       }
       selected.add(messages[i]);
       used += cost;
+      if (used >= budget) break;
     }
     return selected.reversed.toList(growable: false);
+  }
+
+  String trimTextToTokenBudget(String text, int maxTokens) {
+    if (text.isEmpty || maxTokens <= 0) return '';
+    if (estimateTokens(text) <= maxTokens) return text;
+
+    var low = 0;
+    var high = text.length;
+    var best = 0;
+    while (low <= high) {
+      final mid = (low + high) >> 1;
+      final candidate = text.substring(0, mid);
+      if (estimateTokens(candidate) <= maxTokens) {
+        best = mid;
+        low = mid + 1;
+      } else {
+        high = mid - 1;
+      }
+    }
+    if (best <= 0) return '';
+    return '${text.substring(0, best).trimRight()}\n…[context budget truncated]';
   }
 }
