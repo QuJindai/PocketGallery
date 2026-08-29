@@ -4,6 +4,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:sqlite3/sqlite3.dart';
 
+import 'import_lineage.dart';
 import 'lineage_models.dart';
 
 class VectorIndexEntryRecord {
@@ -364,6 +365,45 @@ class LineageStore {
     ]);
   }
 
+  Future<void> upsertLineageSection({
+    required String sectionId,
+    required String documentId,
+    int? pageNo,
+    String? heading,
+    required String sectionType,
+    int? startOffset,
+    int? endOffset,
+    required int charCount,
+    required String parseStatus,
+  }) async {
+    await initialize();
+    _db!.execute('''
+      INSERT INTO pg_lineage_sections (
+        section_id, document_id, page_no, heading, section_type, start_offset,
+        end_offset, char_count, parse_status
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(section_id) DO UPDATE SET
+        document_id = excluded.document_id,
+        page_no = excluded.page_no,
+        heading = excluded.heading,
+        section_type = excluded.section_type,
+        start_offset = excluded.start_offset,
+        end_offset = excluded.end_offset,
+        char_count = excluded.char_count,
+        parse_status = excluded.parse_status
+    ''', [
+      sectionId,
+      documentId,
+      pageNo,
+      heading,
+      sectionType,
+      startOffset,
+      endOffset,
+      charCount,
+      parseStatus,
+    ]);
+  }
+
   Future<void> upsertLineageChunk({
     required String chunkId,
     required String documentId,
@@ -414,6 +454,109 @@ class LineageStore {
       boundaryReason,
       provenanceQuality,
     ]);
+  }
+
+  Future<void> replaceImportLineage(LineageImportResult result) async {
+    await initialize();
+    final db = _db!;
+    db.execute('BEGIN IMMEDIATE;');
+    try {
+      final document = result.lineageDocument;
+      await upsertLineageDocument(
+        documentId: document.documentId,
+        sourceName: document.sourceName,
+        sha256: document.sha256,
+        fileType: document.fileType,
+        sizeBytes: document.sizeBytes,
+        pageCount: document.pageCount,
+        parseStatus: document.parseStatus.dbValue,
+        parseErrorCode: document.parseErrorCode,
+        parseErrorDetail: document.parseErrorDetail,
+        extractedCharCount: document.extractedCharCount,
+        emptyPageCount: document.emptyPageCount,
+        provenanceQuality: document.provenanceQuality.name,
+        importedAt: document.importedAt,
+      );
+      db.execute(
+        'DELETE FROM pg_lineage_sections WHERE document_id = ?',
+        [document.documentId],
+      );
+      db.execute(
+        'DELETE FROM pg_lineage_chunks WHERE document_id = ?',
+        [document.documentId],
+      );
+      for (final section in result.sections) {
+        await upsertLineageSection(
+          sectionId: section.sectionId,
+          documentId: section.documentId,
+          pageNo: section.pageNo,
+          heading: section.heading,
+          sectionType: section.sectionType,
+          startOffset: section.startOffset,
+          endOffset: section.endOffset,
+          charCount: section.charCount,
+          parseStatus: section.parseStatus.dbValue,
+        );
+      }
+      for (final chunk in result.chunks) {
+        await upsertLineageChunk(
+          chunkId: chunk.chunkId,
+          documentId: chunk.documentId,
+          sectionId: chunk.sectionId,
+          locator: chunk.locator,
+          ordinal: chunk.ordinal,
+          startOffset: chunk.startOffset,
+          endOffset: chunk.endOffset,
+          charCount: chunk.charCount,
+          tokenCount: chunk.tokenCount,
+          overlapFromPrevious: chunk.overlapFromPrevious,
+          chunkStrategy: chunk.chunkStrategy,
+          boundaryReason: chunk.boundaryReason,
+          provenanceQuality: chunk.provenanceQuality.name,
+        );
+      }
+      db.execute('COMMIT;');
+    } catch (_) {
+      db.execute('ROLLBACK;');
+      rethrow;
+    }
+  }
+
+  Future<LineageDocumentRecord?> lineageDocumentById(
+    String documentId,
+  ) async {
+    await initialize();
+    final rows = _db!.select(
+      'SELECT * FROM pg_lineage_documents WHERE document_id = ? LIMIT 1',
+      [documentId],
+    );
+    return rows.isEmpty ? null : _lineageDocumentFromRow(rows.first);
+  }
+
+  Future<List<LineageSectionRecord>> lineageSectionsForDocument(
+    String documentId,
+  ) async {
+    await initialize();
+    return _db!
+        .select('''
+          SELECT * FROM pg_lineage_sections
+          WHERE document_id = ? ORDER BY COALESCE(page_no, 0), start_offset, section_id
+        ''', [documentId])
+        .map(_lineageSectionFromRow)
+        .toList(growable: false);
+  }
+
+  Future<List<LineageChunkRecord>> lineageChunksForDocument(
+    String documentId,
+  ) async {
+    await initialize();
+    return _db!
+        .select('''
+          SELECT * FROM pg_lineage_chunks
+          WHERE document_id = ? ORDER BY ordinal, chunk_id
+        ''', [documentId])
+        .map(_lineageChunkFromRow)
+        .toList(growable: false);
   }
 
   Future<void> putEmbedding(LineageEmbedding embedding) async {
@@ -919,6 +1062,64 @@ class LineageStore {
       rethrow;
     }
   }
+
+  LineageDocumentRecord _lineageDocumentFromRow(Row row) =>
+      LineageDocumentRecord(
+        documentId: row['document_id'] as String,
+        sourceName: row['source_name'] as String,
+        sha256: row['sha256'] as String,
+        fileType: row['file_type'] as String,
+        sizeBytes: _intOrNull(row['size_bytes']),
+        pageCount: _intOrNull(row['page_count']),
+        parseStatus: parseStatusFromDb(row['parse_status'] as String),
+        parseErrorCode: row['parse_error_code'] as String?,
+        parseErrorDetail: row['parse_error_detail'] as String?,
+        extractedCharCount:
+            (row['extracted_char_count'] as num).toInt(),
+        emptyPageCount: (row['empty_page_count'] as num).toInt(),
+        provenanceQuality: ProvenanceQuality.values.firstWhere(
+          (quality) => quality.name == row['provenance_quality'],
+          orElse: () => throw StateError(
+            'Unknown provenance quality: ${row['provenance_quality']}',
+          ),
+        ),
+        importedAt: DateTime.parse(row['imported_at'] as String).toUtc(),
+      );
+
+  LineageSectionRecord _lineageSectionFromRow(Row row) =>
+      LineageSectionRecord(
+        sectionId: row['section_id'] as String,
+        documentId: row['document_id'] as String,
+        pageNo: _intOrNull(row['page_no']),
+        heading: row['heading'] as String?,
+        sectionType: row['section_type'] as String,
+        startOffset: _intOrNull(row['start_offset']),
+        endOffset: _intOrNull(row['end_offset']),
+        charCount: (row['char_count'] as num).toInt(),
+        parseStatus: parseStatusFromDb(row['parse_status'] as String),
+      );
+
+  LineageChunkRecord _lineageChunkFromRow(Row row) => LineageChunkRecord(
+        chunkId: row['chunk_id'] as String,
+        documentId: row['document_id'] as String,
+        sectionId: row['section_id'] as String?,
+        locator: row['locator'] as String,
+        ordinal: (row['ordinal'] as num).toInt(),
+        startOffset: _intOrNull(row['start_offset']),
+        endOffset: _intOrNull(row['end_offset']),
+        charCount: (row['char_count'] as num).toInt(),
+        tokenCount: _intOrNull(row['token_count']),
+        overlapFromPrevious:
+            (row['overlap_from_previous'] as num).toInt(),
+        chunkStrategy: row['chunk_strategy'] as String,
+        boundaryReason: row['boundary_reason'] as String?,
+        provenanceQuality: ProvenanceQuality.values.firstWhere(
+          (quality) => quality.name == row['provenance_quality'],
+          orElse: () => throw StateError(
+            'Unknown provenance quality: ${row['provenance_quality']}',
+          ),
+        ),
+      );
 
   LineageEmbedding _embeddingFromRow(Row row) => LineageEmbedding(
         embeddingId: row['embedding_id'] as String,

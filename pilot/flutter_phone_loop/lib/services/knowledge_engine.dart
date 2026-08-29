@@ -1,8 +1,12 @@
+import 'dart:convert';
+
 import 'package:flutter_gemma/flutter_gemma.dart';
 
 import '../core/evidence.dart';
 import '../core/hybrid_ranker.dart';
 import '../core/models.dart';
+import '../lineage/lineage_ids.dart';
+import '../lineage/lineage_models.dart';
 import '../lineage/lineage_store.dart';
 import '../lineage/r45_vector_migration.dart';
 import '../retrieval/active_vector_index.dart';
@@ -34,17 +38,18 @@ class KnowledgeEngine {
     LexicalFtsStore? lexicalStore,
     DocumentImporter? importer,
     GemmaService? gemma,
+    SemanticStore? semanticStore,
     LineageStore? lineageStore,
     ActiveVectorIndex? activeVectorIndex,
   })  : lexicalStore = lexicalStore ?? LexicalFtsStore(),
         importer = importer ?? DocumentImporter(),
         gemma = gemma ?? GemmaService() {
-    semanticStore = SemanticStore(this.lexicalStore);
+    this.semanticStore = semanticStore ?? SemanticStore(this.lexicalStore);
     this.lineageStore = lineageStore ?? LineageStore();
     this.activeVectorIndex = activeVectorIndex ?? SqliteActiveVectorIndex();
     r45VectorMigration = R45VectorMigration(
       lexicalStore: this.lexicalStore,
-      observationStore: semanticStore.observationStore,
+      observationStore: this.semanticStore.observationStore,
       lineageStore: this.lineageStore,
       activeVectorIndex: this.activeVectorIndex,
       embeddingGenerator: (chunk) async {
@@ -57,7 +62,7 @@ class KnowledgeEngine {
     );
     retriever = KnowledgeRetriever(
       lexicalStore: this.lexicalStore,
-      semanticStore: semanticStore,
+      semanticStore: this.semanticStore,
       ranker: ranker,
       evidenceBuilder: evidenceBuilder,
     );
@@ -100,17 +105,112 @@ class KnowledgeEngine {
 
   Future<ImportedDocument> importPath(String path) async {
     await initialize();
-    final doc = await importer.importPath(path);
+    final result = await importer.importPathWithLineage(path);
+    final doc = result.document;
+    var buildState = BuildState.prepared;
+    await _recordImportBuildState(
+      doc,
+      buildState,
+      status: BuildJobStatus.running,
+    );
     final oldIds = await lexicalStore.chunkIdsForDocument(doc.documentId);
-    if (FlutterGemma.hasActiveEmbedder() && oldIds.isNotEmpty) {
-      await semanticStore.removeIds(oldIds);
+    try {
+      if (FlutterGemma.hasActiveEmbedder() && oldIds.isNotEmpty) {
+        await semanticStore.removeIds(oldIds);
+      }
+      await lexicalStore.replaceDocument(doc);
+      buildState = BuildState.lexicalCommitted;
+      await _recordImportBuildState(
+        doc,
+        buildState,
+        status: BuildJobStatus.running,
+      );
+
+      await lineageStore.replaceImportLineage(result);
+      buildState = BuildState.lineageCommitted;
+      await _recordImportBuildState(
+        doc,
+        buildState,
+        status: doc.chunks.isEmpty
+            ? BuildJobStatus.complete
+            : BuildJobStatus.pending,
+      );
+
+      if (doc.chunks.isEmpty) {
+        buildState = BuildState.ready;
+        await _recordImportBuildState(
+          doc,
+          buildState,
+          status: BuildJobStatus.complete,
+        );
+      } else if (FlutterGemma.hasActiveEmbedder()) {
+        await semanticStore.addChunks(doc.chunks);
+        final embedder = await FlutterGemma.getActiveEmbedder();
+        final report = await r45VectorMigration.migrateActiveBodyVectors(
+          activeModelIdentity: SemanticStore.embeddingModelIdentity,
+          expectedDimension: await embedder.getDimension(),
+        );
+        if (report.failed != 0) {
+          throw StateError(
+            'ACTIVE vector commit failed for ${report.failed} item(s)',
+          );
+        }
+        _r46MigrationReady = true;
+        buildState = BuildState.ready;
+      }
+      return doc;
+    } catch (error) {
+      await _recordImportBuildState(
+        doc,
+        buildState,
+        status: BuildJobStatus.failed,
+        failureCode: 'IMPORT_BUILD_FAILED',
+        failureDetail: error.toString(),
+      );
+      rethrow;
     }
-    await lexicalStore.replaceDocument(doc);
-    if (FlutterGemma.hasActiveEmbedder() && doc.chunks.isNotEmpty) {
-      await semanticStore.addChunks(doc.chunks);
-    }
-    return doc;
   }
+
+  Future<void> _recordImportBuildState(
+    ImportedDocument document,
+    BuildState state, {
+    required BuildJobStatus status,
+    String? failureCode,
+    String? failureDetail,
+  }) async {
+    final now = DateTime.now().toUtc();
+    final jobId = LineageIds.buildJobId(
+      document.documentId,
+      R45VectorMigration.activeStrategyId,
+    );
+    final existing = await lineageStore.buildJobById(jobId);
+    await lineageStore.putBuildJob(BuildJobRecord(
+      jobId: jobId,
+      jobType: 'r46-import-lineage',
+      strategyId: R45VectorMigration.activeStrategyId,
+      documentId: document.documentId,
+      status: status,
+      totalItems: document.chunks.length,
+      completedItems: state == BuildState.ready ? document.chunks.length : 0,
+      checkpointJson: jsonEncode({
+        'state': _buildStateValue(state),
+        'chunkCount': document.chunks.length,
+      }),
+      currentSource: document.sourceName,
+      failureCode: failureCode,
+      failureDetail: failureDetail,
+      createdAt: existing?.createdAt ?? now,
+      updatedAt: now,
+    ));
+  }
+
+  String _buildStateValue(BuildState state) => switch (state) {
+        BuildState.prepared => 'prepared',
+        BuildState.lexicalCommitted => 'lexical_committed',
+        BuildState.lineageCommitted => 'lineage_committed',
+        BuildState.vectorCommitted => 'vector_committed',
+        BuildState.ready => 'ready',
+      };
 
   Future<List<KnowledgeDocument>> listDocuments() async {
     await lexicalStore.initialize();

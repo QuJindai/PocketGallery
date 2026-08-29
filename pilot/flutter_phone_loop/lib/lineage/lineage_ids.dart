@@ -63,4 +63,16 @@ abstract final class LineageIds {
 
   static String buildJobId(String documentId, String strategyId) =>
       _id('job', '$documentId|$strategyId');
+
+  static String sectionId(
+    String documentId,
+    String locator,
+    int? pageNo,
+    int? startOffset,
+    int? endOffset,
+  ) =>
+      _id(
+        'sec',
+        '$documentId|$locator|${pageNo ?? -1}|${startOffset ?? -1}|${endOffset ?? -1}',
+      );
 }

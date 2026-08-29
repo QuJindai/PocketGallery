@@ -4,6 +4,7 @@ import '../core/models.dart';
 import '../observability/vector_observation_store.dart';
 import '../retrieval/active_vector_index.dart';
 import '../services/lexical_fts_store.dart';
+import 'import_lineage.dart';
 import 'lineage_ids.dart';
 import 'lineage_models.dart';
 import 'lineage_store.dart';
@@ -317,6 +318,12 @@ class R45VectorMigration {
     List<PgChunk> chunks,
     DateTime importedAt,
   ) async {
+    final existing = await lineageStore.lineageDocumentById(
+      document.documentId,
+    );
+    if (existing?.provenanceQuality == ProvenanceQuality.exact) {
+      return;
+    }
     await lineageStore.upsertLineageDocument(
       documentId: document.documentId,
       sourceName: document.sourceName,

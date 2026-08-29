@@ -131,6 +131,52 @@ void main() {
     expect(result.sections.single.parseStatus, ParseStatus.empty);
   });
 
+  test('vector migration never downgrades exact import lineage to legacy',
+      () async {
+    final tmp = await Directory.systemTemp.createTemp('pg-r46-exact-');
+    addTearDown(() => tmp.delete(recursive: true));
+    final file = File('${tmp.path}/exact.txt');
+    await file.writeAsString('精确来源内容。');
+    final result = await DocumentImporter().importPathWithLineage(file.path);
+
+    final lexicalDb = sqlite3.openInMemory();
+    final observationDb = sqlite3.openInMemory();
+    final lineageDb = sqlite3.openInMemory();
+    addTearDown(lexicalDb.close);
+    addTearDown(observationDb.close);
+    addTearDown(lineageDb.close);
+    final lexical = LexicalFtsStore(database: lexicalDb);
+    final observations = VectorObservationStore(database: observationDb);
+    final lineage = LineageStore(database: lineageDb);
+    await lexical.replaceDocument(result.document);
+    await lineage.replaceImportLineage(result);
+
+    final migration = R45VectorMigration(
+      lexicalStore: lexical,
+      observationStore: observations,
+      lineageStore: lineage,
+      activeVectorIndex: NoopActiveVectorIndex(),
+      embeddingGenerator: (_) async => const [0.25, 0.75],
+    );
+    final report = await migration.migrateActiveBodyVectors(
+      activeModelIdentity: 'EmbeddingGemma-test',
+      expectedDimension: 2,
+    );
+
+    expect(report.failed, 0);
+    expect(
+      (await lineage.lineageDocumentById(result.document.documentId))!
+          .provenanceQuality,
+      ProvenanceQuality.exact,
+    );
+    expect(
+      (await lineage.lineageChunksForDocument(result.document.documentId))
+          .every((chunk) =>
+              chunk.startOffset != null && chunk.endOffset != null),
+      isTrue,
+    );
+  });
+
   test('KnowledgeEngine commits lexical and exact lineage before vector work',
       () async {
     final tmp = await Directory.systemTemp.createTemp('pg-r46-engine-');
