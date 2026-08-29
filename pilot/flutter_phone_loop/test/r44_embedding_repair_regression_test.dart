@@ -20,7 +20,7 @@ void main() {
 
     expect(page, contains('SemanticSyncProgress'));
     expect(page, contains('repairProgress'));
-    expect(page, contains('补建 ${p.completed}/${p.total}'));
+    expect(page, contains(r'补建 ${p.completed}/${p.total}'));
     expect(page, contains('p.percent'));
     expect(page, contains('p.currentSource'));
   });
