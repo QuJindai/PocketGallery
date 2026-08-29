@@ -1,5 +1,5 @@
 {
-  "name": "PocketGallery Golden Retrieval v1",
+  "name": "PocketGallery Golden Retrieval v2 · phone-realworld",
   "cases": [
     {
       "id": "calibration-code",
@@ -16,11 +16,53 @@
       "tags": ["zh", "semantic", "calibration"]
     },
     {
+      "id": "calibration-processing",
+      "question": "DSA收到处理中响应能不能当作标定成功？",
+      "expectedDocumentIds": [],
+      "expectedSourceNames": ["pg_golden_calibration.txt"],
+      "tags": ["zh", "paraphrase", "calibration"]
+    },
+    {
+      "id": "calibration-timeout",
+      "question": "标定结果一直等待时应该检查哪些超时和最终状态？",
+      "expectedDocumentIds": [],
+      "expectedSourceNames": ["pg_golden_calibration.txt"],
+      "tags": ["zh", "paraphrase", "calibration"]
+    },
+    {
+      "id": "cjk-short",
+      "question": "标定",
+      "expectedDocumentIds": [],
+      "expectedSourceNames": ["pg_golden_calibration.txt"],
+      "tags": ["zh", "cjk-2char", "fts"]
+    },
+    {
       "id": "robot-overload",
       "question": "机器人关节过载应该检查什么？",
       "expectedDocumentIds": [],
       "expectedSourceNames": ["pg_golden_robot.txt"],
       "tags": ["zh", "semantic", "robot"]
+    },
+    {
+      "id": "robot-lubrication",
+      "question": "喷涂机器人每周需要检查什么润滑项目？",
+      "expectedDocumentIds": [],
+      "expectedSourceNames": ["pg_golden_robot.txt"],
+      "tags": ["zh", "paraphrase", "robot"]
+    },
+    {
+      "id": "robot-interference",
+      "question": "机械干涉会导致机器人出现什么故障？",
+      "expectedDocumentIds": [],
+      "expectedSourceNames": ["pg_golden_robot.txt"],
+      "tags": ["zh", "paraphrase", "robot"]
+    },
+    {
+      "id": "robot-load",
+      "question": "机器人关节过载时为什么要检查负载参数？",
+      "expectedDocumentIds": [],
+      "expectedSourceNames": ["pg_golden_robot.txt"],
+      "tags": ["zh", "paraphrase", "robot"]
     },
     {
       "id": "network-session",
@@ -30,11 +72,74 @@
       "tags": ["zh", "cross-language", "network"]
     },
     {
-      "id": "cjk-short",
-      "question": "标定",
+      "id": "network-keepalive",
+      "question": "DoIP 建链后为什么还需要保持诊断会话？",
       "expectedDocumentIds": [],
-      "expectedSourceNames": ["pg_golden_calibration.txt"],
-      "tags": ["zh", "cjk-2char", "fts"]
+      "expectedSourceNames": ["pg_golden_network.txt"],
+      "tags": ["zh", "paraphrase", "network"]
+    },
+    {
+      "id": "network-disconnect",
+      "question": "网络掉线会不会直接中断诊断服务？",
+      "expectedDocumentIds": [],
+      "expectedSourceNames": ["pg_golden_network.txt"],
+      "tags": ["zh", "paraphrase", "network"]
+    },
+    {
+      "id": "network-vs-calibration",
+      "question": "DoIP掉线和等待标定结果是不是同一种故障？",
+      "expectedDocumentIds": [],
+      "expectedSourceNames": ["pg_golden_network.txt"],
+      "tags": ["zh", "contrast", "network"]
+    },
+    {
+      "id": "edge-how-test",
+      "question": "端侧模型如何测试",
+      "expectedDocumentIds": [],
+      "expectedSourceNames": ["pg_golden_edge_ai.txt"],
+      "tags": ["zh", "phone-realworld", "cjk-long", "edge-ai"]
+    },
+    {
+      "id": "edge-metrics",
+      "question": "端侧AI模型性能要测哪些指标？",
+      "expectedDocumentIds": [],
+      "expectedSourceNames": ["pg_golden_edge_ai.txt"],
+      "tags": ["zh", "phone-realworld", "paraphrase", "edge-ai"]
+    },
+    {
+      "id": "edge-ttft-tps",
+      "question": "TTFT和每秒token怎么评估端侧模型？",
+      "expectedDocumentIds": [],
+      "expectedSourceNames": ["pg_golden_edge_ai.txt"],
+      "tags": ["zh", "phone-realworld", "identifier", "edge-ai"]
+    },
+    {
+      "id": "edge-phone-llm",
+      "question": "手机上跑大模型要关注哪些性能指标？",
+      "expectedDocumentIds": [],
+      "expectedSourceNames": ["pg_golden_edge_ai.txt"],
+      "tags": ["zh", "phone-realworld", "paraphrase", "edge-ai"]
+    },
+    {
+      "id": "edge-power-thermal",
+      "question": "端侧模型功耗和温控降频怎么测？",
+      "expectedDocumentIds": [],
+      "expectedSourceNames": ["pg_golden_edge_ai.txt"],
+      "tags": ["zh", "phone-realworld", "thermal", "edge-ai"]
+    },
+    {
+      "id": "edge-task-benchmark",
+      "question": "受限硬件上的模型任务基准怎么做？",
+      "expectedDocumentIds": [],
+      "expectedSourceNames": ["pg_golden_edge_ai.txt"],
+      "tags": ["zh", "phone-realworld", "benchmark", "edge-ai"]
+    },
+    {
+      "id": "edge-memory",
+      "question": "峰值内存为什么是端侧模型的重要指标？",
+      "expectedDocumentIds": [],
+      "expectedSourceNames": ["pg_golden_edge_ai.txt"],
+      "tags": ["zh", "phone-realworld", "memory", "edge-ai"]
     }
   ]
 }
