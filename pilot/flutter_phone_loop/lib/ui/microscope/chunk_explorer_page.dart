@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 
 import '../../core/models.dart';
+import '../../eval/retrieval_benchmark_fixture.dart';
 import '../../observability/index_health_service.dart';
 import '../../services/knowledge_engine.dart';
 import '../../services/semantic_store.dart';
@@ -28,6 +29,7 @@ class _ChunkExplorerPageState extends State<ChunkExplorerPage> {
   String? selectedDocumentId;
   bool loading = true;
   bool rebuilding = false;
+  SemanticSyncProgress? repairProgress;
   Object? error;
 
   @override
@@ -50,7 +52,19 @@ class _ChunkExplorerPageState extends State<ChunkExplorerPage> {
       error = null;
     });
     try {
+      // R4.3 could leave built-in pg_golden_* diagnostics visible if native
+      // vector cleanup failed. These names are reserved by PocketGallery and
+      // are never user documents, so remove stale fixtures before presenting
+      // real index health.
+      await RetrievalBenchmarkFixture.cleanupReservedGoldenDocuments(
+        widget.engine,
+      );
+
       final docs = await widget.engine.listDocuments();
+      final docIds = docs.map((e) => e.documentId).toSet();
+      if (selectedDocumentId != null && !docIds.contains(selectedDocumentId)) {
+        selectedDocumentId = null;
+      }
       final snapshot = await healthService.snapshot();
       final selected = selectedDocumentId;
       final inspected = selected == null
@@ -86,10 +100,25 @@ class _ChunkExplorerPageState extends State<ChunkExplorerPage> {
 
   Future<void> _rebuildMissing() async {
     if (rebuilding || !FlutterGemma.hasActiveEmbedder()) return;
-    setState(() => rebuilding = true);
+    setState(() {
+      rebuilding = true;
+      repairProgress = null;
+      error = null;
+    });
     try {
-      await widget.engine.syncSemanticIndex();
+      await widget.engine.syncMissingSemanticIndex(
+        onProgress: (progress) {
+          if (!mounted) return;
+          setState(() => repairProgress = progress);
+        },
+      );
       await _load();
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          error = '向量补建中断：$e。已完成部分已经保存，可再次点击继续。';
+        });
+      }
     } finally {
       if (mounted) setState(() => rebuilding = false);
     }
@@ -103,7 +132,7 @@ class _ChunkExplorerPageState extends State<ChunkExplorerPage> {
         actions: [
           IconButton(
             tooltip: '刷新',
-            onPressed: loading ? null : _load,
+            onPressed: loading || rebuilding ? null : _load,
             icon: const Icon(Icons.refresh),
           ),
         ],
@@ -140,7 +169,9 @@ class _ChunkExplorerPageState extends State<ChunkExplorerPage> {
                       '${document.chunkCount} chunks · SHA ${_short(document.sha256)}',
                     ),
                     trailing: const Icon(Icons.chevron_right),
-                    onTap: () => _selectDocument(document.documentId),
+                    onTap: rebuilding
+                        ? null
+                        : () => _selectDocument(document.documentId),
                   ),
                 ),
             if (selectedDocumentId != null) ...[
@@ -163,59 +194,87 @@ class _ChunkExplorerPageState extends State<ChunkExplorerPage> {
     );
   }
 
-  Widget _healthCard(BuildContext context, IndexHealthSnapshot h) => Card(
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  const Icon(Icons.monitor_heart_outlined),
-                  const SizedBox(width: 8),
-                  Text('索引健康', style: Theme.of(context).textTheme.titleMedium),
-                ],
-              ),
-              const SizedBox(height: 10),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  _metric('Documents', '${h.documentCount}'),
-                  _metric('Chunks', '${h.chunkCount}'),
-                  _metric('FTS', '${h.ftsIndexedCount}/${h.chunkCount}'),
-                  _metric('Vector', '${h.vectorIndexedCount}/${h.chunkCount}'),
-                  _metric('Missing Vector', '${h.missingVectorCount}'),
-                  _metric('Stale', '${h.staleVectorCount}'),
-                  _metric('0-chunk', '${h.zeroChunkDocuments}'),
-                  _metric('Duplicate SHA', '${h.duplicateShaGroups}'),
-                ],
-              ),
-              const SizedBox(height: 10),
+  Widget _healthCard(BuildContext context, IndexHealthSnapshot h) {
+    final p = repairProgress;
+    final needsRepair = h.missingVectorCount > 0 || h.staleVectorCount > 0;
+    final progressLabel = p == null
+        ? '补建中…'
+        : '补建 ${p.completed}/${p.total} · ${(p.percent * 100).toStringAsFixed(1)}%';
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.monitor_heart_outlined),
+                const SizedBox(width: 8),
+                Text('索引健康', style: Theme.of(context).textTheme.titleMedium),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _metric('Documents', '${h.documentCount}'),
+                _metric('Chunks', '${h.chunkCount}'),
+                _metric('FTS', '${h.ftsIndexedCount}/${h.chunkCount}'),
+                _metric('Vector', '${h.vectorIndexedCount}/${h.chunkCount}'),
+                _metric('Missing Vector', '${h.missingVectorCount}'),
+                _metric('Stale', '${h.staleVectorCount}'),
+                _metric('0-chunk', '${h.zeroChunkDocuments}'),
+                _metric('Duplicate SHA', '${h.duplicateShaGroups}'),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'REAL index coverage · FTS ${(h.ftsCoverage * 100).toStringAsFixed(1)}% · Vector ${(h.vectorCoverage * 100).toStringAsFixed(1)}%',
+            ),
+            if (h.ftsDbBytes != null || h.vectorDbBytes != null) ...[
+              const SizedBox(height: 4),
               Text(
-                'REAL index coverage · FTS ${(h.ftsCoverage * 100).toStringAsFixed(1)}% · Vector ${(h.vectorCoverage * 100).toStringAsFixed(1)}%',
+                'DB · FTS ${_bytes(h.ftsDbBytes)} · Vector ${_bytes(h.vectorDbBytes)} · Observatory ${_bytes(h.observabilityDbBytes)}',
+                style: Theme.of(context).textTheme.bodySmall,
               ),
-              if (h.ftsDbBytes != null || h.vectorDbBytes != null) ...[
-                const SizedBox(height: 4),
+            ],
+            if (rebuilding && p != null) ...[
+              const SizedBox(height: 12),
+              LinearProgressIndicator(value: p.percent.clamp(0.0, 1.0)),
+              const SizedBox(height: 6),
+              Text(progressLabel),
+              if (p.currentSource != null)
                 Text(
-                  'DB · FTS ${_bytes(h.ftsDbBytes)} · Vector ${_bytes(h.vectorDbBytes)} · Observatory ${_bytes(h.observabilityDbBytes)}',
+                  '当前：${p.currentSource}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
-              ],
-              if (h.missingVectorCount > 0) ...[
-                const SizedBox(height: 10),
-                FilledButton.tonalIcon(
-                  onPressed: rebuilding || !FlutterGemma.hasActiveEmbedder()
-                      ? null
-                      : _rebuildMissing,
-                  icon: const Icon(Icons.sync),
-                  label: Text(rebuilding ? '补建中…' : '补齐缺失向量观测'),
-                ),
-              ],
             ],
-          ),
+            if (needsRepair || rebuilding) ...[
+              const SizedBox(height: 10),
+              FilledButton.tonalIcon(
+                onPressed: rebuilding || !FlutterGemma.hasActiveEmbedder()
+                    ? null
+                    : _rebuildMissing,
+                icon: const Icon(Icons.sync),
+                label: Text(rebuilding ? progressLabel : '仅补齐缺失/过期向量'),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                rebuilding
+                    ? '已完成项即时落盘；中断后再次运行会从剩余项继续。'
+                    : '不会重算已经健康的向量。',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ],
+          ],
         ),
-      );
+      ),
+    );
+  }
 
   Widget _metric(String name, String value) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
