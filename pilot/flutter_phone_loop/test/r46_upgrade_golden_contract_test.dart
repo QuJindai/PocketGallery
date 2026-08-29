@@ -33,7 +33,7 @@ void main() {
     expect(int.parse(version.group(2)!), greaterThanOrEqualTo(18));
     expect(phoneWorkflow,
         contains('feature/phone-pilot-r46-runtime-lineage'));
-    expect(phoneWorkflow, contains('test "$VERSION_CODE" -ge 2018'));
+    expect(phoneWorkflow, contains(r'test "$VERSION_CODE" -ge 2018'));
     expect(phoneWorkflow, contains(
       '81af4a5ef94c236774f0e193b2a4b248805b36c14cc36e2a56df8e451a712541',
     ));
