@@ -9,7 +9,10 @@ import '../lineage/lineage_ids.dart';
 import '../lineage/lineage_models.dart';
 import '../lineage/lineage_store.dart';
 import '../lineage/r45_vector_migration.dart';
+import '../lineage/runtime_lineage_recorder.dart';
 import '../retrieval/active_vector_index.dart';
+import '../retrieval/query_embedding_runtime.dart';
+import '../retrieval/retrieval_runtime.dart';
 import '../retrieval/sqlite_active_vector_index.dart';
 import 'document_importer.dart';
 import 'gemma_service.dart';
@@ -47,6 +50,20 @@ class KnowledgeEngine {
     this.semanticStore = semanticStore ?? SemanticStore(this.lexicalStore);
     this.lineageStore = lineageStore ?? LineageStore();
     this.activeVectorIndex = activeVectorIndex ?? SqliteActiveVectorIndex();
+    queryEmbeddingRuntime = QueryEmbeddingRuntime(
+      generator: const FlutterGemmaEmbeddingGenerator(),
+      store: this.lineageStore,
+      modelIdentity: SemanticStore.embeddingModelIdentity,
+    );
+    runtimeLineageRecorder = RuntimeLineageRecorder(store: this.lineageStore);
+    retrievalRuntime = RetrievalRuntime(
+      lexicalStore: this.lexicalStore,
+      queryEmbeddingRuntime: queryEmbeddingRuntime,
+      activeVectorIndex: this.activeVectorIndex,
+      recorder: runtimeLineageRecorder,
+      embedderReady: FlutterGemma.hasActiveEmbedder,
+      ranker: ranker,
+    );
     r45VectorMigration = R45VectorMigration(
       lexicalStore: this.lexicalStore,
       observationStore: this.semanticStore.observationStore,
@@ -65,6 +82,7 @@ class KnowledgeEngine {
       semanticStore: this.semanticStore,
       ranker: ranker,
       evidenceBuilder: evidenceBuilder,
+      runtime: retrievalRuntime,
     );
   }
 
@@ -73,6 +91,9 @@ class KnowledgeEngine {
   late final KnowledgeRetriever retriever;
   late final LineageStore lineageStore;
   late final ActiveVectorIndex activeVectorIndex;
+  late final QueryEmbeddingRuntime queryEmbeddingRuntime;
+  late final RuntimeLineageRecorder runtimeLineageRecorder;
+  late final RetrievalRuntime retrievalRuntime;
   late final R45VectorMigration r45VectorMigration;
   final DocumentImporter importer;
   final GemmaService gemma;

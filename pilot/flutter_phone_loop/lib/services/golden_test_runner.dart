@@ -193,6 +193,7 @@ class _GoldenHeavyEvidenceRetriever implements KnowledgeRetrievalGateway {
     String query, {
     KnowledgeScope scope = const KnowledgeScope.all(),
     int limit = 8,
+    RetrievalExecutionContext? execution,
   }) async {
     final chunks = List<PgChunk>.generate(
       5,

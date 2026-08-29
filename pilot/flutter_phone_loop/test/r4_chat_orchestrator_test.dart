@@ -12,7 +12,9 @@ class FakeRetriever implements KnowledgeRetrievalGateway {
   int calls = 0;
   @override
   Future<RetrievalBundle> retrieve(String query,
-      {KnowledgeScope scope = const KnowledgeScope.all(), int limit = 8}) async {
+      {KnowledgeScope scope = const KnowledgeScope.all(),
+      int limit = 8,
+      RetrievalExecutionContext? execution}) async {
     calls++;
     return bundle;
   }

@@ -46,6 +46,13 @@ abstract final class LineageIds {
   ) =>
       _id('cand', '$traceId|$strategyId|$chunkId');
 
+  static String routerDecisionId(
+    String traceId,
+    String strategyId,
+    RetrievalLane lane,
+  ) =>
+      _id('route', '$traceId|$strategyId|${lane.dbValue}');
+
   static String evidenceId(
     String traceId,
     String strategyId,
