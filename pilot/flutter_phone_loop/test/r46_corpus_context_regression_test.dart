@@ -73,17 +73,11 @@ void main() {
         ),
     ];
 
-    String context;
-    try {
-      context = (budgeter as dynamic).composeEvidenceContext(
-        evidence,
-        maxTokens: ContextBudgeter.evidenceReserveMax,
-        maxItems: 8,
-      ) as String;
-    } catch (error) {
-      fail('ContextBudgeter must compose a bounded, document-balanced context: '
-          '$error');
-    }
+    final context = budgeter.composeEvidenceContext(
+      evidence,
+      maxTokens: ContextBudgeter.evidenceReserveMax,
+      maxItems: 8,
+    );
 
     for (var i = 0; i < 6; i++) {
       expect(context, contains('[E${i + 1}]'));
@@ -93,6 +87,51 @@ void main() {
       budgeter.estimateTokens(context),
       lessThanOrEqualTo(ContextBudgeter.evidenceReserveMax),
     );
+  });
+
+  test('long metadata cannot evict later anchors or exceed a tight budget', () {
+    const budgeter = ContextBudgeter();
+    const maxTokens = 240;
+    final evidence = [
+      for (var i = 0; i < 6; i++)
+        EvidenceItem(
+          anchor: 'E${i + 1}',
+          chunk: PgChunk(
+            id: 'chunk-$i-${List.filled(1500, 'c').join()}-$i',
+            documentId: 'document-$i',
+            sourceName: 'document-$i-${List.filled(1500, 's').join()}-$i.md',
+            locator: 'section-$i-${List.filled(1500, 'l').join()}-$i',
+            ordinal: 0,
+            text: List.filled(900, '第$i份资料内容').join(),
+          ),
+          score: 1 / (i + 1),
+        ),
+    ];
+
+    final context = budgeter.composeEvidenceContext(
+      evidence,
+      maxTokens: maxTokens,
+      maxItems: 8,
+    );
+
+    for (var i = 0; i < 6; i++) {
+      expect(context, contains('[E${i + 1}]'));
+      expect(context, contains('source="document-$i-'));
+    }
+    expect(budgeter.estimateTokens(context), lessThanOrEqualTo(maxTokens));
+  });
+
+  test('truncation marker is included inside the requested token budget', () {
+    const budgeter = ContextBudgeter();
+    const maxTokens = 24;
+
+    final trimmed = budgeter.trimTextToTokenBudget(
+      List.filled(1000, 'abcdef').join(),
+      maxTokens,
+    );
+
+    expect(trimmed, contains('[context budget truncated]'));
+    expect(budgeter.estimateTokens(trimmed), lessThanOrEqualTo(maxTokens));
   });
 
   test('R4.6 advances the in-place update build number beyond R4.5', () async {
