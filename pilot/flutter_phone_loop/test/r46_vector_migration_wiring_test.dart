@@ -19,9 +19,11 @@ void main() {
 
     expect(initializeBody, contains('await lineageStore.initialize()'));
     expect(initializeBody, contains('await activeVectorIndex.initialize()'));
-    expect(initializeBody, contains('if (FlutterGemma.hasActiveEmbedder())'));
+    expect(initializeBody, contains('FlutterGemma.hasActiveEmbedder()'));
+    expect(initializeBody, contains('_r46MigrationReady'));
     expect(initializeBody, contains('await embedder.getDimension()'));
     expect(initializeBody, contains('await r45VectorMigration.migrateActiveBodyVectors'));
+    expect(initializeBody, contains('report.failed == 0'));
     expect(initializeBody, isNot(contains('rebuildAllEmbeddings')));
     expect(initializeBody, isNot(contains('semanticStore.clear')));
     expect(initializeBody, isNot(contains('observationStore.clear')));
