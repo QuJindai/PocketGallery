@@ -84,8 +84,16 @@ void main() {
     final retriever = await File(
       'lib/services/knowledge_retriever.dart',
     ).readAsString();
+    final bundle = await File(
+      'lib/retrieval/retrieval_bundle.dart',
+    ).readAsString();
 
-    expect(retriever, contains('relevantForKnowledge'));
+    expect(bundle, contains('relevantForKnowledge'));
+    expect(
+      retriever,
+      contains("export '../retrieval/retrieval_bundle.dart'"),
+      reason: 'the historical KnowledgeRetriever import remains compatible',
+    );
     expect(source, contains('retrieval.relevantForKnowledge'));
   });
 }
