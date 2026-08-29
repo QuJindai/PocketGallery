@@ -48,16 +48,9 @@ class RetrievalBundle {
     if (override != null) return override;
     if (evidence.isEmpty || hybridHits.isEmpty) return false;
 
-    // Dual-channel agreement is strong evidence because lexical and semantic
-    // retrieval independently selected the same candidate.
     if (hybridHits.first.channels.length > 1) return true;
     if (lexicalHits.isNotEmpty) return true;
 
-    // Raw cosine is not globally calibrated enough for one hard threshold.
-    // Accept either a very strong absolute winner, or a moderately strong
-    // winner that is clearly separated from the second candidate. This keeps
-    // weak semantic noise out while allowing real queries such as
-    // "端侧模型如何测试" to use a clearly leading local document.
     final top = topSemanticScore ?? 0;
     return top >= semanticOnlyAutoStrongThreshold ||
         (top >= semanticOnlyAutoFloor && semanticTopGap >= semanticOnlyAutoGap);
@@ -109,7 +102,7 @@ class KnowledgeRetriever implements KnowledgeRetrievalGateway {
       final coverage = await _buildCorpusCoverage(scope, limit);
       fusionWatch.stop();
       final evidenceWatch = Stopwatch()..start();
-      final evidence = evidenceBuilder.build(coverage);
+      final evidence = evidenceBuilder.build(coverage, conservative: false);
       evidenceWatch.stop();
       return RetrievalBundle(
         lexicalHits: const <RetrievalHit>[],
@@ -201,7 +194,8 @@ class KnowledgeRetriever implements KnowledgeRetrievalGateway {
       final coverage = await _buildCorpusCoverage(scope, limit);
       fallbackWatch.stop();
       final fallbackEvidenceWatch = Stopwatch()..start();
-      final coverageEvidence = evidenceBuilder.build(coverage);
+      final coverageEvidence =
+          evidenceBuilder.build(coverage, conservative: false);
       fallbackEvidenceWatch.stop();
       return RetrievalBundle(
         lexicalHits: lexical,
