@@ -51,9 +51,9 @@ class NoopActiveVectorIndex implements ActiveVectorIndex {
 
 class TestSemanticStore extends SemanticStore {
   TestSemanticStore(
-    LexicalFtsStore lexicalStore,
+    super.lexicalStore,
     VectorObservationStore observationStore,
-  ) : super(lexicalStore, observationStore: observationStore);
+  ) : super(observationStore: observationStore);
 
   @override
   Future<void> initialize() => observationStore.initialize();
