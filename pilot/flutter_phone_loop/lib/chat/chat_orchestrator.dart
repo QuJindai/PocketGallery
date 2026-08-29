@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import '../core/evidence.dart';
 import '../core/models.dart';
+import '../lineage/generation_models.dart';
 import '../lineage/lineage_ids.dart';
 import '../lineage/lineage_models.dart';
 import '../lineage/lineage_store.dart';
