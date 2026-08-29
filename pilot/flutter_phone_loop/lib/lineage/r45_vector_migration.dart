@@ -67,18 +67,10 @@ class R45VectorMigration {
     void Function(VectorMigrationProgress progress)? onProgress,
   }) async {
     if (activeModelIdentity.trim().isEmpty) {
-      throw ArgumentError.value(
-        activeModelIdentity,
-        'activeModelIdentity',
-        'must not be empty',
-      );
+      throw ArgumentError.value(activeModelIdentity, 'activeModelIdentity', 'must not be empty');
     }
     if (expectedDimension <= 0) {
-      throw ArgumentError.value(
-        expectedDimension,
-        'expectedDimension',
-        'must be positive',
-      );
+      throw ArgumentError.value(expectedDimension, 'expectedDimension', 'must be positive');
     }
 
     await lexicalStore.initialize();
@@ -95,9 +87,7 @@ class R45VectorMigration {
     };
     final chunksByDocument = <String, List<PgChunk>>{};
     for (final chunk in allChunks) {
-      chunksByDocument
-          .putIfAbsent(chunk.documentId, () => <PgChunk>[])
-          .add(chunk);
+      chunksByDocument.putIfAbsent(chunk.documentId, () => <PgChunk>[]).add(chunk);
     }
 
     var reusedFromR45 = 0;
@@ -107,17 +97,22 @@ class R45VectorMigration {
     var failed = 0;
     var processed = 0;
 
-    onProgress?.call(VectorMigrationProgress(
-      total: allChunks.length,
-      completed: 0,
-      failed: 0,
-      currentSource: allChunks.isEmpty ? null : allChunks.first.sourceName,
-      currentChunkId: allChunks.isEmpty ? null : allChunks.first.id,
-    ));
+    void progress(PgChunk? current) {
+      onProgress?.call(VectorMigrationProgress(
+        total: allChunks.length,
+        completed: processed,
+        failed: failed,
+        currentSource: current?.sourceName,
+        currentChunkId: current?.id,
+      ));
+    }
+
+    progress(allChunks.isEmpty ? null : allChunks.first);
 
     for (final document in documents) {
-      final chunks = chunksByDocument[document.documentId] ?? const <PgChunk>[];
-      chunks.sort((a, b) => a.ordinal.compareTo(b.ordinal));
+      final chunks = <PgChunk>[
+        ...?chunksByDocument[document.documentId],
+      ]..sort((a, b) => a.ordinal.compareTo(b.ordinal));
       final jobId = LineageIds.buildJobId(document.documentId, activeStrategyId);
       final existingJob = await lineageStore.buildJobById(jobId);
       final createdAt = existingJob?.createdAt ?? DateTime.now().toUtc();
@@ -132,42 +127,7 @@ class R45VectorMigration {
         currentSource: document.sourceName,
         createdAt: createdAt,
       );
-
-      await lineageStore.upsertLineageDocument(
-        documentId: document.documentId,
-        sourceName: document.sourceName,
-        sha256: document.sha256,
-        fileType: _fileType(document.sourceName),
-        sizeBytes: null,
-        pageCount: null,
-        parseStatus: 'legacy-existing',
-        parseErrorCode: null,
-        parseErrorDetail: null,
-        extractedCharCount: chunks.fold<int>(
-          0,
-          (sum, chunk) => sum + chunk.text.runes.length,
-        ),
-        emptyPageCount: 0,
-        provenanceQuality: 'legacy',
-        importedAt: createdAt,
-      );
-      for (final chunk in chunks) {
-        await lineageStore.upsertLineageChunk(
-          chunkId: chunk.id,
-          documentId: chunk.documentId,
-          sectionId: null,
-          locator: chunk.locator,
-          ordinal: chunk.ordinal,
-          startOffset: null,
-          endOffset: null,
-          charCount: chunk.text.runes.length,
-          tokenCount: null,
-          overlapFromPrevious: 0,
-          chunkStrategy: 'r45-existing',
-          boundaryReason: null,
-          provenanceQuality: 'legacy',
-        );
-      }
+      await _writeLegacyLineage(document, chunks, createdAt);
       await _putJob(
         jobId: jobId,
         documentId: document.documentId,
@@ -192,31 +152,17 @@ class R45VectorMigration {
           alreadyCommitted++;
           committedForDocument++;
           processed++;
-          onProgress?.call(VectorMigrationProgress(
-            total: allChunks.length,
-            completed: processed,
-            failed: failed,
-            currentSource: chunk.sourceName,
-            currentChunkId: chunk.id,
-          ));
+          progress(chunk);
           continue;
         }
 
         LineageEmbedding? embedding = await lineageStore.embeddingById(embeddingId);
-        if (_reusablePersisted(
-          embedding,
-          activeModelIdentity,
-          expectedDimension,
-        )) {
+        if (_reusablePersisted(embedding, activeModelIdentity, expectedDimension)) {
           resumedPersisted++;
         } else {
           embedding = null;
           final observation = observationByChunk[chunk.id];
-          if (_reusableObservation(
-            observation,
-            activeModelIdentity,
-            expectedDimension,
-          )) {
+          if (_reusableObservation(observation, activeModelIdentity, expectedDimension)) {
             embedding = LineageEmbedding.fromVector(
               embeddingId: embeddingId,
               sourceKind: 'chunk',
@@ -236,9 +182,7 @@ class R45VectorMigration {
             try {
               final vector = await embeddingGenerator(chunk);
               if (vector.length != expectedDimension) {
-                throw StateError(
-                  'Generated embedding dimension ${vector.length} != $expectedDimension',
-                );
+                throw StateError('Generated embedding dimension ${vector.length} != $expectedDimension');
               }
               embedding = LineageEmbedding.fromVector(
                 embeddingId: embeddingId,
@@ -264,34 +208,44 @@ class R45VectorMigration {
                 failureDetail: '$error',
               );
               processed++;
-              onProgress?.call(VectorMigrationProgress(
-                total: allChunks.length,
-                completed: processed,
-                failed: failed,
-                currentSource: chunk.sourceName,
-                currentChunkId: chunk.id,
-              ));
+              progress(chunk);
               continue;
             }
           }
         }
 
+        final readyEmbedding = embedding;
+        if (readyEmbedding == null) {
+          failed++;
+          failedForDocument++;
+          await _putIndexEntry(
+            embeddingId: embeddingId,
+            backendId: backend.backendId,
+            status: VectorCommitStatus.failed,
+            failureCode: 'EMBEDDING_NOT_PERSISTED',
+            failureDetail: 'No valid persisted body embedding was available.',
+          );
+          processed++;
+          progress(chunk);
+          continue;
+        }
+
         await _putIndexEntry(
-          embeddingId: embedding.embeddingId,
+          embeddingId: readyEmbedding.embeddingId,
           backendId: backend.backendId,
           status: VectorCommitStatus.pending,
         );
         try {
           await activeVectorIndex.add(VectorIndexRecord(
-            embeddingId: embedding.embeddingId,
+            embeddingId: readyEmbedding.embeddingId,
             chunkId: chunk.id,
             documentId: chunk.documentId,
             content: chunk.text,
-            embedding: embedding.vector,
-            modelIdentity: embedding.modelIdentity,
+            embedding: readyEmbedding.vector,
+            modelIdentity: readyEmbedding.modelIdentity,
           ));
           await _putIndexEntry(
-            embeddingId: embedding.embeddingId,
+            embeddingId: readyEmbedding.embeddingId,
             backendId: backend.backendId,
             status: VectorCommitStatus.committed,
             committedAt: DateTime.now().toUtc(),
@@ -301,7 +255,7 @@ class R45VectorMigration {
           failed++;
           failedForDocument++;
           await _putIndexEntry(
-            embeddingId: embedding.embeddingId,
+            embeddingId: readyEmbedding.embeddingId,
             backendId: backend.backendId,
             status: VectorCommitStatus.failed,
             failureCode: 'VECTOR_INDEX_ADD_FAILED',
@@ -309,13 +263,7 @@ class R45VectorMigration {
           );
         }
         processed++;
-        onProgress?.call(VectorMigrationProgress(
-          total: allChunks.length,
-          completed: processed,
-          failed: failed,
-          currentSource: chunk.sourceName,
-          currentChunkId: chunk.id,
-        ));
+        progress(chunk);
       }
 
       if (failedForDocument == 0 && committedForDocument == chunks.length) {
@@ -350,8 +298,7 @@ class R45VectorMigration {
           currentSource: document.sourceName,
           createdAt: createdAt,
           failureCode: 'R45_VECTOR_MIGRATION_INCOMPLETE',
-          failureDetail:
-              '$failedForDocument vector operation(s) failed for ${document.sourceName}',
+          failureDetail: '$failedForDocument vector operation(s) failed for ${document.sourceName}',
         );
       }
     }
@@ -365,27 +312,65 @@ class R45VectorMigration {
     );
   }
 
+  Future<void> _writeLegacyLineage(
+    KnowledgeDocument document,
+    List<PgChunk> chunks,
+    DateTime importedAt,
+  ) async {
+    await lineageStore.upsertLineageDocument(
+      documentId: document.documentId,
+      sourceName: document.sourceName,
+      sha256: document.sha256,
+      fileType: _fileType(document.sourceName),
+      sizeBytes: null,
+      pageCount: null,
+      parseStatus: 'legacy-existing',
+      parseErrorCode: null,
+      parseErrorDetail: null,
+      extractedCharCount: chunks.fold<int>(0, (sum, chunk) => sum + chunk.text.runes.length),
+      emptyPageCount: 0,
+      provenanceQuality: 'legacy',
+      importedAt: importedAt,
+    );
+    for (final chunk in chunks) {
+      await lineageStore.upsertLineageChunk(
+        chunkId: chunk.id,
+        documentId: chunk.documentId,
+        sectionId: null,
+        locator: chunk.locator,
+        ordinal: chunk.ordinal,
+        startOffset: null,
+        endOffset: null,
+        charCount: chunk.text.runes.length,
+        tokenCount: null,
+        overlapFromPrevious: 0,
+        chunkStrategy: 'r45-existing',
+        boundaryReason: null,
+        provenanceQuality: 'legacy',
+      );
+    }
+  }
+
   bool _reusableObservation(
     VectorObservation? observation,
     String activeModelIdentity,
     int expectedDimension,
-  ) {
-    if (observation == null) return false;
-    return observation.modelIdentity == activeModelIdentity &&
-        observation.dimension == expectedDimension &&
-        observation.vector.length == expectedDimension &&
-        observation.norm.isFinite &&
-        observation.norm > 0 &&
-        observation.vector.every((value) => value.isFinite);
-  }
+  ) =>
+      observation != null &&
+      observation.modelIdentity == activeModelIdentity &&
+      observation.dimension == expectedDimension &&
+      observation.vector.length == expectedDimension &&
+      observation.norm.isFinite &&
+      observation.norm > 0 &&
+      observation.vector.every((value) => value.isFinite);
 
   bool _reusablePersisted(
     LineageEmbedding? embedding,
     String activeModelIdentity,
     int expectedDimension,
   ) {
-    if (embedding == null) return false;
-    if (embedding.modelIdentity != activeModelIdentity ||
+    if (embedding == null ||
+        embedding.modelIdentity != activeModelIdentity ||
         embedding.dimension != expectedDimension ||
         embedding.representation != EmbeddingRepresentation.body) {
       return false;
