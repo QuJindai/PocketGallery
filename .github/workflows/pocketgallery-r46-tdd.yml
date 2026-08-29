@@ -47,6 +47,7 @@ jobs:
           test/r46_chat_lineage_integration_test.dart
           test/r46_vector_health_test.dart
           test/r46_lineage_ui_test.dart
+          test/r46_upgrade_golden_contract_test.dart
           test/r41_trace_store_test.dart
           test/r41_vector_observation_test.dart
           test/r41_upgrade_contract_test.dart
