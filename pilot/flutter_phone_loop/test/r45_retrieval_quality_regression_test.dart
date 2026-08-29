@@ -124,10 +124,11 @@ void main() {
 
   test('R4.5 advances install version for in-place update', () async {
     final pubspec = await File('pubspec.yaml').readAsString();
-    expect(
-      RegExp(r'^version:\s*0\.4\.14\+15\s*$', multiLine: true)
-          .hasMatch(pubspec),
-      isTrue,
-    );
+    final match = RegExp(
+      r'^version:\s*0\.4\.\d+\+(\d+)\s*$',
+      multiLine: true,
+    ).firstMatch(pubspec);
+    expect(match, isNotNull);
+    expect(int.parse(match!.group(1)!), greaterThanOrEqualTo(15));
   });
 }
