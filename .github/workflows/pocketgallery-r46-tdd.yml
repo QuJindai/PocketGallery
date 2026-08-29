@@ -27,6 +27,10 @@ jobs:
       - name: Resolve dependencies
         working-directory: pilot/flutter_phone_loop
         run: flutter pub get
-      - name: R4.6 focused contract
+      - name: R4.6 Task 1 plus persistence regressions
         working-directory: pilot/flutter_phone_loop
-        run: flutter test test/r46_lineage_store_test.dart
+        run: >-
+          flutter test
+          test/r46_lineage_store_test.dart
+          test/r41_trace_store_test.dart
+          test/r4_chat_session_store_test.dart
