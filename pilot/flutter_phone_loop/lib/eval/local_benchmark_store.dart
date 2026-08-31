@@ -40,27 +40,26 @@ class LocalBenchmarkCase {
 }
 
 class LocalBenchmarkStore {
-  LocalBenchmarkStore({Database? database, String? databasePath})
+  LocalBenchmarkStore({Database? database, this.databasePath})
       : _db = database,
-        _databasePath = databasePath,
         _ownsDatabase = database == null;
 
   LocalBenchmarkStore.inMemory()
       : _db = sqlite3.openInMemory(),
-        _databasePath = null,
+        databasePath = null,
         _ownsDatabase = true;
 
   static const databaseFileName = 'pocketgallery_local_benchmark.db';
 
   Database? _db;
-  final String? _databasePath;
+  final String? databasePath;
   final bool _ownsDatabase;
   bool _initialized = false;
 
   Future<void> initialize() async {
     if (_initialized) return;
     if (_db == null) {
-      final path = _databasePath ??
+      final path = databasePath ??
           p.join(
             (await getApplicationDocumentsDirectory()).path,
             databaseFileName,
