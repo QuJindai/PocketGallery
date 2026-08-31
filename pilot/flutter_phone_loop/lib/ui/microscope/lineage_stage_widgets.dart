@@ -91,6 +91,7 @@ class LineageMetric extends StatelessWidget {
           ],
         ),
       );
+}
 
 class LineageSectionCard extends StatelessWidget {
   const LineageSectionCard({
@@ -116,6 +117,7 @@ class LineageSectionCard extends StatelessWidget {
           ),
         ),
       );
+}
 
 class EmptyFact extends StatelessWidget {
   const EmptyFact(this.message, {super.key});
