@@ -104,50 +104,53 @@ class _RagLineageDashboardPageState extends State<RagLineageDashboardPage> {
         ],
       ),
       body: SafeArea(
-        child: ListView(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(12),
-          children: [
-            if (loading || actionBusy) const LinearProgressIndicator(),
-            if (error != null)
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Text('Lineage 读取失败：$error'),
-                ),
-              ),
-            _identityCard(context),
-            if (!loading && data == null)
-              const Card(
-                child: Padding(
-                  padding: EdgeInsets.all(14),
-                  child: Text(
-                    '尚无运行时 Trace。完成一次“自动”或“强制知识库”聊天后，'
-                    '这里会显示真实链路；缺失数据不会按 0 填充。',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (loading || actionBusy) const LinearProgressIndicator(),
+              if (error != null)
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Text('Lineage 读取失败：$error'),
                   ),
                 ),
-              ),
-            if (data != null) ...[
-              _traceHeader(context, data),
-              const SizedBox(height: 8),
-              _stageStrip(data),
-              const SizedBox(height: 8),
-              for (final stage in RagStage.values) ...[
-                _stageSummaryCard(context, data, stage),
-                const SizedBox(height: 6),
+              _identityCard(context),
+              if (!loading && data == null)
+                const Card(
+                  child: Padding(
+                    padding: EdgeInsets.all(14),
+                    child: Text(
+                      '尚无运行时 Trace。完成一次“自动”或“强制知识库”聊天后，'
+                      '这里会显示真实链路；缺失数据不会按 0 填充。',
+                    ),
+                  ),
+                ),
+              if (data != null) ...[
+                _traceHeader(context, data),
+                const SizedBox(height: 8),
+                _stageStrip(data),
+                const SizedBox(height: 8),
+                for (final stage in RagStage.values) ...[
+                  _stageSummaryCard(context, data, stage),
+                  const SizedBox(height: 6),
+                ],
+                TraceWaterfallCard(events: data.events),
+                LineageGraphCard(snapshot: data),
+                ActiveShadowSummaryCard(snapshot: data),
+                TraceActionsCard(
+                  onRerun: () => _rerun(data),
+                  onCopy: () => _copyTraceId(data.trace.traceId),
+                  onCompare: () => _compare(data),
+                  onExport: () => _export(data),
+                  rerunEnabled: widget.orchestrator != null && !actionBusy,
+                  compareEnabled: traces.length > 1 && !actionBusy,
+                ),
               ],
-              TraceWaterfallCard(events: data.events),
-              LineageGraphCard(snapshot: data),
-              ActiveShadowSummaryCard(snapshot: data),
-              TraceActionsCard(
-                onRerun: () => _rerun(data),
-                onCopy: () => _copyTraceId(data.trace.traceId),
-                onCompare: () => _compare(data),
-                onExport: () => _export(data),
-                rerunEnabled: widget.orchestrator != null && !actionBusy,
-                compareEnabled: traces.length > 1 && !actionBusy,
-              ),
             ],
-          ],
+          ),
         ),
       ),
     );
@@ -273,13 +276,17 @@ class _RagLineageDashboardPageState extends State<RagLineageDashboardPage> {
                       style: Theme.of(context).textTheme.titleSmall,
                     ),
                   ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Wrap(
+                spacing: 4,
+                runSpacing: 4,
+                children: [
                   for (final badge in badges)
-                    Padding(
-                      padding: const EdgeInsets.only(left: 4),
-                      child: Chip(
-                        visualDensity: VisualDensity.compact,
-                        label: Text(badge),
-                      ),
+                    Chip(
+                      visualDensity: VisualDensity.compact,
+                      label: Text(badge),
                     ),
                 ],
               ),

@@ -70,7 +70,8 @@ class CandidatePoolPage extends StatelessWidget {
                           '${candidate.lane.dbValue} · '
                           '${candidate.sourceChannels} · '
                           'final #${candidate.finalRank ?? '未捕获'} · '
-                          '${candidate.selectedForEvidence ? 'selected' : 'not selected'}',
+                          '${candidate.selectedForEvidence ? 'selected' : 'not selected'} · '
+                          'drop ${candidate.dropReason ?? '未丢弃'}',
                         ),
                         children: [
                           Align(
