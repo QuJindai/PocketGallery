@@ -4,6 +4,31 @@ import '../../lineage/lineage_models.dart';
 import '../../lineage/lineage_store.dart';
 import '../../services/knowledge_engine.dart';
 
+String formatGenerationSummary(
+  GenerationStatsRecord? generation, {
+  required int citationCount,
+}) {
+  if (generation == null) {
+    return 'generation 未捕获 · TTFT 未捕获 · output tokens 未捕获 · '
+        'decode 未捕获 · backend 未暴露 · citations $citationCount';
+  }
+
+  final ttft = generation.ttftMs == null
+      ? 'TTFT 未捕获'
+      : 'TTFT ${generation.ttftMs} ms';
+  final output = generation.outputTokens == null
+      ? 'output tokens 未捕获'
+      : 'output ${generation.outputTokens} tokens';
+  final decode = generation.decodeTokensPerSecond == null
+      ? 'decode 未捕获'
+      : 'decode ${generation.decodeTokensPerSecond!.toStringAsFixed(1)} tok/s';
+  final backend = generation.backend == null
+      ? 'backend 未暴露'
+      : 'backend ${generation.backend}';
+  return 'generation ${generation.generationMs} ms · $ttft · $output · '
+      '$decode · $backend · citations $citationCount';
+}
+
 class RagLineageDashboardPage extends StatefulWidget {
   const RagLineageDashboardPage({
     super.key,
@@ -349,9 +374,10 @@ class _RagLineageDashboardPageState
         number: 10,
         title: '生成与引用',
         badges: const {'REAL', 'ACTIVE'},
-        summary: generation == null
-            ? 'generation 未捕获 · TTFT 未捕获 · backend 未暴露 · citations ${data.citations.length}'
-            : 'generation ${generation.generationMs} ms · ${generation.ttftMs == null ? 'TTFT 未捕获' : 'TTFT ${generation.ttftMs} ms'} · ${generation.outputTokens == null ? 'output tokens 未捕获' : 'output ${generation.outputTokens} tokens'} · ${generation.backend == null ? 'backend 未暴露' : 'backend ${generation.backend}'} · citations ${data.citations.length}',
+        summary: formatGenerationSummary(
+          generation,
+          citationCount: data.citations.length,
+        ),
         events: generationEvents,
       ),
     ];
