@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 
+import '../chat/chat_orchestrator.dart';
 import '../core/models.dart';
 import '../services/knowledge_engine.dart';
 import 'microscope/chunk_explorer_page.dart';
@@ -8,9 +9,14 @@ import 'microscope/rag_lineage_dashboard_page.dart';
 import 'microscope/retrieval_benchmark_page.dart';
 
 class KnowledgePage extends StatefulWidget {
-  const KnowledgePage({super.key, required this.engine});
+  const KnowledgePage({
+    super.key,
+    required this.engine,
+    this.orchestrator,
+  });
 
   final KnowledgeEngine engine;
+  final ChatOrchestrator? orchestrator;
 
   @override
   State<KnowledgePage> createState() => _KnowledgePageState();
@@ -130,6 +136,7 @@ class _KnowledgePageState extends State<KnowledgePage> {
       builder: (_) => RagLineageDashboardPage(
         engine: widget.engine,
         lineageStore: widget.engine.lineageStore,
+        orchestrator: widget.orchestrator,
       ),
     ));
   }

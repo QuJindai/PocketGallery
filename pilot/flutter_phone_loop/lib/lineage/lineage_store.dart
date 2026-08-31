@@ -676,6 +676,20 @@ class LineageStore {
         .toList(growable: false);
   }
 
+  Future<List<LineageEmbedding>> embeddingsForRepresentation(
+    EmbeddingRepresentation representation,
+  ) async {
+    await initialize();
+    return _db!
+        .select('''
+          SELECT * FROM pg_embeddings
+          WHERE source_kind = 'chunk' AND representation_type = ?
+          ORDER BY COALESCE(document_id, ''), source_id, embedding_id
+        ''', [representation.name])
+        .map(_embeddingFromRow)
+        .toList(growable: false);
+  }
+
   Future<void> putVectorIndexEntry(VectorIndexEntryRecord record) async {
     await initialize();
     _db!.execute('''

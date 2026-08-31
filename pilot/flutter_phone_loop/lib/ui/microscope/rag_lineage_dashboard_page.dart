@@ -1,33 +1,27 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
+import '../../chat/chat_orchestrator.dart';
 import '../../lineage/lineage_models.dart';
 import '../../lineage/lineage_store.dart';
+import '../../lineage/trace_snapshot.dart';
 import '../../services/knowledge_engine.dart';
+import 'candidate_pool_page.dart';
+import 'chunk_lineage_page.dart';
+import 'document_parse_microscope_page.dart';
+import 'embedding_microscope_page.dart';
+import 'evidence_context_page.dart';
+import 'fts_lineage_page.dart';
+import 'generation_citation_page.dart';
+import 'lineage_dashboard_visuals.dart';
+import 'lineage_formatters.dart';
+import 'rag_stage.dart';
+import 'rank_trajectory_page.dart';
+import 'router_decision_page.dart';
+import 'trace_actions.dart';
+import 'vector_space_page.dart';
 
-String formatGenerationSummary(
-  GenerationStatsRecord? generation, {
-  required int citationCount,
-}) {
-  if (generation == null) {
-    return 'generation 未捕获 · TTFT 未捕获 · output tokens 未捕获 · '
-        'decode 未捕获 · backend 未暴露 · citations $citationCount';
-  }
-
-  final ttft = generation.ttftMs == null
-      ? 'TTFT 未捕获'
-      : 'TTFT ${generation.ttftMs} ms';
-  final output = generation.outputTokens == null
-      ? 'output tokens 未捕获'
-      : 'output ${generation.outputTokens} tokens';
-  final decode = generation.decodeTokensPerSecond == null
-      ? 'decode 未捕获'
-      : 'decode ${generation.decodeTokensPerSecond!.toStringAsFixed(1)} tok/s';
-  final backend = generation.backend == null
-      ? 'backend 未暴露'
-      : 'backend ${generation.backend}';
-  return 'generation ${generation.generationMs} ms · $ttft · $output · '
-      '$decode · $backend · citations $citationCount';
-}
+export 'lineage_formatters.dart' show formatGenerationSummary;
 
 class RagLineageDashboardPage extends StatefulWidget {
   const RagLineageDashboardPage({
@@ -35,22 +29,24 @@ class RagLineageDashboardPage extends StatefulWidget {
     required this.engine,
     required this.lineageStore,
     this.traceId,
+    this.orchestrator,
   });
 
   final KnowledgeEngine engine;
   final LineageStore lineageStore;
   final String? traceId;
+  final ChatOrchestrator? orchestrator;
 
   @override
   State<RagLineageDashboardPage> createState() =>
       _RagLineageDashboardPageState();
 }
 
-class _RagLineageDashboardPageState
-    extends State<RagLineageDashboardPage> {
+class _RagLineageDashboardPageState extends State<RagLineageDashboardPage> {
   List<LineageTrace> traces = const <LineageTrace>[];
-  _TraceLineage? lineage;
+  TraceSnapshot? snapshot;
   bool loading = true;
+  bool actionBusy = false;
   Object? error;
 
   @override
@@ -71,20 +67,19 @@ class _RagLineageDashboardPageState
         selected = await widget.lineageStore.traceById(requestedTraceId);
       }
       selected ??= latest.firstOrNull;
-      final selectedTrace = selected;
-
       final choices = <LineageTrace>[
-        if (selectedTrace != null &&
-            !latest.any((item) => item.traceId == selectedTrace.traceId))
-          selectedTrace,
+        if (selected != null &&
+            !latest.any((item) => item.traceId == selected!.traceId))
+          selected,
         ...latest,
       ];
-      final loaded =
-          selectedTrace == null ? null : await _loadTrace(selectedTrace);
+      final loaded = selected == null
+          ? null
+          : await TraceSnapshot.load(widget.lineageStore, selected.traceId);
       if (!mounted) return;
       setState(() {
         traces = choices;
-        lineage = loaded;
+        snapshot = loaded;
       });
     } catch (caught) {
       if (!mounted) return;
@@ -94,37 +89,9 @@ class _RagLineageDashboardPageState
     }
   }
 
-  Future<_TraceLineage> _loadTrace(LineageTrace trace) async {
-    final events = await widget.lineageStore.eventsForTrace(trace.traceId);
-    final candidates =
-        await widget.lineageStore.candidatesForTrace(trace.traceId);
-    final router = await widget.lineageStore.routerDecisionForTrace(
-      trace.traceId,
-      trace.activeStrategyId,
-      RetrievalLane.active,
-    );
-    final evidence = await widget.lineageStore.evidenceForTrace(trace.traceId);
-    final budget =
-        await widget.lineageStore.promptBudgetForTrace(trace.traceId);
-    final generation =
-        await widget.lineageStore.generationStatsForTrace(trace.traceId);
-    final citations =
-        await widget.lineageStore.citationsForTrace(trace.traceId);
-    return _TraceLineage(
-      trace: trace,
-      events: events,
-      candidates: candidates,
-      router: router,
-      evidence: evidence,
-      budget: budget,
-      generation: generation,
-      citations: citations,
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    final data = lineage;
+    final data = snapshot;
     return Scaffold(
       appBar: AppBar(
         title: const Text('RAG Lineage'),
@@ -137,39 +104,50 @@ class _RagLineageDashboardPageState
         ],
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
+        child: ListView(
           padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              if (loading) const LinearProgressIndicator(),
-              if (error != null)
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Text('Lineage 读取失败：$error'),
+          children: [
+            if (loading || actionBusy) const LinearProgressIndicator(),
+            if (error != null)
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Text('Lineage 读取失败：$error'),
+                ),
+              ),
+            _identityCard(context),
+            if (!loading && data == null)
+              const Card(
+                child: Padding(
+                  padding: EdgeInsets.all(14),
+                  child: Text(
+                    '尚无运行时 Trace。完成一次“自动”或“强制知识库”聊天后，'
+                    '这里会显示真实链路；缺失数据不会按 0 填充。',
                   ),
                 ),
-              _identityCard(context),
+              ),
+            if (data != null) ...[
+              _traceHeader(context, data),
               const SizedBox(height: 8),
-              if (!loading && data == null)
-                const Card(
-                  child: Padding(
-                    padding: EdgeInsets.all(14),
-                    child: Text(
-                      '尚无运行时 Trace。完成一次“自动”或“强制知识库”聊天后，这里会显示真实链路；缺失数据不会按 0 填充。',
-                    ),
-                  ),
-                ),
-              if (data != null) ...[
-                _traceCard(context, data),
-                const SizedBox(height: 8),
-                ..._stageCards(context, data),
-                const SizedBox(height: 8),
-                _futureCard(context),
+              _stageStrip(data),
+              const SizedBox(height: 8),
+              for (final stage in RagStage.values) ...[
+                _stageSummaryCard(context, data, stage),
+                const SizedBox(height: 6),
               ],
+              TraceWaterfallCard(events: data.events),
+              LineageGraphCard(snapshot: data),
+              ActiveShadowSummaryCard(snapshot: data),
+              TraceActionsCard(
+                onRerun: () => _rerun(data),
+                onCopy: () => _copyTraceId(data.trace.traceId),
+                onCompare: () => _compare(data),
+                onExport: () => _export(data),
+                rerunEnabled: widget.orchestrator != null && !actionBusy,
+                compareEnabled: traces.length > 1 && !actionBusy,
+              ),
             ],
-          ),
+          ],
         ),
       ),
     );
@@ -181,12 +159,10 @@ class _RagLineageDashboardPageState
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                '对象身份与真值',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
+              Text('R4.6-B/C · 完整运行显微镜',
+                  style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 6),
-              const Text('Chunk ≠ Vector · Chunk → Embedding → ACTIVE index entry'),
+              const Text('Chunk ≠ Vector · Chunk → Embedding → index entry'),
               const SizedBox(height: 8),
               const Wrap(
                 spacing: 6,
@@ -194,18 +170,19 @@ class _RagLineageDashboardPageState
                 children: [
                   Chip(label: Text('REAL · 已捕获运行事实')),
                   Chip(label: Text('DERIVED · 由事实计算')),
-                  Chip(label: Text('ACTIVE · 当前检索路径')),
+                  Chip(label: Text('ACTIVE · 当前回答路径')),
+                  Chip(label: Text('SHADOW · 隔离实验')),
                 ],
               ),
-              const SizedBox(height: 4),
-              const Text('未捕获就是未捕获；backend 未暴露时不猜测，也不填充虚构时延。'),
+              const Text('未捕获就是未捕获；backend 未暴露时不猜测。'),
             ],
           ),
         ),
       );
 
-  Widget _traceCard(BuildContext context, _TraceLineage data) {
+  Widget _traceHeader(BuildContext context, TraceSnapshot data) {
     final trace = data.trace;
+    final elapsed = trace.completedAt?.difference(trace.startedAt);
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(12),
@@ -232,14 +209,17 @@ class _RagLineageDashboardPageState
             Text(trace.queryText,
                 style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 5),
-            SelectableText(trace.traceId),
+            SelectableText('Trace ID: ${trace.traceId}'),
             Text(
-              '${trace.requestedMode} → ${trace.finalMode} · ${trace.status.name}',
+              '${trace.requestedMode} → ${trace.finalMode} · '
+              '${trace.status.name} · '
+              '${elapsed == null ? '总耗时未捕获' : '总耗时 ${(elapsed.inMilliseconds / 1000).toStringAsFixed(2)} s'}',
             ),
             Text('strategy · ${trace.activeStrategyId} · ACTIVE'),
             if (trace.failureStage != null || trace.failureCode != null)
               Text(
-                'failure · ${trace.failureStage ?? '未捕获'} / ${trace.failureCode ?? '未捕获'}',
+                'failure · ${trace.failureStage ?? '未捕获'} / '
+                '${trace.failureCode ?? '未捕获'}',
               ),
           ],
         ),
@@ -247,151 +227,37 @@ class _RagLineageDashboardPageState
     );
   }
 
-  List<Widget> _stageCards(BuildContext context, _TraceLineage data) {
-    final documentEvents = data.matchEvents(
-      stages: const {'document', 'import', 'parse'},
-      kindFragments: const {'document.', 'parse.'},
-    );
-    final chunkEvents = data.matchEvents(
-      stages: const {'chunk'},
-      kindFragments: const {'chunk.'},
-    );
-    final ftsEvents = data.matchEvents(stages: const {'fts'});
-    final embeddingEvents = data.matchEvents(stages: const {'embedding'});
-    final vectorEvents = data.matchEvents(stages: const {'vector'});
-    final candidateEvents = data.matchEvents(stages: const {'candidate'});
-    final fusionEvents = data.matchEvents(
-      stages: const {'fusion', 'rerank'},
-    );
-    final routerEvents = data.matchEvents(stages: const {'router'});
-    final contextEvents = data.matchEvents(
-      stages: const {'evidence', 'context'},
-    );
-    final generationEvents = data.matchEvents(
-      stages: const {'generation', 'citation'},
-    );
-    final selectedCandidates =
-        data.candidates.where((item) => item.selectedForEvidence).length;
-    final droppedCandidates =
-        data.candidates.where((item) => item.dropReason != null).length;
-    final router = data.router;
-    final budget = data.budget;
-    final generation = data.generation;
-
-    return <Widget>[
-      _stageCard(
-        context,
-        number: 1,
-        title: '文档解析',
-        badges: const {'REAL'},
-        summary: documentEvents.isEmpty
-            ? '本轮聊天不执行文档解析 · 导入阶段事实请到 Chunk Explorer 查看'
-            : '${documentEvents.length} 条解析事件',
-        events: documentEvents,
-      ),
-      _stageCard(
-        context,
-        number: 2,
-        title: '切片',
-        badges: const {'REAL'},
-        summary: chunkEvents.isEmpty
-            ? '本轮聊天不执行切片 · 使用已持久化 Chunk'
-            : '${chunkEvents.length} 条切片事件',
-        events: chunkEvents,
-      ),
-      _stageCard(
-        context,
-        number: 3,
-        title: 'FTS5',
-        badges: const {'REAL', 'ACTIVE'},
-        summary: ftsEvents.isEmpty
-            ? 'FTS5 运行数据未捕获'
-            : '${ftsEvents.length} 条 FTS5 事件',
-        events: ftsEvents,
-      ),
-      _stageCard(
-        context,
-        number: 4,
-        title: 'Embedding',
-        badges: const {'REAL', 'ACTIVE'},
-        summary: embeddingEvents.isEmpty
-            ? 'Query Embedding 未捕获'
-            : '${embeddingEvents.length} 条 Embedding 事件',
-        events: embeddingEvents,
-      ),
-      _stageCard(
-        context,
-        number: 5,
-        title: '向量空间',
-        badges: const {'REAL', 'ACTIVE'},
-        summary: vectorEvents.isEmpty
-            ? 'ACTIVE vector search 未捕获'
-            : '${vectorEvents.length} 条 ACTIVE 检索事件',
-        events: vectorEvents,
-      ),
-      _stageCard(
-        context,
-        number: 6,
-        title: '候选池',
-        badges: const {'REAL', 'ACTIVE'},
-        summary: data.candidates.isEmpty
-            ? '候选记录未捕获'
-            : '${data.candidates.length} candidates · selected $selectedCandidates · dropped $droppedCandidates',
-        events: candidateEvents,
-      ),
-      _stageCard(
-        context,
-        number: 7,
-        title: '融合/重排',
-        badges: const {'DERIVED', 'ACTIVE'},
-        summary: fusionEvents.isEmpty
-            ? '融合/重排事件未捕获'
-            : '${fusionEvents.length} 条融合/重排事件',
-        events: fusionEvents,
-      ),
-      _stageCard(
-        context,
-        number: 8,
-        title: '路由决策',
-        badges: const {'REAL', 'ACTIVE'},
-        summary: router == null
-            ? '路由决策未捕获'
-            : '${router.finalUseKnowledge ? '使用知识库' : '不使用知识库'} · ${router.decisionReason} · FTS ${router.ftsHitCount} · top1 ${_number(router.top1Cosine)}',
-        events: routerEvents,
-      ),
-      _stageCard(
-        context,
-        number: 9,
-        title: '证据与上下文',
-        badges: const {'REAL', 'DERIVED', 'ACTIVE'},
-        summary: budget == null
-            ? '${data.evidence.length} evidence · prompt budget 未捕获'
-            : '${data.evidence.length} evidence · prefill ${budget.totalPrefillTokens}/${budget.modelContextLimit} · reserve ${budget.outputReserveTokens} · trimmed history ${budget.trimmedHistoryMessages} / evidence ${budget.trimmedEvidenceItems}',
-        events: contextEvents,
-      ),
-      _stageCard(
-        context,
-        number: 10,
-        title: '生成与引用',
-        badges: const {'REAL', 'ACTIVE'},
-        summary: formatGenerationSummary(
-          generation,
-          citationCount: data.citations.length,
+  Widget _stageStrip(TraceSnapshot data) => SingleChildScrollView(
+        key: const ValueKey<String>('rag-stage-strip'),
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            for (final stage in RagStage.values)
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: ActionChip(
+                  key: ValueKey<String>('rag-stage-${stage.number}'),
+                  avatar: CircleAvatar(child: Text('${stage.number}')),
+                  label: Text('${stage.number} ${stage.title}'),
+                  onPressed: () => _openStage(data, stage),
+                ),
+              ),
+          ],
         ),
-        events: generationEvents,
-      ),
-    ];
-  }
+      );
 
-  Widget _stageCard(
-    BuildContext context, {
-    required int number,
-    required String title,
-    required Set<String> badges,
-    required String summary,
-    required List<TraceEventRecord> events,
-  }) =>
-      Card(
+  Widget _stageSummaryCard(
+    BuildContext context,
+    TraceSnapshot data,
+    RagStage stage,
+  ) {
+    final events = _eventsForStage(data, stage);
+    final badges = _badgesForStage(stage);
+    return Card(
+      key: ValueKey<String>('rag-stage-summary-${stage.number}'),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => _openStage(data, stage),
         child: Padding(
           padding: const EdgeInsets.all(12),
           child: Column(
@@ -399,108 +265,222 @@ class _RagLineageDashboardPageState
             children: [
               Row(
                 children: [
-                  CircleAvatar(radius: 15, child: Text('$number')),
+                  CircleAvatar(radius: 15, child: Text('${stage.number}')),
                   const SizedBox(width: 9),
                   Expanded(
                     child: Text(
-                      title,
+                      stage.title,
                       style: Theme.of(context).textTheme.titleSmall,
                     ),
                   ),
-                  Wrap(
-                    spacing: 4,
-                    children: [
-                      for (final badge in badges)
-                        Chip(
-                          visualDensity: VisualDensity.compact,
-                          label: Text(badge),
-                        ),
-                    ],
-                  ),
+                  for (final badge in badges)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 4),
+                      child: Chip(
+                        visualDensity: VisualDensity.compact,
+                        label: Text(badge),
+                      ),
+                    ),
                 ],
               ),
               const SizedBox(height: 6),
-              Text(summary),
-              for (final event in events.take(3)) ...[
+              Text(_stageSummary(data, stage)),
+              for (final event in events.take(2)) ...[
                 const SizedBox(height: 5),
                 SelectableText(
-                  '${event.kind} · ${event.truthKind.dbValue}${event.durationUs == null ? '' : ' · ${_duration(event.durationUs!)}'}\n${event.payloadJson}',
+                  '${event.kind} · ${event.truthKind.dbValue} · '
+                  '${formatDurationUs(event.durationUs)}\n${event.payloadJson}',
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               ],
             ],
           ),
         ),
-      );
-
-  Widget _futureCard(BuildContext context) => Card(
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text('深潜页面', style: Theme.of(context).textTheme.titleSmall),
-              const SizedBox(height: 6),
-              const Text('以下对照实验属于 R4.6-B；尚未实现的数据不会伪装成可用入口。'),
-              const SizedBox(height: 8),
-              OutlinedButton.icon(
-                onPressed: null,
-                icon: const Icon(Icons.scatter_plot_outlined),
-                label: const Text('Embedding 表征对照 · R4.6-B'),
-              ),
-              OutlinedButton.icon(
-                onPressed: null,
-                icon: const Icon(Icons.compare_arrows),
-                label: const Text('候选/路由策略对照 · R4.6-B'),
-              ),
-            ],
-          ),
-        ),
-      );
-
-  String _duration(int microseconds) {
-    if (microseconds < 1000) return '$microseconds µs';
-    final milliseconds = microseconds / 1000;
-    final fractionDigits = milliseconds == milliseconds.roundToDouble() ? 0 : 1;
-    return '${milliseconds.toStringAsFixed(fractionDigits)} ms';
+      ),
+    );
   }
 
-  String _number(double? value) =>
-      value == null ? '未捕获' : value.toStringAsFixed(4);
-}
+  List<String> _badgesForStage(RagStage stage) => switch (stage) {
+        RagStage.rank => const <String>['DERIVED', 'ACTIVE'],
+        RagStage.evidence => const <String>['REAL', 'DERIVED', 'ACTIVE'],
+        _ => const <String>['REAL', 'ACTIVE'],
+      };
 
-class _TraceLineage {
-  const _TraceLineage({
-    required this.trace,
-    required this.events,
-    required this.candidates,
-    required this.router,
-    required this.evidence,
-    required this.budget,
-    required this.generation,
-    required this.citations,
-  });
+  List<TraceEventRecord> _eventsForStage(
+    TraceSnapshot data,
+    RagStage stage,
+  ) {
+    final stages = switch (stage) {
+      RagStage.documentParse => const <String>{'document', 'import', 'parse'},
+      RagStage.chunk => const <String>{'chunk'},
+      RagStage.fts => const <String>{'fts'},
+      RagStage.embedding => const <String>{'embedding'},
+      RagStage.vectorSpace => const <String>{'vector'},
+      RagStage.candidates => const <String>{'candidate'},
+      RagStage.rank => const <String>{'fusion', 'rerank'},
+      RagStage.router => const <String>{'router'},
+      RagStage.evidence => const <String>{'evidence', 'context'},
+      RagStage.generation => const <String>{'generation', 'citation'},
+    };
+    return data.events
+        .where((event) => stages.contains(event.stage))
+        .toList(growable: false);
+  }
 
-  final LineageTrace trace;
-  final List<TraceEventRecord> events;
-  final List<CandidateRecord> candidates;
-  final RouterDecisionRecord? router;
-  final List<EvidenceRecord> evidence;
-  final PromptBudgetRecord? budget;
-  final GenerationStatsRecord? generation;
-  final List<CitationRecord> citations;
+  String _stageSummary(TraceSnapshot data, RagStage stage) {
+    final events = _eventsForStage(data, stage);
+    final activeCandidates = data.candidates
+        .where((candidate) => candidate.lane == RetrievalLane.active)
+        .toList(growable: false);
+    return switch (stage) {
+      RagStage.documentParse => data.documentsById.isEmpty
+          ? '本轮聊天不执行文档解析 · 导入阶段事实按关联来源显示'
+          : '${data.documentsById.length} 文档 · ${data.sectionsById.length} sections',
+      RagStage.chunk => data.chunksById.isEmpty
+          ? '本轮聊天不执行切片 · 使用已持久化 Chunk'
+          : '${data.chunksById.length} 个关联 Chunk',
+      RagStage.fts => events.isEmpty
+          ? 'FTS5 运行数据未捕获'
+          : '${events.length} 条 FTS5 事件',
+      RagStage.embedding => data.queryEmbedding == null
+          ? 'Query Embedding 未捕获'
+          : '${data.queryEmbedding!.dimension} dims · '
+              '${data.queryEmbedding!.generationMs} ms · REAL',
+      RagStage.vectorSpace => activeCandidates
+              .where((candidate) => candidate.vectorRank != null)
+              .isEmpty
+          ? 'ACTIVE vector search 未捕获'
+          : '${activeCandidates.where((candidate) => candidate.vectorRank != null).length} vector hits',
+      RagStage.candidates =>
+        '${activeCandidates.length} candidates · selected '
+            '${activeCandidates.where((item) => item.selectedForEvidence).length} · '
+            'dropped ${activeCandidates.where((item) => item.dropReason != null).length}',
+      RagStage.rank => events.isEmpty
+          ? '融合/重排事件未捕获'
+          : '${events.length} 条融合/重排事件',
+      RagStage.router => data.activeRouter == null
+          ? '路由决策未捕获'
+          : '${data.activeRouter!.finalUseKnowledge ? '使用知识库' : '不使用知识库'} · '
+              '${data.activeRouter!.decisionReason} · '
+              'FTS ${data.activeRouter!.ftsHitCount} · '
+              'top1 ${formatNumber(data.activeRouter!.top1Cosine)}',
+      RagStage.evidence => data.budget == null
+          ? '${data.evidence.length} evidence · prompt budget 未捕获'
+          : '${data.evidence.length} evidence · prefill '
+              '${data.budget!.totalPrefillTokens}/${data.budget!.modelContextLimit} · '
+              'reserve ${data.budget!.outputReserveTokens} · '
+              'trimmed history ${data.budget!.trimmedHistoryMessages} / '
+              'evidence ${data.budget!.trimmedEvidenceItems}',
+      RagStage.generation => formatGenerationSummary(
+          data.generation,
+          citationCount: data.citations.length,
+        ),
+    };
+  }
 
-  List<TraceEventRecord> matchEvents({
-    required Set<String> stages,
-    Set<String> kindFragments = const <String>{},
-  }) =>
-      events
-          .where(
-            (event) =>
-                stages.contains(event.stage) ||
-                kindFragments.any(event.kind.contains),
-          )
-          .toList(growable: false);
+  Future<void> _openStage(TraceSnapshot data, RagStage stage) async {
+    final page = switch (stage) {
+      RagStage.documentParse => DocumentParseMicroscopePage(snapshot: data),
+      RagStage.chunk => ChunkLineagePage(engine: widget.engine, snapshot: data),
+      RagStage.fts => FtsLineagePage(snapshot: data),
+      RagStage.embedding =>
+        EmbeddingMicroscopePage(engine: widget.engine, snapshot: data),
+      RagStage.vectorSpace =>
+        VectorSpacePage(engine: widget.engine, snapshot: data),
+      RagStage.candidates => CandidatePoolPage(snapshot: data),
+      RagStage.rank => RankTrajectoryPage(snapshot: data),
+      RagStage.router => RouterDecisionPage(snapshot: data),
+      RagStage.evidence => EvidenceContextPage(snapshot: data),
+      RagStage.generation => GenerationCitationPage(snapshot: data),
+    };
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => page),
+    );
+  }
+
+  Future<void> _rerun(TraceSnapshot data) async {
+    final orchestrator = widget.orchestrator;
+    if (orchestrator == null || actionBusy) return;
+    setState(() => actionBusy = true);
+    try {
+      final reply = await orchestrator.rerunTrace(data.trace);
+      await _load(reply.traceId);
+    } catch (caught) {
+      if (mounted) _showMessage('Trace 重跑失败：$caught');
+    } finally {
+      if (mounted) setState(() => actionBusy = false);
+    }
+  }
+
+  Future<void> _copyTraceId(String traceId) async {
+    await Clipboard.setData(ClipboardData(text: traceId));
+    if (mounted) _showMessage('Trace ID 已复制');
+  }
+
+  Future<void> _export(TraceSnapshot data) async {
+    try {
+      final path = await writeRedactedTraceReport(data);
+      if (mounted) _showMessage('脱敏报告已保存：$path');
+    } catch (caught) {
+      if (mounted) _showMessage('导出失败：$caught');
+    }
+  }
+
+  Future<void> _compare(TraceSnapshot baseline) async {
+    final alternatives = traces
+        .where((trace) => trace.traceId != baseline.trace.traceId)
+        .toList(growable: false);
+    if (alternatives.isEmpty) return;
+    final selected = await showModalBottomSheet<LineageTrace>(
+      context: context,
+      builder: (sheetContext) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            const ListTile(title: Text('选择历史 Trace')),
+            for (final trace in alternatives)
+              ListTile(
+                title: Text(trace.queryText),
+                subtitle: Text(trace.traceId),
+                onTap: () => Navigator.of(sheetContext).pop(trace),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (selected == null || !mounted) return;
+    final other = await TraceSnapshot.load(
+      widget.lineageStore,
+      selected.traceId,
+    );
+    final comparison = TraceComparison.between(baseline, other);
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Trace 对比 · DERIVED'),
+        content: Text(
+          'candidate Δ ${comparison.candidateDelta}\n'
+          'evidence Δ ${comparison.evidenceDelta}\n'
+          'citation Δ ${comparison.citationDelta}\n'
+          'known duration Δ ${formatDurationUs(comparison.knownDurationDeltaUs.abs())} '
+          '${comparison.knownDurationDeltaUs < 0 ? '更快' : '更慢/相同'}',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('关闭'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
 }
 
 extension _FirstOrNull<T> on List<T> {

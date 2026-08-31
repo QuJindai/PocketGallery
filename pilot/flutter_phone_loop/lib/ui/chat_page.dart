@@ -358,6 +358,7 @@ class _ChatPageState extends State<ChatPage> {
             engine: widget.engine,
             lineageStore: lineageStore,
             traceId: traceId,
+            orchestrator: widget.orchestrator,
           ),
         ));
         return;

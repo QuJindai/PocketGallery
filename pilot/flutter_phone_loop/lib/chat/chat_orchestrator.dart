@@ -41,6 +41,21 @@ class ChatOrchestrator {
   Future<ChatSession> setScope(String sessionId, KnowledgeScope scope) =>
       store.updateSession(sessionId, scope: scope);
 
+  Future<ChatMessage> rerunTrace(LineageTrace trace) async {
+    final mode = switch (trace.requestedMode) {
+      'modelOnly' => ChatMode.modelOnly,
+      'knowledge' => ChatMode.knowledge,
+      _ => ChatMode.auto,
+    };
+    var session = await newSession(title: 'Trace 重跑');
+    session = await setMode(session.id, mode);
+    session = await setScope(
+      session.id,
+      KnowledgeScope.fromJson(trace.scopeJson),
+    );
+    return sendMessage(session.id, trace.queryText);
+  }
+
   Future<void> clearSession(String sessionId) async {
     await store.clearMessages(sessionId);
     await model.resetSession(sessionId);

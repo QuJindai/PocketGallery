@@ -1,7 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqlite3/sqlite3.dart';
 
-import 'package:pocketgallery_phone_pilot/chat/chat_models.dart';
 import 'package:pocketgallery_phone_pilot/core/models.dart';
 import 'package:pocketgallery_phone_pilot/lineage/lineage_ids.dart';
 import 'package:pocketgallery_phone_pilot/lineage/lineage_models.dart';

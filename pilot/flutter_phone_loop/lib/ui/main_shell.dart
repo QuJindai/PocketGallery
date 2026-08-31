@@ -37,7 +37,10 @@ class _MainShellState extends State<MainShell> {
             store: widget.store,
             orchestrator: widget.orchestrator,
           ),
-          KnowledgePage(engine: widget.engine),
+          KnowledgePage(
+            engine: widget.engine,
+            orchestrator: widget.orchestrator,
+          ),
           ModelSettingsPage(engine: widget.engine),
         ],
       ),
