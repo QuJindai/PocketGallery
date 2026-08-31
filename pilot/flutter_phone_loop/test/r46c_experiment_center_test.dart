@@ -161,4 +161,45 @@ void main() {
     expect(find.textContaining('自动提升'), findsNothing);
     expect(find.textContaining('需用户明确批准'), findsOneWidget);
   });
+
+  testWidgets('requested trace remains selectable beyond the latest 30',
+      (tester) async {
+    final lineageDb = sqlite3.openInMemory();
+    final lexicalDb = sqlite3.openInMemory();
+    addTearDown(lineageDb.close);
+    addTearDown(lexicalDb.close);
+    final store = await _putTrace(lineageDb, withQuery: true);
+    final lexical = LexicalFtsStore(database: lexicalDb);
+    await lexical.initialize();
+    for (var index = 0; index < 31; index++) {
+      final startedAt = DateTime.utc(2026, 8, 31, 1, index);
+      await store.putTrace(LineageTrace(
+        traceId: 'tr-newer-$index',
+        sessionId: 's-newer-$index',
+        turnId: 't-newer-$index',
+        queryText: 'newer query $index',
+        requestedMode: 'auto',
+        finalMode: 'knowledge',
+        scopeJson: '{"type":"all"}',
+        activeStrategyId: RetrievalStrategies.activeControl.id,
+        startedAt: startedAt,
+        completedAt: startedAt.add(const Duration(seconds: 1)),
+        status: TraceStatus.complete,
+        failureStage: null,
+        failureCode: null,
+      ));
+    }
+
+    await tester.pumpWidget(MaterialApp(
+      home: RetrievalExperimentCenterPage(
+        store: store,
+        experimentEngine: _engine(store, lexical),
+        traceId: 'tr-center',
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('检查实验中心 · complete'), findsOneWidget);
+  });
 }
