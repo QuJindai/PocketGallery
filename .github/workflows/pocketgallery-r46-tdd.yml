@@ -7,6 +7,11 @@ on:
     paths:
       - "pilot/flutter_phone_loop/**"
       - ".github/workflows/pocketgallery-r46-tdd.yml"
+  pull_request:
+    branches: ["feature/phone-pilot-r46-runtime-lineage"]
+    paths:
+      - "pilot/flutter_phone_loop/**"
+      - ".github/workflows/pocketgallery-r46-tdd.yml"
 
 permissions:
   contents: read
