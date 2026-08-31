@@ -283,6 +283,8 @@ class LineageStore {
         status TEXT NOT NULL,
         started_at TEXT NOT NULL,
         completed_at TEXT,
+        completed_items INTEGER NOT NULL DEFAULT 0,
+        total_items INTEGER NOT NULL DEFAULT 0,
         metric_json TEXT,
         failure_code TEXT,
         FOREIGN KEY(trace_id) REFERENCES pg_traces(trace_id) ON DELETE CASCADE
@@ -311,7 +313,34 @@ class LineageStore {
     db.execute('CREATE INDEX IF NOT EXISTS pg_candidates_trace_lane_strategy ON pg_candidates(trace_id, lane, strategy_id);');
     db.execute('CREATE INDEX IF NOT EXISTS pg_build_jobs_document_status ON pg_build_jobs(document_id, status);');
     db.execute('CREATE INDEX IF NOT EXISTS pg_vector_index_entries_embedding ON pg_vector_index_entries(embedding_id, strategy_id, lane);');
+    _ensureColumn(
+      db,
+      'pg_experiment_runs',
+      'completed_items',
+      'INTEGER NOT NULL DEFAULT 0',
+    );
+    _ensureColumn(
+      db,
+      'pg_experiment_runs',
+      'total_items',
+      'INTEGER NOT NULL DEFAULT 0',
+    );
     _initialized = true;
+  }
+
+  void _ensureColumn(
+    Database db,
+    String table,
+    String column,
+    String definition,
+  ) {
+    final columns = db
+        .select('PRAGMA table_info($table)')
+        .map((row) => row['name'] as String)
+        .toSet();
+    if (!columns.contains(column)) {
+      db.execute('ALTER TABLE $table ADD COLUMN $column $definition');
+    }
   }
 
   Future<T> runInTransaction<T>(Future<T> Function() operation) async {
@@ -560,6 +589,15 @@ class LineageStore {
         .toList(growable: false);
   }
 
+  Future<LineageSectionRecord?> lineageSectionById(String sectionId) async {
+    await initialize();
+    final rows = _db!.select(
+      'SELECT * FROM pg_lineage_sections WHERE section_id = ? LIMIT 1',
+      [sectionId],
+    );
+    return rows.isEmpty ? null : _lineageSectionFromRow(rows.first);
+  }
+
   Future<List<LineageChunkRecord>> lineageChunksForDocument(
     String documentId,
   ) async {
@@ -571,6 +609,15 @@ class LineageStore {
         ''', [documentId])
         .map(_lineageChunkFromRow)
         .toList(growable: false);
+  }
+
+  Future<LineageChunkRecord?> lineageChunkById(String chunkId) async {
+    await initialize();
+    final rows = _db!.select(
+      'SELECT * FROM pg_lineage_chunks WHERE chunk_id = ? LIMIT 1',
+      [chunkId],
+    );
+    return rows.isEmpty ? null : _lineageChunkFromRow(rows.first);
   }
 
   Future<void> putEmbedding(LineageEmbedding embedding) async {
@@ -791,14 +838,28 @@ class LineageStore {
     ]);
   }
 
-  Future<List<CandidateRecord>> candidatesForTrace(String traceId) async {
+  Future<List<CandidateRecord>> candidatesForTrace(
+    String traceId, {
+    String? strategyId,
+    RetrievalLane? lane,
+  }) async {
     await initialize();
+    final predicates = <String>['trace_id = ?'];
+    final parameters = <Object?>[traceId];
+    if (strategyId != null) {
+      predicates.add('strategy_id = ?');
+      parameters.add(strategyId);
+    }
+    if (lane != null) {
+      predicates.add('lane = ?');
+      parameters.add(lane.dbValue);
+    }
     return _db!
         .select('''
           SELECT * FROM pg_candidates
-          WHERE trace_id = ?
+          WHERE ${predicates.join(' AND ')}
           ORDER BY COALESCE(final_rank, fusion_rank, vector_rank, fts_rank, 2147483647), candidate_id
-        ''', [traceId])
+        ''', parameters)
         .map(_candidateFromRow)
         .toList(growable: false);
   }
@@ -884,12 +945,59 @@ class LineageStore {
     ]);
   }
 
-  Future<List<EvidenceRecord>> evidenceForTrace(String traceId) async {
+  Future<List<EvidenceRecord>> evidenceForTrace(
+    String traceId, {
+    String? strategyId,
+    RetrievalLane? lane,
+  }) async {
     await initialize();
+    final predicates = <String>['trace_id = ?'];
+    final parameters = <Object?>[traceId];
+    if (strategyId != null) {
+      predicates.add('strategy_id = ?');
+      parameters.add(strategyId);
+    }
+    if (lane != null) {
+      predicates.add('lane = ?');
+      parameters.add(lane.dbValue);
+    }
     return _db!
-        .select('SELECT * FROM pg_evidence WHERE trace_id = ? ORDER BY selection_rank, evidence_id', [traceId])
+        .select('''
+          SELECT * FROM pg_evidence
+          WHERE ${predicates.join(' AND ')}
+          ORDER BY selection_rank, evidence_id
+        ''', parameters)
         .map(_evidenceFromRow)
         .toList(growable: false);
+  }
+
+  Future<void> updateEvidenceTokenCounts({
+    required String traceId,
+    required String strategyId,
+    required RetrievalLane lane,
+    required Map<String, int> tokenCountsByAnchor,
+  }) async {
+    await initialize();
+    final rows = _db!.select('''
+      SELECT evidence_id, anchor, selection_reason FROM pg_evidence
+      WHERE trace_id = ? AND strategy_id = ? AND lane = ?
+    ''', [traceId, strategyId, lane.dbValue]);
+    for (final row in rows) {
+      final anchor = row['anchor'] as String?;
+      final allocated = anchor == null ? null : tokenCountsByAnchor[anchor];
+      final marker = allocated == null
+          ? 'context_trimmed'
+          : 'context_token_allocation';
+      final currentReason = row['selection_reason'] as String;
+      final reason = currentReason.contains(marker)
+          ? currentReason
+          : '$currentReason;$marker';
+      _db!.execute('''
+        UPDATE pg_evidence
+        SET token_count = ?, selection_reason = ?
+        WHERE evidence_id = ?
+      ''', [allocated ?? 0, reason, row['evidence_id']]);
+    }
   }
 
   Future<void> putPromptBudget(PromptBudgetRecord record) async {
@@ -1009,6 +1117,81 @@ class LineageStore {
     return _db!
         .select('SELECT * FROM pg_citations WHERE trace_id = ? ORDER BY citation_id', [traceId])
         .map(_citationFromRow)
+        .toList(growable: false);
+  }
+
+  Future<void> putExperimentRun(ExperimentRunRecord record) async {
+    await initialize();
+    final startedAt = record.startedAt;
+    if (startedAt == null) {
+      throw ArgumentError('Experiment run startedAt is required');
+    }
+    if (record.completedItems < 0 ||
+        record.totalItems < 0 ||
+        record.completedItems > record.totalItems) {
+      throw ArgumentError('Invalid experiment progress');
+    }
+    _db!.execute('''
+      INSERT INTO pg_experiment_runs (
+        experiment_run_id, trace_id, strategy_id, lane, status, started_at,
+        completed_at, completed_items, total_items, metric_json, failure_code
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(experiment_run_id) DO UPDATE SET
+        status = excluded.status,
+        completed_at = excluded.completed_at,
+        completed_items = excluded.completed_items,
+        total_items = excluded.total_items,
+        metric_json = excluded.metric_json,
+        failure_code = excluded.failure_code
+    ''', [
+      record.experimentRunId,
+      record.traceId,
+      record.strategyId,
+      record.lane.dbValue,
+      record.status.name,
+      startedAt.toUtc().toIso8601String(),
+      record.completedAt?.toUtc().toIso8601String(),
+      record.completedItems,
+      record.totalItems,
+      record.metricJson,
+      record.failureCode,
+    ]);
+  }
+
+  Future<ExperimentRunRecord?> experimentRunById(
+    String experimentRunId,
+  ) async {
+    await initialize();
+    final rows = _db!.select('''
+      SELECT * FROM pg_experiment_runs
+      WHERE experiment_run_id = ? LIMIT 1
+    ''', [experimentRunId]);
+    return rows.isEmpty ? null : _experimentRunFromRow(rows.first);
+  }
+
+  Future<List<ExperimentRunRecord>> experimentRunsForTrace(
+    String traceId, {
+    String? strategyId,
+    RetrievalLane? lane,
+  }) async {
+    await initialize();
+    final predicates = <String>['trace_id = ?'];
+    final parameters = <Object?>[traceId];
+    if (strategyId != null) {
+      predicates.add('strategy_id = ?');
+      parameters.add(strategyId);
+    }
+    if (lane != null) {
+      predicates.add('lane = ?');
+      parameters.add(lane.dbValue);
+    }
+    return _db!
+        .select('''
+          SELECT * FROM pg_experiment_runs
+          WHERE ${predicates.join(' AND ')}
+          ORDER BY started_at DESC, experiment_run_id DESC
+        ''', parameters)
+        .map(_experimentRunFromRow)
         .toList(growable: false);
   }
 
@@ -1293,6 +1476,20 @@ class LineageStore {
         sectionId: row['section_id'] as String?,
         pageNo: _intOrNull(row['page_no']),
         citationStatus: row['citation_status'] as String,
+      );
+
+  ExperimentRunRecord _experimentRunFromRow(Row row) => ExperimentRunRecord(
+        experimentRunId: row['experiment_run_id'] as String,
+        traceId: row['trace_id'] as String,
+        strategyId: row['strategy_id'] as String,
+        lane: retrievalLaneFromDb(row['lane'] as String),
+        status: experimentRunStatusFromDb(row['status'] as String),
+        startedAt: DateTime.parse(row['started_at'] as String).toUtc(),
+        completedAt: _dateOrNull(row['completed_at']),
+        completedItems: (row['completed_items'] as num).toInt(),
+        totalItems: (row['total_items'] as num).toInt(),
+        metricJson: row['metric_json'] as String?,
+        failureCode: row['failure_code'] as String?,
       );
 
   BuildJobRecord _buildJobFromRow(Row row) => BuildJobRecord(

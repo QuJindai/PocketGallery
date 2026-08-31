@@ -74,6 +74,13 @@ abstract final class LineageIds {
   static String buildJobId(String documentId, String strategyId) =>
       _id('job', '$documentId|$strategyId');
 
+  static String experimentRunId(
+    String traceId,
+    String strategyId,
+    int startedAtMicroseconds,
+  ) =>
+      _id('run', '$traceId|$strategyId|$startedAtMicroseconds');
+
   static String sectionId(
     String documentId,
     String locator,

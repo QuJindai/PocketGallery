@@ -8,12 +8,14 @@ class EvidenceContextSelection {
     required this.includedItemCount,
     required this.trimmedItemCount,
     required this.trimDetails,
+    required this.tokenCountsByAnchor,
   });
 
   final String context;
   final int includedItemCount;
   final int trimmedItemCount;
   final List<String> trimDetails;
+  final Map<String, int> tokenCountsByAnchor;
 }
 
 class ContextSelection {
@@ -90,7 +92,34 @@ class ContextBudgeter {
       includedItemCount: included,
       trimmedItemCount: trimmed,
       trimDetails: List<String>.unmodifiable(details),
+      tokenCountsByAnchor: Map<String, int>.unmodifiable(
+        _evidenceTokenCounts(context, considered),
+      ),
     );
+  }
+
+  Map<String, int> _evidenceTokenCounts(
+    String context,
+    List<EvidenceItem> considered,
+  ) {
+    if (context.isEmpty || considered.isEmpty) return const <String, int>{};
+    final anchors = <({String anchor, int offset})>[];
+    for (final item in considered) {
+      final offset = context.indexOf('[${item.anchor}]');
+      if (offset >= 0) anchors.add((anchor: item.anchor, offset: offset));
+    }
+    anchors.sort((a, b) => a.offset.compareTo(b.offset));
+    final result = <String, int>{};
+    var priorCumulative = 0;
+    for (var index = 0; index < anchors.length; index++) {
+      final end = index + 1 < anchors.length
+          ? anchors[index + 1].offset
+          : context.length;
+      final cumulative = estimateTokens(context.substring(0, end).trimRight());
+      result[anchors[index].anchor] = cumulative - priorCumulative;
+      priorCumulative = cumulative;
+    }
+    return result;
   }
 
   String _composeEvidenceContext(

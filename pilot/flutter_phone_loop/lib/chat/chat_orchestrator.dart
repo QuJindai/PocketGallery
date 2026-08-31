@@ -238,6 +238,12 @@ class ChatOrchestrator {
   }) async {
     final budget = turnResult.budget;
     onStage('context');
+    await lineageStore?.updateEvidenceTokenCounts(
+      traceId: traceId,
+      strategyId: recorder.strategyId,
+      lane: recorder.lane,
+      tokenCountsByAnchor: turnResult.evidenceTokenCounts,
+    );
     await recorder.promptBudget(PromptBudgetRecord(
       traceId: traceId,
       strategyId: recorder.strategyId,
@@ -275,6 +281,12 @@ class ChatOrchestrator {
     for (final anchor in anchors) {
       final item = byAnchor[anchor];
       if (item == null) continue;
+      final chunkLineage =
+          await lineageStore?.lineageChunkById(item.chunk.id);
+      final sectionId = chunkLineage?.sectionId;
+      final sectionLineage = sectionId == null
+          ? null
+          : await lineageStore?.lineageSectionById(sectionId);
       citations.add(CitationRecord(
         citationId: LineageIds.citationId(traceId, anchor),
         traceId: traceId,
@@ -285,9 +297,9 @@ class ChatOrchestrator {
           item.chunk.id,
         ),
         chunkId: item.chunk.id,
-        documentId: item.chunk.documentId,
-        sectionId: null,
-        pageNo: null,
+        documentId: chunkLineage?.documentId ?? item.chunk.documentId,
+        sectionId: sectionId,
+        pageNo: sectionLineage?.pageNo,
         citationStatus: 'resolved',
       ));
     }

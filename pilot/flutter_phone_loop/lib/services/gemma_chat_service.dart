@@ -138,6 +138,7 @@ class GemmaChatService implements ChatModelGateway {
         text: completed.text,
         budget: contextSelection.decision,
         generation: completed.telemetry,
+        evidenceTokenCounts: evidenceSelection.tokenCountsByAnchor,
       );
     } finally {
       // A failed prefill/generation may already have closed the native session.

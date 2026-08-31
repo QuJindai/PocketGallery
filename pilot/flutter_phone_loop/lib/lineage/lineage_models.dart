@@ -16,6 +16,7 @@ enum BuildState {
   ready,
 }
 enum BuildJobStatus { pending, running, complete, failed, cancelled }
+enum ExperimentRunStatus { pending, running, complete, failed, cancelled }
 
 extension TruthKindStorage on TruthKind {
   String get dbValue => name.toUpperCase();
@@ -53,6 +54,12 @@ BuildJobStatus buildJobStatusFromDb(String value) =>
     BuildJobStatus.values.firstWhere(
       (item) => item.name == value,
       orElse: () => throw StateError('Unknown build job status: $value'),
+    );
+
+ExperimentRunStatus experimentRunStatusFromDb(String value) =>
+    ExperimentRunStatus.values.firstWhere(
+      (item) => item.name == value,
+      orElse: () => throw StateError('Unknown experiment run status: $value'),
     );
 
 class LineageEmbedding {
@@ -471,6 +478,61 @@ class CitationRecord {
   final String? sectionId;
   final int? pageNo;
   final String citationStatus;
+}
+
+class ExperimentRunRecord {
+  const ExperimentRunRecord({
+    required this.experimentRunId,
+    required this.traceId,
+    required this.strategyId,
+    required this.lane,
+    required this.status,
+    required this.startedAt,
+    required this.completedAt,
+    required this.completedItems,
+    required this.totalItems,
+    required this.metricJson,
+    required this.failureCode,
+  });
+
+  final String experimentRunId;
+  final String traceId;
+  final String strategyId;
+  final RetrievalLane lane;
+  final ExperimentRunStatus status;
+  final DateTime? startedAt;
+  final DateTime? completedAt;
+  final int completedItems;
+  final int totalItems;
+  final String? metricJson;
+  final String? failureCode;
+
+  ExperimentRunRecord copyWith({
+    String? experimentRunId,
+    String? traceId,
+    String? strategyId,
+    RetrievalLane? lane,
+    ExperimentRunStatus? status,
+    DateTime? startedAt,
+    DateTime? completedAt,
+    int? completedItems,
+    int? totalItems,
+    String? metricJson,
+    String? failureCode,
+  }) =>
+      ExperimentRunRecord(
+        experimentRunId: experimentRunId ?? this.experimentRunId,
+        traceId: traceId ?? this.traceId,
+        strategyId: strategyId ?? this.strategyId,
+        lane: lane ?? this.lane,
+        status: status ?? this.status,
+        startedAt: startedAt ?? this.startedAt,
+        completedAt: completedAt ?? this.completedAt,
+        completedItems: completedItems ?? this.completedItems,
+        totalItems: totalItems ?? this.totalItems,
+        metricJson: metricJson ?? this.metricJson,
+        failureCode: failureCode ?? this.failureCode,
+      );
 }
 
 class BuildJobRecord {
