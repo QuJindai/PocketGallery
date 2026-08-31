@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'lineage_models.dart';
 import 'trace_snapshot.dart';
 
 abstract final class TraceReportExporter {
