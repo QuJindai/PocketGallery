@@ -8,6 +8,11 @@ on:
         required: true
         default: ce0561b615eadb50878b43b585ad0c7ca07af884
         type: string
+  push:
+    branches:
+      - feature/phone-pilot-r3-final-apk
+    paths:
+      - .github/workflows/pocketgallery-phone-pilot-apk.yml
 
 permissions:
   contents: read
@@ -21,7 +26,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     env:
-      TARGET_SHA: ${{ inputs.target_sha }}
+      TARGET_SHA: ${{ inputs.target_sha || '25b5e2a139678eb75451ba02393be9aecaec7a26' }}
       CANONICAL_SIGNER_SHA256: 81af4a5ef94c236774f0e193b2a4b248805b36c14cc36e2a56df8e451a712541
 
     steps:
