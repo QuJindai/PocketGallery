@@ -6,20 +6,38 @@ import 'lineage_formatters.dart';
 import 'lineage_stage_widgets.dart';
 
 class RankTrajectoryPage extends StatelessWidget {
-  const RankTrajectoryPage({super.key, required this.snapshot});
+  const RankTrajectoryPage({
+    super.key,
+    required this.snapshot,
+    this.strategyId,
+    this.lane,
+  });
 
   final TraceSnapshot snapshot;
+  final String? strategyId;
+  final RetrievalLane? lane;
 
   @override
   Widget build(BuildContext context) {
+    final candidates = snapshot.candidates
+        .where(
+          (candidate) =>
+              (strategyId == null || candidate.strategyId == strategyId) &&
+              (lane == null || candidate.lane == lane),
+        )
+        .toList(growable: false);
     final evidenceByCandidate = <String, EvidenceRecord>{
-      for (final evidence in snapshot.evidence) evidence.candidateId: evidence,
+      for (final evidence in snapshot.evidence)
+        if ((strategyId == null || evidence.strategyId == strategyId) &&
+            (lane == null || evidence.lane == lane))
+          evidence.candidateId: evidence,
     };
     return LineageDetailScaffold(
       pageKey: 'rank-trajectory-page',
       title: '融合 / 重排轨迹',
       snapshot: snapshot,
       truthKinds: const <TruthKind>{TruthKind.real, TruthKind.derived},
+      lane: lane ?? RetrievalLane.active,
       children: [
         const LineageSectionCard(
           title: 'Rank Flow · DERIVED from captured ranks',
@@ -27,17 +45,17 @@ class RankTrajectoryPage extends StatelessWidget {
         ),
         LineageSectionCard(
           title: '候选排名移动',
-          child: snapshot.candidates.isEmpty
+          child: candidates.isEmpty
               ? const EmptyFact('没有候选排名可绘制。')
               : Column(
                   children: [
-                    if (snapshot.candidates
+                    if (candidates
                         .every((candidate) => candidate.rerankRank == null))
                       const Align(
                         alignment: Alignment.centerLeft,
                         child: Text('重排未运行'),
                       ),
-                    for (final candidate in snapshot.candidates)
+                    for (final candidate in candidates)
                       Card.outlined(
                         child: Padding(
                           padding: const EdgeInsets.all(10),

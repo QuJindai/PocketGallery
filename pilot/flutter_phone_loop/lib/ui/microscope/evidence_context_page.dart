@@ -8,14 +8,25 @@ import 'lineage_formatters.dart';
 import 'lineage_stage_widgets.dart';
 
 class EvidenceContextPage extends StatelessWidget {
-  const EvidenceContextPage({super.key, required this.snapshot});
+  const EvidenceContextPage({
+    super.key,
+    required this.snapshot,
+    this.strategyId,
+    this.lane = RetrievalLane.active,
+  });
 
   final TraceSnapshot snapshot;
+  final String? strategyId;
+  final RetrievalLane lane;
 
   @override
   Widget build(BuildContext context) {
     final activeEvidence = snapshot.evidence
-        .where((item) => item.lane == RetrievalLane.active)
+        .where(
+          (item) =>
+              item.lane == lane &&
+              (strategyId == null || item.strategyId == strategyId),
+        )
         .toList(growable: false);
     final selectedCandidateIds = activeEvidence
         .map((item) => item.candidateId)
@@ -23,21 +34,23 @@ class EvidenceContextPage extends StatelessWidget {
     final dropped = snapshot.candidates
         .where(
           (candidate) =>
-              candidate.lane == RetrievalLane.active &&
+              candidate.lane == lane &&
+              (strategyId == null || candidate.strategyId == strategyId) &&
               !selectedCandidateIds.contains(candidate.candidateId),
         )
         .toList(growable: false);
-    final budget = snapshot.budget;
+    final budget = lane == RetrievalLane.active ? snapshot.budget : null;
     return LineageDetailScaffold(
       pageKey: 'evidence-context-page',
       title: '证据与上下文 / Evidence & Context',
       snapshot: snapshot,
       truthKinds: const <TruthKind>{TruthKind.real, TruthKind.derived},
+      lane: lane,
       children: [
         LineageSectionCard(
           title: '选择的 Evidence',
           child: activeEvidence.isEmpty
-              ? const EmptyFact('没有 ACTIVE Evidence。')
+              ? EmptyFact('没有 ${lane.dbValue} Evidence。')
               : Column(
                   children: [
                     for (final evidence in activeEvidence)
@@ -77,7 +90,11 @@ class EvidenceContextPage extends StatelessWidget {
         LineageSectionCard(
           title: 'Context Budget',
           child: budget == null
-              ? const EmptyFact('Prompt budget 未捕获。')
+              ? EmptyFact(
+                  lane == RetrievalLane.shadow
+                      ? 'SHADOW 不拥有回答 Prompt budget。'
+                      : 'Prompt budget 未捕获。',
+                )
               : Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [

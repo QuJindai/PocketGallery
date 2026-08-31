@@ -5,6 +5,8 @@ import 'package:flutter_gemma/flutter_gemma.dart';
 import '../core/evidence.dart';
 import '../core/hybrid_ranker.dart';
 import '../core/models.dart';
+import '../experiments/representation_builder.dart';
+import '../experiments/retrieval_experiment_engine.dart';
 import '../lineage/lineage_ids.dart';
 import '../lineage/lineage_models.dart';
 import '../lineage/lineage_store.dart';
@@ -55,6 +57,17 @@ class KnowledgeEngine {
       store: this.lineageStore,
       modelIdentity: SemanticStore.embeddingModelIdentity,
     );
+    representationBuilder = RepresentationBuilder(
+      store: this.lineageStore,
+      lexicalStore: this.lexicalStore,
+      generator: const FlutterGemmaEmbeddingGenerator(),
+      modelIdentity: SemanticStore.embeddingModelIdentity,
+    );
+    experimentEngine = RetrievalExperimentEngine(
+      store: this.lineageStore,
+      lexicalStore: this.lexicalStore,
+      representationBuilder: representationBuilder,
+    );
     runtimeLineageRecorder = RuntimeLineageRecorder(store: this.lineageStore);
     retrievalRuntime = RetrievalRuntime(
       lexicalStore: this.lexicalStore,
@@ -92,6 +105,8 @@ class KnowledgeEngine {
   late final LineageStore lineageStore;
   late final ActiveVectorIndex activeVectorIndex;
   late final QueryEmbeddingRuntime queryEmbeddingRuntime;
+  late final RepresentationBuilder representationBuilder;
+  late final RetrievalExperimentEngine experimentEngine;
   late final RuntimeLineageRecorder runtimeLineageRecorder;
   late final RetrievalRuntime retrievalRuntime;
   late final R45VectorMigration r45VectorMigration;

@@ -7,6 +7,7 @@ import '../services/knowledge_engine.dart';
 import 'microscope/chunk_explorer_page.dart';
 import 'microscope/rag_lineage_dashboard_page.dart';
 import 'microscope/retrieval_benchmark_page.dart';
+import 'microscope/retrieval_experiment_center_page.dart';
 
 class KnowledgePage extends StatefulWidget {
   const KnowledgePage({
@@ -141,6 +142,15 @@ class _KnowledgePageState extends State<KnowledgePage> {
     ));
   }
 
+  Future<void> _openExperiments() async {
+    await Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => RetrievalExperimentCenterPage(
+        store: widget.engine.lineageStore,
+        experimentEngine: widget.engine.experimentEngine,
+      ),
+    ));
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -227,6 +237,15 @@ class _KnowledgePageState extends State<KnowledgePage> {
                                 ),
                               ),
                             ],
+                          ),
+                          const SizedBox(height: 8),
+                          FilledButton.tonalIcon(
+                            key: const ValueKey<String>(
+                              'open-retrieval-experiment-center',
+                            ),
+                            onPressed: busy ? null : _openExperiments,
+                            icon: const Icon(Icons.science_outlined),
+                            label: const Text('Experiment Center'),
                           ),
                         ],
                       ),

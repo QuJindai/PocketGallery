@@ -1381,6 +1381,20 @@ class LineageStore {
     return rows.isEmpty ? null : _buildJobFromRow(rows.first);
   }
 
+  Future<List<BuildJobRecord>> buildJobsForStrategy(
+    String strategyId,
+  ) async {
+    await initialize();
+    return _db!
+        .select('''
+          SELECT * FROM pg_build_jobs
+          WHERE strategy_id = ?
+          ORDER BY updated_at DESC, job_id
+        ''', [strategyId])
+        .map(_buildJobFromRow)
+        .toList(growable: false);
+  }
+
   Future<void> pruneCompletedTraces({int keep = 200}) async {
     await initialize();
     final safeKeep = keep < 0 ? 0 : keep;

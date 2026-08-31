@@ -6,13 +6,26 @@ import 'lineage_formatters.dart';
 import 'lineage_stage_widgets.dart';
 
 class CandidatePoolPage extends StatelessWidget {
-  const CandidatePoolPage({super.key, required this.snapshot});
+  const CandidatePoolPage({
+    super.key,
+    required this.snapshot,
+    this.strategyId,
+    this.lane,
+  });
 
   final TraceSnapshot snapshot;
+  final String? strategyId;
+  final RetrievalLane? lane;
 
   @override
   Widget build(BuildContext context) {
-    final candidates = snapshot.candidates;
+    final candidates = snapshot.candidates
+        .where(
+          (candidate) =>
+              (strategyId == null || candidate.strategyId == strategyId) &&
+              (lane == null || candidate.lane == lane),
+        )
+        .toList(growable: false);
     final ftsOnly = candidates
         .where((candidate) => candidate.ftsRank != null && candidate.vectorRank == null)
         .length;
@@ -31,6 +44,7 @@ class CandidatePoolPage extends StatelessWidget {
       pageKey: 'candidate-pool-page',
       title: '候选池 / Candidate Pool',
       snapshot: snapshot,
+      lane: lane ?? RetrievalLane.active,
       children: [
         LineageSectionCard(
           title: '通道交集',

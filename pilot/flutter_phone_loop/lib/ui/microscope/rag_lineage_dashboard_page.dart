@@ -17,6 +17,7 @@ import 'lineage_dashboard_visuals.dart';
 import 'lineage_formatters.dart';
 import 'rag_stage.dart';
 import 'rank_trajectory_page.dart';
+import 'retrieval_experiment_center_page.dart';
 import 'router_decision_page.dart';
 import 'trace_actions.dart';
 import 'vector_space_page.dart';
@@ -139,7 +140,10 @@ class _RagLineageDashboardPageState extends State<RagLineageDashboardPage> {
                 ],
                 TraceWaterfallCard(events: data.events),
                 LineageGraphCard(snapshot: data),
-                ActiveShadowSummaryCard(snapshot: data),
+                ActiveShadowSummaryCard(
+                  snapshot: data,
+                  onOpenExperiments: () => _openExperiments(data),
+                ),
                 TraceActionsCard(
                   onRerun: () => _rerun(data),
                   onCopy: () => _copyTraceId(data.trace.traceId),
@@ -403,6 +407,17 @@ class _RagLineageDashboardPageState extends State<RagLineageDashboardPage> {
     await Navigator.of(context).push(
       MaterialPageRoute<void>(builder: (_) => page),
     );
+  }
+
+  Future<void> _openExperiments(TraceSnapshot data) async {
+    await Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => RetrievalExperimentCenterPage(
+        store: widget.lineageStore,
+        experimentEngine: widget.engine.experimentEngine,
+        traceId: data.trace.traceId,
+      ),
+    ));
+    await _load(data.trace.traceId);
   }
 
   Future<void> _rerun(TraceSnapshot data) async {

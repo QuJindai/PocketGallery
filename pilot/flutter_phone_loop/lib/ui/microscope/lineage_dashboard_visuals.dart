@@ -192,9 +192,14 @@ class LineageGraphCard extends StatelessWidget {
 }
 
 class ActiveShadowSummaryCard extends StatelessWidget {
-  const ActiveShadowSummaryCard({super.key, required this.snapshot});
+  const ActiveShadowSummaryCard({
+    super.key,
+    required this.snapshot,
+    this.onOpenExperiments,
+  });
 
   final TraceSnapshot snapshot;
+  final VoidCallback? onOpenExperiments;
 
   @override
   Widget build(BuildContext context) {
@@ -228,6 +233,15 @@ class ActiveShadowSummaryCard extends StatelessWidget {
             ),
             if (snapshot.experimentRuns.isEmpty)
               const Text('尚未按需运行 SHADOW；普通聊天路径不会自动执行实验。'),
+            if (onOpenExperiments != null) ...[
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                key: const ValueKey<String>('open-trace-experiment-center'),
+                onPressed: onOpenExperiments,
+                icon: const Icon(Icons.science_outlined),
+                label: const Text('打开 Experiment Center'),
+              ),
+            ],
           ],
         ),
       ),
