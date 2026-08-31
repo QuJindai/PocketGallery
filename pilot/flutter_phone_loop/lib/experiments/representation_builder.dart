@@ -73,7 +73,8 @@ class RepresentationBuilder {
       final completedIds = <String>[];
       final pending = <_RepresentationTarget>[];
       for (final target in documentTargets) {
-        if (await store.embeddingById(target.embeddingId) == null) {
+        final existing = await store.embeddingById(target.embeddingId);
+        if (existing == null || existing.modelIdentity != modelIdentity) {
           pending.add(target);
         } else {
           completedIds.add(target.embeddingId);

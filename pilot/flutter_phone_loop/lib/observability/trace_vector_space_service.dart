@@ -86,7 +86,11 @@ class TraceVectorSpaceService {
       final embeddingId = candidate.embeddingId;
       if (embeddingId == null || selected.containsKey(embeddingId)) return;
       final embedding = await lineageStore.embeddingById(embeddingId);
-      if (embedding == null || embedding.dimension != query.dimension) return;
+      if (embedding == null ||
+          embedding.dimension != query.dimension ||
+          embedding.modelIdentity != query.modelIdentity) {
+        return;
+      }
       selected[embeddingId] = embedding;
       laneByEmbedding[embeddingId] = candidate.lane;
     }
@@ -116,6 +120,7 @@ class TraceVectorSpaceService {
     final byDocument = <String, List<LineageEmbedding>>{};
     for (final embedding in bodyEmbeddings) {
       if (embedding.dimension != query.dimension ||
+          embedding.modelIdentity != query.modelIdentity ||
           selected.containsKey(embedding.embeddingId)) {
         continue;
       }

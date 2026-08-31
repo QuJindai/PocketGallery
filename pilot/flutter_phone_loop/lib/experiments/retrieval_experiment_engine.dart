@@ -398,6 +398,7 @@ class RetrievalExperimentEngine {
         final chunkId = embedding.chunkId;
         if (chunkId == null || !allowedChunks.containsKey(chunkId)) continue;
         if (embedding.dimension != queryEmbedding.dimension) continue;
+        if (embedding.modelIdentity != queryEmbedding.modelIdentity) continue;
         final similarity = _cosine(queryEmbedding, embedding);
         final hit = _VectorParentHit(
           embedding: embedding,
