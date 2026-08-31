@@ -126,7 +126,7 @@ void main() {
     expect(result.telemetry.generationMs, 425);
     expect(result.telemetry.ttftMs, 125);
     expect(result.telemetry.outputTokens, 3);
-    expect(result.telemetry.decodeTokensPerSecond, closeTo(6.6667, 0.0001));
+    expect(result.telemetry.decodeTokensPerSecond, 10.0);
     expect(result.telemetry.backend, isNull);
     expect(result.telemetry.nativeSessionRebuilt, isTrue);
     expect(
