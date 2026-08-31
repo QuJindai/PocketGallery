@@ -82,6 +82,14 @@ class RetrievalExperimentEngine {
           queryEmbedding.representation != EmbeddingRepresentation.query) {
         throw StateError('Captured query embedding is required');
       }
+      if (queryEmbedding.modelIdentity !=
+          representationBuilder.modelIdentity) {
+        throw StateError(
+          'model identity mismatch: captured query uses '
+          '${queryEmbedding.modelIdentity}, experiment uses '
+          '${representationBuilder.modelIdentity}',
+        );
+      }
       final scope = KnowledgeScope.fromJson(trace.scopeJson);
       final allChunks = await lexicalStore.allChunks();
       final chunks = allChunks

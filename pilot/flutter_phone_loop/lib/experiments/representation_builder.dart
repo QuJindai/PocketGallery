@@ -70,19 +70,44 @@ class RepresentationBuilder {
       final jobId = LineageIds.buildJobId(documentId, strategy.id);
       jobIds.add(jobId);
       final existingJob = await store.buildJobById(jobId);
+      final createdAt = existingJob?.createdAt ?? DateTime.now().toUtc();
       final completedIds = <String>[];
       final pending = <_RepresentationTarget>[];
+      _RepresentationTarget? mismatchedTarget;
+      LineageEmbedding? mismatchedEmbedding;
       for (final target in documentTargets) {
         final existing = await store.embeddingById(target.embeddingId);
-        if (existing == null || existing.modelIdentity != modelIdentity) {
+        if (existing == null) {
           pending.add(target);
+        } else if (existing.modelIdentity != modelIdentity) {
+          mismatchedTarget = target;
+          mismatchedEmbedding = existing;
+          break;
         } else {
           completedIds.add(target.embeddingId);
           reused++;
           completed++;
         }
       }
-      final createdAt = existingJob?.createdAt ?? DateTime.now().toUtc();
+      if (mismatchedTarget != null && mismatchedEmbedding != null) {
+        final detail = 'model identity mismatch for '
+            '${mismatchedTarget.embeddingId}: persisted='
+            '${mismatchedEmbedding.modelIdentity}, requested=$modelIdentity';
+        await _putJob(
+          jobId: jobId,
+          strategy: strategy,
+          documentId: documentId,
+          status: BuildJobStatus.failed,
+          total: documentTargets.length,
+          completed: completedIds.length,
+          completedIds: completedIds,
+          currentSource: mismatchedTarget.sourceId,
+          failureCode: 'REPRESENTATION_MODEL_MISMATCH',
+          failureDetail: detail,
+          createdAt: createdAt,
+        );
+        throw StateError(detail);
+      }
       await _putJob(
         jobId: jobId,
         strategy: strategy,
