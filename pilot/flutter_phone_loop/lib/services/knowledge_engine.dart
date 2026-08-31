@@ -7,6 +7,7 @@ import '../core/hybrid_ranker.dart';
 import '../core/models.dart';
 import '../experiments/representation_builder.dart';
 import '../experiments/retrieval_experiment_engine.dart';
+import '../eval/local_benchmark_store.dart';
 import '../lineage/lineage_ids.dart';
 import '../lineage/lineage_models.dart';
 import '../lineage/lineage_store.dart';
@@ -68,6 +69,7 @@ class KnowledgeEngine {
       lexicalStore: this.lexicalStore,
       representationBuilder: representationBuilder,
     );
+    localBenchmarkStore = LocalBenchmarkStore();
     runtimeLineageRecorder = RuntimeLineageRecorder(store: this.lineageStore);
     retrievalRuntime = RetrievalRuntime(
       lexicalStore: this.lexicalStore,
@@ -107,6 +109,7 @@ class KnowledgeEngine {
   late final QueryEmbeddingRuntime queryEmbeddingRuntime;
   late final RepresentationBuilder representationBuilder;
   late final RetrievalExperimentEngine experimentEngine;
+  late final LocalBenchmarkStore localBenchmarkStore;
   late final RuntimeLineageRecorder runtimeLineageRecorder;
   late final RetrievalRuntime retrievalRuntime;
   late final R45VectorMigration r45VectorMigration;
@@ -393,6 +396,7 @@ class KnowledgeEngine {
   Future<void> close() async {
     await gemma.close();
     await activeVectorIndex.close();
+    localBenchmarkStore.dispose();
     lineageStore.dispose();
     lexicalStore.dispose();
     _r46MigrationReady = false;

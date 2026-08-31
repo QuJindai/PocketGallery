@@ -18,15 +18,20 @@ class RetrievalBenchmarkCase {
     required this.expectedDocumentIds,
     required this.expectedSourceNames,
     required this.tags,
+    this.expectedChunkIds = const <String>{},
+    this.expectedUseKnowledge,
   });
 
   final String id;
   final String question;
   final Set<String> expectedDocumentIds;
   final Set<String> expectedSourceNames;
+  final Set<String> expectedChunkIds;
+  final bool? expectedUseKnowledge;
   final Set<String> tags;
 
   bool isRelevant(BenchmarkHit hit) =>
+      expectedChunkIds.contains(hit.chunkId) ||
       expectedDocumentIds.contains(hit.documentId) ||
       expectedSourceNames.contains(hit.sourceName);
 
@@ -42,6 +47,11 @@ class RetrievalBenchmarkCase {
             (json['expectedSourceNames'] as List<dynamic>? ?? const [])
                 .whereType<String>()
                 .toSet(),
+        expectedChunkIds:
+            (json['expectedChunkIds'] as List<dynamic>? ?? const [])
+                .whereType<String>()
+                .toSet(),
+        expectedUseKnowledge: json['expectedUseKnowledge'] as bool?,
         tags: (json['tags'] as List<dynamic>? ?? const [])
             .whereType<String>()
             .toSet(),
@@ -65,11 +75,17 @@ class BenchmarkCaseResult {
     required this.caseId,
     required this.strategy,
     required this.hits,
+    this.routerUseKnowledge,
+    this.citedChunkIds,
+    this.failureCode,
   });
 
   final String caseId;
   final RetrievalStrategy strategy;
   final List<BenchmarkHit> hits;
+  final bool? routerUseKnowledge;
+  final Set<String>? citedChunkIds;
+  final String? failureCode;
 }
 
 class RetrievalBenchmarkDataset {

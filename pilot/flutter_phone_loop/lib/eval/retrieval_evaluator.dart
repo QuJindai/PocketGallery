@@ -9,6 +9,8 @@ class RetrievalMetrics {
     required this.mrr,
     required this.contextPrecision,
     this.citationAccuracy,
+    this.routerAccuracy,
+    this.citationGroundingRate,
   });
 
   final int caseCount;
@@ -18,6 +20,8 @@ class RetrievalMetrics {
   final double mrr;
   final double contextPrecision;
   final double? citationAccuracy;
+  final double? routerAccuracy;
+  final double? citationGroundingRate;
 }
 
 class RetrievalRankingComparison {
@@ -91,6 +95,10 @@ class RetrievalEvaluator {
     var recall5 = 0.0;
     var reciprocalRank = 0.0;
     var precision = 0.0;
+    var routerCorrect = 0.0;
+    var routerDenominator = 0;
+    var citationGrounding = 0.0;
+    var citationDenominator = 0;
 
     for (final result in valid) {
       final benchmark = caseById[result.caseId]!;
@@ -101,10 +109,14 @@ class RetrievalEvaluator {
       if (hits.take(3).any(relevant)) hit3 += 1;
 
       final expectedCount = benchmark.expectedDocumentIds.length +
+          benchmark.expectedChunkIds.length +
           benchmark.expectedSourceNames.length;
       if (expectedCount > 0) {
         final found = <String>{};
         for (final hit in hits.take(5)) {
+          if (benchmark.expectedChunkIds.contains(hit.chunkId)) {
+            found.add('c:${hit.chunkId}');
+          }
           if (benchmark.expectedDocumentIds.contains(hit.documentId)) {
             found.add('d:${hit.documentId}');
           }
@@ -123,6 +135,24 @@ class RetrievalEvaluator {
       if (top.isNotEmpty) {
         precision += top.where(relevant).length / top.length;
       }
+
+      if (benchmark.expectedUseKnowledge != null &&
+          result.routerUseKnowledge != null) {
+        routerDenominator++;
+        if (benchmark.expectedUseKnowledge == result.routerUseKnowledge) {
+          routerCorrect += 1;
+        }
+      }
+      final cited = result.citedChunkIds;
+      if (benchmark.expectedChunkIds.isNotEmpty && cited != null) {
+        citationDenominator++;
+        if (cited.isNotEmpty) {
+          citationGrounding += cited
+                  .where(benchmark.expectedChunkIds.contains)
+                  .length /
+              cited.length;
+        }
+      }
     }
 
     final n = valid.length.toDouble();
@@ -133,6 +163,11 @@ class RetrievalEvaluator {
       recallAt5: recall5 / n,
       mrr: reciprocalRank / n,
       contextPrecision: precision / n,
+      routerAccuracy:
+          routerDenominator == 0 ? null : routerCorrect / routerDenominator,
+      citationGroundingRate: citationDenominator == 0
+          ? null
+          : citationGrounding / citationDenominator,
     );
   }
 
