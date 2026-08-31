@@ -47,7 +47,7 @@ void main() {
     expect(selected.totalTokens, lessThanOrEqualTo(250));
     expect(selected.dropReasons['a1'], 'near_neighbor_duplicate');
     expect(selected.dropReasons['c0'], 'token_budget');
-    expect(selected.selected, hasLength(inInclusiveRange(1, 3)));
+    expect(selected.selected.length, inInclusiveRange(1, 3));
   });
 
   test('dynamic evidence applies the hard three-item ordinary Q&A cap', () {

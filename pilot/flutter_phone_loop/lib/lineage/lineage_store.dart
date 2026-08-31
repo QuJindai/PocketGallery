@@ -211,6 +211,27 @@ class LineageStore {
       );
     ''');
     db.execute('''
+      CREATE TABLE IF NOT EXISTS pg_rerank_features (
+        feature_id TEXT PRIMARY KEY,
+        trace_id TEXT NOT NULL,
+        strategy_id TEXT NOT NULL,
+        lane TEXT NOT NULL,
+        candidate_id TEXT NOT NULL,
+        chunk_id TEXT NOT NULL,
+        normalized_lexical_affinity REAL NOT NULL,
+        cosine REAL NOT NULL,
+        dual_channel_agreement REAL NOT NULL,
+        query_window_coverage REAL NOT NULL,
+        heading_match REAL NOT NULL,
+        exact_term_match REAL NOT NULL,
+        source_diversity REAL NOT NULL,
+        rerank_score REAL NOT NULL,
+        contribution_json TEXT NOT NULL,
+        UNIQUE(trace_id, strategy_id, lane, candidate_id),
+        FOREIGN KEY(trace_id) REFERENCES pg_traces(trace_id) ON DELETE CASCADE
+      );
+    ''');
+    db.execute('''
       CREATE TABLE IF NOT EXISTS pg_evidence (
         evidence_id TEXT PRIMARY KEY,
         trace_id TEXT NOT NULL,
@@ -287,6 +308,7 @@ class LineageStore {
         total_items INTEGER NOT NULL DEFAULT 0,
         metric_json TEXT,
         failure_code TEXT,
+        failure_detail TEXT,
         FOREIGN KEY(trace_id) REFERENCES pg_traces(trace_id) ON DELETE CASCADE
       );
     ''');
@@ -311,6 +333,7 @@ class LineageStore {
     db.execute('CREATE INDEX IF NOT EXISTS pg_trace_events_trace_seq ON pg_trace_events(trace_id, seq);');
     db.execute('CREATE INDEX IF NOT EXISTS pg_embeddings_chunk_representation ON pg_embeddings(chunk_id, representation_type);');
     db.execute('CREATE INDEX IF NOT EXISTS pg_candidates_trace_lane_strategy ON pg_candidates(trace_id, lane, strategy_id);');
+    db.execute('CREATE INDEX IF NOT EXISTS pg_rerank_features_trace_lane_strategy ON pg_rerank_features(trace_id, lane, strategy_id);');
     db.execute('CREATE INDEX IF NOT EXISTS pg_build_jobs_document_status ON pg_build_jobs(document_id, status);');
     db.execute('CREATE INDEX IF NOT EXISTS pg_vector_index_entries_embedding ON pg_vector_index_entries(embedding_id, strategy_id, lane);');
     _ensureColumn(
@@ -324,6 +347,12 @@ class LineageStore {
       'pg_experiment_runs',
       'total_items',
       'INTEGER NOT NULL DEFAULT 0',
+    );
+    _ensureColumn(
+      db,
+      'pg_experiment_runs',
+      'failure_detail',
+      'TEXT',
     );
     _initialized = true;
   }
@@ -683,7 +712,7 @@ class LineageStore {
     return _db!
         .select('''
           SELECT * FROM pg_embeddings
-          WHERE source_kind = 'chunk' AND representation_type = ?
+          WHERE representation_type = ? AND source_kind != 'query'
           ORDER BY COALESCE(document_id, ''), source_id, embedding_id
         ''', [representation.name])
         .map(_embeddingFromRow)
@@ -876,6 +905,106 @@ class LineageStore {
         ''', parameters)
         .map(_candidateFromRow)
         .toList(growable: false);
+  }
+
+  Future<void> putRerankFeature(RerankFeatureRecord record) async {
+    await initialize();
+    _db!.execute('''
+      INSERT INTO pg_rerank_features (
+        feature_id, trace_id, strategy_id, lane, candidate_id, chunk_id,
+        normalized_lexical_affinity, cosine, dual_channel_agreement,
+        query_window_coverage, heading_match, exact_term_match,
+        source_diversity, rerank_score, contribution_json
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(feature_id) DO UPDATE SET
+        normalized_lexical_affinity = excluded.normalized_lexical_affinity,
+        cosine = excluded.cosine,
+        dual_channel_agreement = excluded.dual_channel_agreement,
+        query_window_coverage = excluded.query_window_coverage,
+        heading_match = excluded.heading_match,
+        exact_term_match = excluded.exact_term_match,
+        source_diversity = excluded.source_diversity,
+        rerank_score = excluded.rerank_score,
+        contribution_json = excluded.contribution_json
+    ''', [
+      record.featureId,
+      record.traceId,
+      record.strategyId,
+      record.lane.dbValue,
+      record.candidateId,
+      record.chunkId,
+      record.normalizedLexicalAffinity,
+      record.cosine,
+      record.dualChannelAgreement,
+      record.queryWindowCoverage,
+      record.headingMatch,
+      record.exactTermMatch,
+      record.sourceDiversity,
+      record.rerankScore,
+      record.contributionJson,
+    ]);
+  }
+
+  Future<List<RerankFeatureRecord>> rerankFeaturesForTrace(
+    String traceId, {
+    String? strategyId,
+    RetrievalLane? lane,
+  }) async {
+    await initialize();
+    final predicates = <String>['trace_id = ?'];
+    final parameters = <Object?>[traceId];
+    if (strategyId != null) {
+      predicates.add('strategy_id = ?');
+      parameters.add(strategyId);
+    }
+    if (lane != null) {
+      predicates.add('lane = ?');
+      parameters.add(lane.dbValue);
+    }
+    return _db!
+        .select('''
+          SELECT * FROM pg_rerank_features
+          WHERE ${predicates.join(' AND ')}
+          ORDER BY rerank_score DESC, feature_id
+        ''', parameters)
+        .map(_rerankFeatureFromRow)
+        .toList(growable: false);
+  }
+
+  Future<void> clearStrategyOutputs({
+    required String traceId,
+    required String strategyId,
+    required RetrievalLane lane,
+  }) async {
+    await initialize();
+    if (lane == RetrievalLane.active) {
+      throw ArgumentError('ACTIVE outputs cannot be cleared by an experiment');
+    }
+    final args = <Object?>[traceId, strategyId, lane.dbValue];
+    final db = _db!;
+    db.execute('BEGIN IMMEDIATE;');
+    try {
+      db.execute(
+        'DELETE FROM pg_evidence WHERE trace_id = ? AND strategy_id = ? AND lane = ?',
+        args,
+      );
+      db.execute(
+        'DELETE FROM pg_rerank_features WHERE trace_id = ? AND strategy_id = ? AND lane = ?',
+        args,
+      );
+      db.execute(
+        'DELETE FROM pg_router_decisions WHERE trace_id = ? AND strategy_id = ? AND lane = ?',
+        args,
+      );
+      db.execute(
+        'DELETE FROM pg_candidates WHERE trace_id = ? AND strategy_id = ? AND lane = ?',
+        args,
+      );
+      db.execute('COMMIT;');
+    } catch (_) {
+      db.execute('ROLLBACK;');
+      rethrow;
+    }
   }
 
   Future<void> putRouterDecision(RouterDecisionRecord record) async {
@@ -1148,15 +1277,17 @@ class LineageStore {
     _db!.execute('''
       INSERT INTO pg_experiment_runs (
         experiment_run_id, trace_id, strategy_id, lane, status, started_at,
-        completed_at, completed_items, total_items, metric_json, failure_code
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        completed_at, completed_items, total_items, metric_json, failure_code,
+        failure_detail
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(experiment_run_id) DO UPDATE SET
         status = excluded.status,
         completed_at = excluded.completed_at,
         completed_items = excluded.completed_items,
         total_items = excluded.total_items,
         metric_json = excluded.metric_json,
-        failure_code = excluded.failure_code
+        failure_code = excluded.failure_code,
+        failure_detail = excluded.failure_detail
     ''', [
       record.experimentRunId,
       record.traceId,
@@ -1169,6 +1300,7 @@ class LineageStore {
       record.totalItems,
       record.metricJson,
       record.failureCode,
+      record.failureDetail,
     ]);
   }
 
@@ -1418,6 +1550,28 @@ class LineageStore {
         dropReason: row['drop_reason'] as String?,
       );
 
+  RerankFeatureRecord _rerankFeatureFromRow(Row row) =>
+      RerankFeatureRecord(
+        featureId: row['feature_id'] as String,
+        traceId: row['trace_id'] as String,
+        strategyId: row['strategy_id'] as String,
+        lane: retrievalLaneFromDb(row['lane'] as String),
+        candidateId: row['candidate_id'] as String,
+        chunkId: row['chunk_id'] as String,
+        normalizedLexicalAffinity:
+            (row['normalized_lexical_affinity'] as num).toDouble(),
+        cosine: (row['cosine'] as num).toDouble(),
+        dualChannelAgreement:
+            (row['dual_channel_agreement'] as num).toDouble(),
+        queryWindowCoverage:
+            (row['query_window_coverage'] as num).toDouble(),
+        headingMatch: (row['heading_match'] as num).toDouble(),
+        exactTermMatch: (row['exact_term_match'] as num).toDouble(),
+        sourceDiversity: (row['source_diversity'] as num).toDouble(),
+        rerankScore: (row['rerank_score'] as num).toDouble(),
+        contributionJson: row['contribution_json'] as String,
+      );
+
   RouterDecisionRecord _routerFromRow(Row row) => RouterDecisionRecord(
         decisionId: row['decision_id'] as String,
         traceId: row['trace_id'] as String,
@@ -1504,6 +1658,7 @@ class LineageStore {
         totalItems: (row['total_items'] as num).toInt(),
         metricJson: row['metric_json'] as String?,
         failureCode: row['failure_code'] as String?,
+        failureDetail: row['failure_detail'] as String?,
       );
 
   BuildJobRecord _buildJobFromRow(Row row) => BuildJobRecord(

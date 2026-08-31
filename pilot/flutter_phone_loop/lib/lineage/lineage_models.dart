@@ -332,6 +332,42 @@ class CandidateRecord {
   final String? dropReason;
 }
 
+class RerankFeatureRecord {
+  const RerankFeatureRecord({
+    required this.featureId,
+    required this.traceId,
+    required this.strategyId,
+    required this.lane,
+    required this.candidateId,
+    required this.chunkId,
+    required this.normalizedLexicalAffinity,
+    required this.cosine,
+    required this.dualChannelAgreement,
+    required this.queryWindowCoverage,
+    required this.headingMatch,
+    required this.exactTermMatch,
+    required this.sourceDiversity,
+    required this.rerankScore,
+    required this.contributionJson,
+  });
+
+  final String featureId;
+  final String traceId;
+  final String strategyId;
+  final RetrievalLane lane;
+  final String candidateId;
+  final String chunkId;
+  final double normalizedLexicalAffinity;
+  final double cosine;
+  final double dualChannelAgreement;
+  final double queryWindowCoverage;
+  final double headingMatch;
+  final double exactTermMatch;
+  final double sourceDiversity;
+  final double rerankScore;
+  final String contributionJson;
+}
+
 class RouterDecisionRecord {
   const RouterDecisionRecord({
     required this.decisionId,
@@ -493,6 +529,7 @@ class ExperimentRunRecord {
     required this.totalItems,
     required this.metricJson,
     required this.failureCode,
+    this.failureDetail,
   });
 
   final String experimentRunId;
@@ -506,6 +543,7 @@ class ExperimentRunRecord {
   final int totalItems;
   final String? metricJson;
   final String? failureCode;
+  final String? failureDetail;
 
   ExperimentRunRecord copyWith({
     String? experimentRunId,
@@ -519,6 +557,7 @@ class ExperimentRunRecord {
     int? totalItems,
     String? metricJson,
     String? failureCode,
+    String? failureDetail,
   }) =>
       ExperimentRunRecord(
         experimentRunId: experimentRunId ?? this.experimentRunId,
@@ -532,6 +571,7 @@ class ExperimentRunRecord {
         totalItems: totalItems ?? this.totalItems,
         metricJson: metricJson ?? this.metricJson,
         failureCode: failureCode ?? this.failureCode,
+        failureDetail: failureDetail ?? this.failureDetail,
       );
 }
 
