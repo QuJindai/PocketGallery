@@ -11,6 +11,28 @@ import 'package:pocketgallery_phone_pilot/services/knowledge_engine.dart';
 import 'package:pocketgallery_phone_pilot/ui/microscope/rag_lineage_dashboard_page.dart';
 
 void main() {
+  test('generation summary exposes measured stream metrics and honest backend',
+      () {
+    const generation = GenerationStatsRecord(
+      traceId: 'trace-ui-measured',
+      strategyId: RuntimeLineageRecorder.activeStrategyId,
+      lane: RetrievalLane.active,
+      ttftMs: 125,
+      generationMs: 425,
+      outputTokens: 3,
+      decodeTokensPerSecond: 10,
+      backend: null,
+      nativeSessionRebuilt: true,
+      sessionResetReason: 'fresh_turn_context_bound',
+    );
+
+    expect(
+      formatGenerationSummary(generation, citationCount: 1),
+      'generation 425 ms · TTFT 125 ms · output 3 tokens · '
+      'decode 10.0 tok/s · backend 未暴露 · citations 1',
+    );
+  });
+
   testWidgets('RAG Lineage renders captured timings and honest unknowns',
       (tester) async {
     final db = sqlite3.openInMemory();
