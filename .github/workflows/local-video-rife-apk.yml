@@ -28,7 +28,14 @@ jobs:
           gradle-version: '8.9'
 
       - name: Install Android SDK 36
-        run: yes | sdkmanager "platforms;android-36" "build-tools;36.0.0" >/dev/null
+        shell: bash
+        run: |
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          if [ ! -x "$SDKMANAGER" ]; then
+            SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | head -n 1)"
+          fi
+          test -x "$SDKMANAGER"
+          yes | "$SDKMANAGER" "platforms;android-36" "build-tools;36.0.0" >/dev/null
 
       - name: Run RED unit tests
         working-directory: local-video
