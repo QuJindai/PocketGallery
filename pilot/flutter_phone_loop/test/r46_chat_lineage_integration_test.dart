@@ -6,6 +6,7 @@ import 'package:pocketgallery_phone_pilot/chat/chat_orchestrator.dart';
 import 'package:pocketgallery_phone_pilot/chat/chat_session_store.dart';
 import 'package:pocketgallery_phone_pilot/core/models.dart';
 import 'package:pocketgallery_phone_pilot/lineage/generation_models.dart';
+import 'package:pocketgallery_phone_pilot/lineage/import_lineage.dart';
 import 'package:pocketgallery_phone_pilot/lineage/lineage_ids.dart';
 import 'package:pocketgallery_phone_pilot/lineage/lineage_models.dart';
 import 'package:pocketgallery_phone_pilot/lineage/lineage_store.dart';
@@ -82,6 +83,7 @@ class _Model implements ChatModelGateway {
     if (error != null) throw error;
     return const ChatTurnResult(
       text: '依据本地资料回答 [E1]',
+      evidenceTokenCounts: <String, int>{'E1': 91},
       budget: ContextBudgetDecision(
         modelContextLimit: 8192,
         systemTokens: 120,
@@ -144,6 +146,47 @@ class _Fixture {
       ],
     ));
     final lineage = LineageStore(database: lineageDb);
+    await lineage.upsertLineageDocument(
+      documentId: 'd1',
+      sourceName: 'knowledge.md',
+      sha256: 'sha-d1',
+      fileType: 'md',
+      sizeBytes: 120,
+      pageCount: 1,
+      parseStatus: ParseStatus.parsed.dbValue,
+      parseErrorCode: null,
+      parseErrorDetail: null,
+      extractedCharCount: 22,
+      emptyPageCount: 0,
+      provenanceQuality: ProvenanceQuality.exact.name,
+      importedAt: DateTime.utc(2026, 8, 31),
+    );
+    await lineage.upsertLineageSection(
+      sectionId: 'section-d1-1',
+      documentId: 'd1',
+      pageNo: 1,
+      heading: '性能测试',
+      sectionType: 'heading',
+      startOffset: 0,
+      endOffset: 22,
+      charCount: 22,
+      parseStatus: ParseStatus.parsed.dbValue,
+    );
+    await lineage.upsertLineageChunk(
+      chunkId: 'c1',
+      documentId: 'd1',
+      sectionId: 'section-d1-1',
+      locator: 'section:1',
+      ordinal: 0,
+      startOffset: 0,
+      endOffset: 22,
+      charCount: 22,
+      tokenCount: 18,
+      overlapFromPrevious: 0,
+      chunkStrategy: 'fixed-char-v1',
+      boundaryReason: 'document-end',
+      provenanceQuality: ProvenanceQuality.exact.name,
+    );
     final recorder = RuntimeLineageRecorder(store: lineage);
     final runtime = RetrievalRuntime(
       lexicalStore: lexical,
@@ -224,7 +267,13 @@ void main() {
     final generation = await fixture.store.generationStatsForTrace(traceId);
     expect(generation!.generationMs, 17);
     expect(generation.ttftMs, isNull);
-    expect(await fixture.store.citationsForTrace(traceId), hasLength(1));
+    final evidence = await fixture.store.evidenceForTrace(traceId);
+    expect(evidence.single.tokenCount, 91);
+    expect(evidence.single.selectionReason, contains('context_token_allocation'));
+    final citations = await fixture.store.citationsForTrace(traceId);
+    expect(citations, hasLength(1));
+    expect(citations.single.sectionId, 'section-d1-1');
+    expect(citations.single.pageNo, 1);
   });
 
   test('model failure keeps retrieval evidence and marks the same trace failed',
