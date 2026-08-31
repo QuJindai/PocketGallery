@@ -18,12 +18,15 @@ class RetrievalBenchmarkPage extends StatefulWidget {
 class _RetrievalBenchmarkPageState extends State<RetrievalBenchmarkPage> {
   RetrievalBenchmarkDataset? dataset;
   final Map<RetrievalStrategy, RetrievalMetrics?> metrics = {};
+  final Map<RetrievalStrategy, List<BenchmarkCaseResult>> results = {};
   bool loading = true;
   bool running = false;
   Object? error;
   double alternateLexicalWeight = 1.15;
   double alternateSemanticWeight = 1.0;
   double alternateDualBonus = 0.02;
+  HybridRanker? lastCurrentHybrid;
+  HybridRanker? lastAlternateHybrid;
   String status = '未运行';
 
   @override
@@ -54,11 +57,20 @@ class _RetrievalBenchmarkPageState extends State<RetrievalBenchmarkPage> {
   Future<void> _run() async {
     final data = dataset;
     if (data == null || running) return;
+    final currentHybrid = widget.engine.ranker;
+    final alternateHybrid = HybridRanker(
+      lexicalWeight: alternateLexicalWeight,
+      semanticWeight: alternateSemanticWeight,
+      dualChannelBonus: alternateDualBonus,
+    );
     setState(() {
       running = true;
       error = null;
       status = '准备临时 Golden 基准语料…';
       metrics.clear();
+      results.clear();
+      lastCurrentHybrid = currentHybrid;
+      lastAlternateHybrid = alternateHybrid;
     });
 
     RetrievalBenchmarkLease? lease;
@@ -76,19 +88,19 @@ class _RetrievalBenchmarkPageState extends State<RetrievalBenchmarkPage> {
       final runner = RetrievalBenchmarkRunner(
         lexicalStore: widget.engine.lexicalStore,
         semanticStore: widget.engine.semanticStore,
-        currentHybrid: widget.engine.ranker,
-        alternateHybrid: HybridRanker(
-          lexicalWeight: alternateLexicalWeight,
-          semanticWeight: alternateSemanticWeight,
-          dualChannelBonus: alternateDualBonus,
-        ),
+        currentHybrid: currentHybrid,
+        alternateHybrid: alternateHybrid,
       );
       const evaluator = RetrievalEvaluator();
       for (final strategy in RetrievalStrategy.values) {
         if (!mounted) return;
         setState(() => status = '运行 ${_label(strategy)}…');
-        final results = await runner.runDataset(data, strategy);
-        metrics[strategy] = evaluator.aggregate(data.cases, results);
+        final strategyResults = await runner.runDataset(data, strategy);
+        if (!mounted) return;
+        setState(() {
+          results[strategy] = strategyResults;
+          metrics[strategy] = evaluator.aggregate(data.cases, strategyResults);
+        });
       }
       completed = true;
       if (mounted) {
@@ -218,6 +230,9 @@ class _RetrievalBenchmarkPageState extends State<RetrievalBenchmarkPage> {
       );
 
   Widget _metricsCard(RetrievalStrategy strategy, RetrievalMetrics? value) {
+    final comparison = strategy == RetrievalStrategy.alternateHybrid
+        ? _alternateComparison()
+        : null;
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(12),
@@ -237,17 +252,36 @@ class _RetrievalBenchmarkPageState extends State<RetrievalBenchmarkPage> {
             if (value == null)
               const Text('—')
             else
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  _metric('Hit@1', value.hitAt1),
-                  _metric('Hit@3', value.hitAt3),
-                  _metric('Recall@5', value.recallAt5),
-                  _metric('MRR', value.mrr),
-                  _metric('Context Precision', value.contextPrecision),
+              ...[
+                if (strategy == RetrievalStrategy.hybrid ||
+                    strategy == RetrievalStrategy.alternateHybrid) ...[
+                  Text(
+                    _hybridParameterSummary(strategy),
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: 6),
                 ],
-              ),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _metric('Hit@1', value.hitAt1),
+                    _metric('Hit@3', value.hitAt3),
+                    _metric('Recall@5', value.recallAt5),
+                    _metric('MRR', value.mrr),
+                    _metric('Context Precision', value.contextPrecision),
+                  ],
+                ),
+                if (comparison != null) ...[
+                  const SizedBox(height: 8),
+                  Text(comparison.summary),
+                  if (comparison.rankingChangedCases == 0)
+                    Text(
+                      '当前 cases 未产生排序差异；不代表两组参数相同。',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                ],
+              ],
           ],
         ),
       ),
@@ -269,6 +303,24 @@ class _RetrievalBenchmarkPageState extends State<RetrievalBenchmarkPage> {
           ],
         ),
       );
+
+  RetrievalRankingComparison? _alternateComparison() {
+    final current = results[RetrievalStrategy.hybrid];
+    final alternate = results[RetrievalStrategy.alternateHybrid];
+    if (current == null || alternate == null) return null;
+    return const RetrievalEvaluator().compareRankings(current, alternate);
+  }
+
+  String _hybridParameterSummary(RetrievalStrategy strategy) {
+    final ranker = strategy == RetrievalStrategy.hybrid
+        ? lastCurrentHybrid
+        : lastAlternateHybrid;
+    if (ranker == null) return '参数未运行';
+    return 'RRF k=${ranker.rrfK} · lexical '
+        '${ranker.lexicalWeight.toStringAsFixed(3)} · semantic '
+        '${ranker.semanticWeight.toStringAsFixed(3)} · dual '
+        '${ranker.dualChannelBonus.toStringAsFixed(3)}';
+  }
 
   String _label(RetrievalStrategy strategy) => switch (strategy) {
         RetrievalStrategy.ftsOnly => 'A · FTS5 only',

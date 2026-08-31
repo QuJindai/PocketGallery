@@ -20,8 +20,62 @@ class RetrievalMetrics {
   final double? citationAccuracy;
 }
 
+class RetrievalRankingComparison {
+  const RetrievalRankingComparison({
+    required this.pairedCaseCount,
+    required this.rankingChangedCases,
+    required this.top1ChangedCases,
+  });
+
+  final int pairedCaseCount;
+  final int rankingChangedCases;
+  final int top1ChangedCases;
+
+  String get summary =>
+      '对比 C · $rankingChangedCases/$pairedCaseCount cases 排名变化 · '
+      '$top1ChangedCases top1 变化';
+}
+
 class RetrievalEvaluator {
   const RetrievalEvaluator();
+
+  RetrievalRankingComparison compareRankings(
+    List<BenchmarkCaseResult> current,
+    List<BenchmarkCaseResult> alternate,
+  ) {
+    final alternateByCase = {
+      for (final result in alternate) result.caseId: result,
+    };
+    var paired = 0;
+    var rankingChanged = 0;
+    var top1Changed = 0;
+
+    for (final currentResult in current) {
+      final alternateResult = alternateByCase[currentResult.caseId];
+      if (alternateResult == null) continue;
+      paired += 1;
+
+      final currentRanking = [
+        for (final hit in currentResult.hits) hit.chunkId,
+      ];
+      final alternateRanking = [
+        for (final hit in alternateResult.hits) hit.chunkId,
+      ];
+      if (!_sameRanking(currentRanking, alternateRanking)) {
+        rankingChanged += 1;
+      }
+      final currentTop1 = currentRanking.isEmpty ? null : currentRanking.first;
+      final alternateTop1 =
+          alternateRanking.isEmpty ? null : alternateRanking.first;
+      if (currentTop1 != alternateTop1) top1Changed += 1;
+    }
+
+    return RetrievalRankingComparison(
+      pairedCaseCount: paired,
+      rankingChangedCases: rankingChanged,
+      top1ChangedCases: top1Changed,
+    );
+  }
 
   RetrievalMetrics? aggregate(
     List<RetrievalBenchmarkCase> cases,
@@ -80,5 +134,13 @@ class RetrievalEvaluator {
       mrr: reciprocalRank / n,
       contextPrecision: precision / n,
     );
+  }
+
+  bool _sameRanking(List<String> left, List<String> right) {
+    if (left.length != right.length) return false;
+    for (var index = 0; index < left.length; index += 1) {
+      if (left[index] != right[index]) return false;
+    }
+    return true;
   }
 }
