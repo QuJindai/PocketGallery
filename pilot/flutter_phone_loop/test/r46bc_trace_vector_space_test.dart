@@ -80,6 +80,14 @@ void main() {
         ordinal: 0,
         text: 'fill b',
       ),
+      const PgChunk(
+        id: 'c-stale',
+        documentId: 'd-stale',
+        sourceName: 'stale.md',
+        locator: 's1',
+        ordinal: 0,
+        text: 'same dimension but stale model',
+      ),
     ];
     for (final documentId in chunks.map((chunk) => chunk.documentId).toSet()) {
       final documentChunks = chunks
@@ -106,7 +114,9 @@ void main() {
           chunk.id == 'c-active' ? 1 : 0.5,
           chunk.id == 'c-active' ? 0 : 0.5,
         ],
-        modelIdentity: 'EmbeddingGemma-test',
+        modelIdentity: chunk.id == 'c-stale'
+            ? 'EmbeddingGemma-stale'
+            : 'EmbeddingGemma-test',
         taskMode: 'retrieval_document',
       ));
     }
@@ -163,7 +173,7 @@ void main() {
     final result = await TraceVectorSpaceService(
       lineageStore: store,
       lexicalStore: lexical,
-    ).build(snapshot, maxCorpusPoints: 3);
+    ).build(snapshot, maxCorpusPoints: 10);
 
     expect(result.queryEmbeddingId, LineageIds.queryEmbeddingId(traceId));
     expect(
@@ -178,7 +188,11 @@ void main() {
           .take(2),
       orderedEquals(<String>['emb-c-active', 'emb-c-shadow']),
     );
-    expect(result.points.where((point) => !point.isQuery), hasLength(3));
+    expect(result.points.where((point) => !point.isQuery), hasLength(4));
+    expect(
+      result.points.map((point) => point.embeddingId),
+      isNot(contains('emb-c-stale')),
+    );
     expect(result.samplePolicy, contains('ACTIVE hits'));
     expect(result.samplePolicy, contains('SHADOW hits'));
   });

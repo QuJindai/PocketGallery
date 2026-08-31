@@ -117,5 +117,28 @@ void main() {
       await store.embeddingsForRepresentation(EmbeddingRepresentation.sentence),
       hasLength(3),
     );
+
+    final upgradedGenerator = _CheckpointGenerator();
+    final upgraded = await RepresentationBuilder(
+      store: store,
+      lexicalStore: lexical,
+      generator: upgradedGenerator,
+      modelIdentity: 'test-next-model',
+    ).build(
+      strategy: RetrievalStrategies.sentenceParentChild,
+      chunks: const <PgChunk>[chunk],
+    );
+    final upgradedEmbeddings = await store.embeddingsForRepresentation(
+      EmbeddingRepresentation.sentence,
+    );
+    expect(upgradedGenerator.calls, 3);
+    expect(upgraded.generatedItems, 3);
+    expect(upgraded.reusedItems, 0);
+    expect(
+      upgradedEmbeddings.every(
+        (embedding) => embedding.modelIdentity == 'test-next-model',
+      ),
+      isTrue,
+    );
   });
 }
