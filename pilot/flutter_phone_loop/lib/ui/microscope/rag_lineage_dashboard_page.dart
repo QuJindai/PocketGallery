@@ -285,7 +285,7 @@ class _RagLineageDashboardPageState
         title: '文档解析',
         badges: const {'REAL'},
         summary: documentEvents.isEmpty
-            ? '当前聊天 Trace 未关联导入解析事件 · 未捕获'
+            ? '本轮聊天不执行文档解析 · 导入阶段事实请到 Chunk Explorer 查看'
             : '${documentEvents.length} 条解析事件',
         events: documentEvents,
       ),
@@ -295,7 +295,7 @@ class _RagLineageDashboardPageState
         title: '切片',
         badges: const {'REAL'},
         summary: chunkEvents.isEmpty
-            ? '当前聊天 Trace 未关联切片事件 · 未捕获'
+            ? '本轮聊天不执行切片 · 使用已持久化 Chunk'
             : '${chunkEvents.length} 条切片事件',
         events: chunkEvents,
       ),
