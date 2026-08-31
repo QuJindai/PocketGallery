@@ -31,6 +31,12 @@ class RankTrajectoryPage extends StatelessWidget {
               ? const EmptyFact('没有候选排名可绘制。')
               : Column(
                   children: [
+                    if (snapshot.candidates
+                        .every((candidate) => candidate.rerankRank == null))
+                      const Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text('重排未运行'),
+                      ),
                     for (final candidate in snapshot.candidates)
                       Card.outlined(
                         child: Padding(
@@ -47,7 +53,7 @@ class RankTrajectoryPage extends StatelessWidget {
                                 'FTS #${candidate.ftsRank ?? '—'} · '
                                 'Vector #${candidate.vectorRank ?? '—'} → '
                                 'Fusion #${candidate.fusionRank ?? '—'} → '
-                                '${candidate.rerankRank == null ? '重排未运行' : 'Rerank #${candidate.rerankRank}'} → '
+                                'Rerank #${candidate.rerankRank ?? '—'} → '
                                 '${evidenceByCandidate[candidate.candidateId]?.anchor == null ? '未进入 Evidence' : 'Evidence ${evidenceByCandidate[candidate.candidateId]!.anchor}'}',
                               ),
                               Text(

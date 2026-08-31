@@ -144,7 +144,7 @@ class LineageGraphCard extends StatelessWidget {
     final nodes = <({String label, bool captured})>[
       (label: '文档/页', captured: hasSource),
       (label: 'Chunk', captured: hasChunk),
-      (label: 'Embedding', captured: hasEmbedding),
+      (label: 'Embedding 对象', captured: hasEmbedding),
       (label: '候选', captured: snapshot.candidates.isNotEmpty),
       (label: 'Evidence', captured: snapshot.evidence.isNotEmpty),
       (label: 'Gemma', captured: snapshot.generation != null),
