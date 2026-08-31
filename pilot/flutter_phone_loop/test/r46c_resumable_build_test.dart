@@ -119,25 +119,34 @@ void main() {
     );
 
     final upgradedGenerator = _CheckpointGenerator();
-    final upgraded = await RepresentationBuilder(
+    final upgradedBuilder = RepresentationBuilder(
       store: store,
       lexicalStore: lexical,
       generator: upgradedGenerator,
       modelIdentity: 'test-next-model',
-    ).build(
-      strategy: RetrievalStrategies.sentenceParentChild,
-      chunks: const <PgChunk>[chunk],
     );
-    final upgradedEmbeddings = await store.embeddingsForRepresentation(
-      EmbeddingRepresentation.sentence,
-    );
-    expect(upgradedGenerator.calls, 3);
-    expect(upgraded.generatedItems, 3);
-    expect(upgraded.reusedItems, 0);
-    expect(
-      upgradedEmbeddings.every(
-        (embedding) => embedding.modelIdentity == 'test-next-model',
+    await expectLater(
+      upgradedBuilder.build(
+        strategy: RetrievalStrategies.sentenceParentChild,
+        chunks: const <PgChunk>[chunk],
       ),
+      throwsA(
+        isA<StateError>().having(
+          (error) => error.toString(),
+          'message',
+          contains('model identity mismatch'),
+        ),
+      ),
+    );
+    final rejected = await store.buildJobById(jobId);
+    expect(upgradedGenerator.calls, 0);
+    expect(rejected!.status, BuildJobStatus.failed);
+    expect(rejected.failureCode, 'REPRESENTATION_MODEL_MISMATCH');
+    expect(
+      (await store.embeddingsForRepresentation(
+        EmbeddingRepresentation.sentence,
+      ))
+          .every((embedding) => embedding.modelIdentity == 'test'),
       isTrue,
     );
   });
