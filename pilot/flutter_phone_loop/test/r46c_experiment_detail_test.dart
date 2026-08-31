@@ -193,7 +193,10 @@ void main() {
     expect(find.textContaining('cosine'), findsOneWidget);
     expect(find.textContaining('heading_match'), findsOneWidget);
 
-    await tester.tap(find.byKey(const ValueKey<String>('experiment-candidates')));
+    final candidatesButton =
+        find.byKey(const ValueKey<String>('experiment-candidates'));
+    await tester.ensureVisible(candidatesButton);
+    await tester.tap(candidatesButton);
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey<String>('candidate-pool-page')), findsOneWidget);
     expect(find.text('c-shadow'), findsOneWidget);
