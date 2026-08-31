@@ -252,4 +252,61 @@ void main() {
       hasLength(1),
     );
   });
+
+  test('shadow ignores same-dimension embeddings from a stale model',
+      () async {
+    final lineageDb = sqlite3.openInMemory();
+    final lexicalDb = sqlite3.openInMemory();
+    addTearDown(lineageDb.close);
+    addTearDown(lexicalDb.close);
+    final data = await _fixture(lineageDb, lexicalDb);
+    const staleChunk = PgChunk(
+      id: 'c-stale',
+      documentId: 'd-stale',
+      sourceName: 'stale.md',
+      locator: 'p1',
+      ordinal: 0,
+      text: '与查询无关的历史模型内容。',
+    );
+    await data.lexical.replaceDocument(const ImportedDocument(
+      documentId: 'd-stale',
+      sourceName: 'stale.md',
+      sha256: 'sha-stale',
+      chunks: <PgChunk>[staleChunk],
+    ));
+    await data.store.putEmbedding(LineageEmbedding.test(
+      embeddingId: LineageIds.bodyEmbeddingId(staleChunk.id),
+      sourceKind: 'chunk',
+      sourceId: staleChunk.id,
+      documentId: staleChunk.documentId,
+      chunkId: staleChunk.id,
+      representation: EmbeddingRepresentation.body,
+      vector: const <double>[1, 0],
+      modelIdentity: 'stale-same-dimension',
+      taskMode: 'retrieval_document',
+    ));
+    final engine = RetrievalExperimentEngine(
+      store: data.store,
+      lexicalStore: data.lexical,
+      representationBuilder: RepresentationBuilder(
+        store: data.store,
+        lexicalStore: data.lexical,
+        generator: _ExperimentGenerator(),
+        modelIdentity: 'test',
+      ),
+    );
+
+    final run = await engine.run(
+      traceId: 'tr-shadow',
+      strategyId: RetrievalStrategies.dynamicEvidence.id,
+    );
+    final candidates = await data.store.candidatesForTrace(
+      'tr-shadow',
+      strategyId: RetrievalStrategies.dynamicEvidence.id,
+      lane: RetrievalLane.shadow,
+    );
+
+    expect(run.status, ExperimentRunStatus.complete);
+    expect(candidates.map((item) => item.chunkId), isNot(contains('c-stale')));
+  });
 }
