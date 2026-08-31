@@ -109,6 +109,9 @@ void main() {
     expect(find.textContaining('47 ms'), findsWidgets);
     expect(find.textContaining('TTFT 未捕获'), findsWidgets);
     expect(find.textContaining('backend 未暴露'), findsWidgets);
+    expect(find.textContaining('本轮聊天不执行文档解析'), findsOneWidget);
+    expect(find.textContaining('本轮聊天不执行切片'), findsOneWidget);
+    expect(find.textContaining('当前聊天 Trace 未关联'), findsNothing);
     expect(find.textContaining('0 ms'), findsNothing);
   });
 
