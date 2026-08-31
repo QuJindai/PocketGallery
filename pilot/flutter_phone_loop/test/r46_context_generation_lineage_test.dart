@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:pocketgallery_phone_pilot/chat/chat_models.dart';
@@ -145,19 +143,5 @@ void main() {
     expect(result.telemetry.ttftMs, 80);
     expect(result.telemetry.outputTokens, 1);
     expect(result.telemetry.decodeTokensPerSecond, isNull);
-  });
-
-  test('Gemma gateway returns budget and only measured generation latency',
-      () async {
-    final source =
-        await File('lib/services/gemma_chat_service.dart').readAsString();
-    expect(source, contains('Future<ChatTurnResult> sendTurn'));
-    expect(source, contains('selectHistoryWithDecision'));
-    expect(source, contains('GenerationTelemetry('));
-    expect(source, contains('generationMs:'));
-    expect(source, contains('ttftMs: null'));
-    expect(source, contains('outputTokens: null'));
-    expect(source, contains('decodeTokensPerSecond: null'));
-    expect(source, contains('backend: null'));
   });
 }

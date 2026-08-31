@@ -4,6 +4,7 @@ import '../chat/chat_models.dart';
 import '../chat/context_budgeter.dart';
 import '../core/models.dart';
 import '../lineage/generation_models.dart';
+import '../lineage/streaming_generation_collector.dart';
 
 class GemmaChatService implements ChatModelGateway {
   GemmaChatService({this.budgeter = const ContextBudgeter()});
@@ -118,23 +119,25 @@ class GemmaChatService implements ChatModelGateway {
     try {
       await chat.addQueryChunk(Message.text(text: payload, isUser: true));
       final generationWatch = Stopwatch()..start();
-      final response = await chat.generateChatResponse();
+      final generation = StreamingGenerationCollector();
+      await for (final response in chat.generateChatResponseAsync()) {
+        if (response is TextResponse) {
+          generation.addTextToken(
+            response.token,
+            elapsedMilliseconds: generationWatch.elapsedMilliseconds,
+          );
+        }
+      }
       generationWatch.stop();
-      final text = response is TextResponse
-          ? response.token.trim()
-          : response.toString().trim();
+      final completed = generation.complete(
+        totalElapsedMilliseconds: generationWatch.elapsedMilliseconds,
+        nativeSessionRebuilt: true,
+        sessionResetReason: 'fresh_turn_context_bound',
+      );
       return ChatTurnResult(
-        text: text,
+        text: completed.text,
         budget: contextSelection.decision,
-        generation: GenerationTelemetry(
-          generationMs: generationWatch.elapsedMilliseconds,
-          ttftMs: null,
-          outputTokens: null,
-          decodeTokensPerSecond: null,
-          backend: null,
-          nativeSessionRebuilt: true,
-          sessionResetReason: 'fresh_turn_context_bound',
-        ),
+        generation: completed.telemetry,
       );
     } finally {
       // A failed prefill/generation may already have closed the native session.
