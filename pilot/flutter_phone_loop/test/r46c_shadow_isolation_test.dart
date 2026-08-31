@@ -309,4 +309,39 @@ void main() {
     expect(run.status, ExperimentRunStatus.complete);
     expect(candidates.map((item) => item.chunkId), isNot(contains('c-stale')));
   });
+
+  test('shadow fails closed when the experiment model differs from query',
+      () async {
+    final lineageDb = sqlite3.openInMemory();
+    final lexicalDb = sqlite3.openInMemory();
+    addTearDown(lineageDb.close);
+    addTearDown(lexicalDb.close);
+    final data = await _fixture(lineageDb, lexicalDb);
+    final engine = RetrievalExperimentEngine(
+      store: data.store,
+      lexicalStore: data.lexical,
+      representationBuilder: RepresentationBuilder(
+        store: data.store,
+        lexicalStore: data.lexical,
+        generator: _ExperimentGenerator(),
+        modelIdentity: 'different-current-model',
+      ),
+    );
+
+    final run = await engine.run(
+      traceId: 'tr-shadow',
+      strategyId: RetrievalStrategies.dynamicEvidence.id,
+    );
+
+    expect(run.status, ExperimentRunStatus.failed);
+    expect(run.failureDetail, contains('model identity'));
+    expect(
+      await data.store.candidatesForTrace(
+        'tr-shadow',
+        strategyId: RetrievalStrategies.dynamicEvidence.id,
+        lane: RetrievalLane.shadow,
+      ),
+      isEmpty,
+    );
+  });
 }
