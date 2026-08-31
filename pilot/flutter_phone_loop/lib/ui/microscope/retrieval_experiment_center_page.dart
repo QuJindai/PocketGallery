@@ -53,6 +53,13 @@ class _RetrievalExperimentCenterPageState
         selected = await widget.store.traceById(requestedTraceId);
       }
       selected ??= latest.firstOrNull;
+      final selectableTraces = <LineageTrace>[...latest];
+      final selectedTrace = selected;
+      if (selectedTrace != null &&
+          !selectableTraces
+              .any((item) => item.traceId == selectedTrace.traceId)) {
+        selectableTraces.add(selectedTrace);
+      }
       final runMap = <String, List<ExperimentRunRecord>>{};
       final jobMap = <String, List<BuildJobRecord>>{};
       if (selected != null) {
@@ -76,7 +83,7 @@ class _RetrievalExperimentCenterPageState
       if (!mounted) return;
       setState(() {
         trace = selected;
-        traces = latest;
+        traces = selectableTraces;
         queryEmbedding = exactQuery;
         runs = runMap;
         jobs = jobMap;
