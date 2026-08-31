@@ -303,4 +303,25 @@ void main() {
     final events = await fixture.store.eventsForTrace(traces.single.traceId);
     expect(events.last.kind, 'trace.failed');
   });
+
+  test('rerunning a trace creates a new real turn with the same query and scope',
+      () async {
+    final fixture = await _Fixture.create();
+    addTearDown(fixture.close);
+    final session = await fixture.orchestrator.newSession();
+    final firstReply = await fixture.orchestrator.sendMessage(
+      session.id,
+      '端侧模型性能测试如何保留血缘',
+    );
+    final original = await fixture.store.traceById(firstReply.traceId!);
+
+    final rerunReply = await fixture.orchestrator.rerunTrace(original!);
+    final rerun = await fixture.store.traceById(rerunReply.traceId!);
+
+    expect(rerunReply.traceId, isNot(firstReply.traceId));
+    expect(rerun!.queryText, original.queryText);
+    expect(rerun.requestedMode, original.requestedMode);
+    expect(rerun.scopeJson, original.scopeJson);
+    expect(rerun.status, TraceStatus.complete);
+  });
 }
