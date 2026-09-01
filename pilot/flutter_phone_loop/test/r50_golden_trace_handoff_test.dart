@@ -158,8 +158,7 @@ void main() {
             name: 'F1_IMPORT_CHUNK',
             label: 'fixture',
             timeout: const Duration(seconds: 1),
-            run: () async =>
-                const GateResult('F1_IMPORT_CHUNK', true, 'pass'),
+            run: () async => const GateResult('F1_IMPORT_CHUNK', true, 'pass'),
           ),
         ],
         cleanup: () => control.interrupt('USER_CANCELLED'),

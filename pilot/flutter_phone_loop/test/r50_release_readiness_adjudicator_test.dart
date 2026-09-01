@@ -303,8 +303,7 @@ void main() {
       (missingNested['gates'] as List<dynamic>).first.remove('reasonCode');
 
       final malformed = _deviceJson();
-      final malformedNested =
-          malformed['nestedGolden'] as Map<String, dynamic>;
+      final malformedNested = malformed['nestedGolden'] as Map<String, dynamic>;
       (malformedNested['gates'] as List<dynamic>).first['reasonCode'] = 7;
 
       final emptyFailure = _deviceJson();
@@ -462,11 +461,7 @@ Map<String, dynamic> _deviceJson() => <String, dynamic>{
     'cleanupError': null,
     'gates': <Map<String, dynamic>>[
       for (final name in _goldenGateNames)
-        <String, dynamic>{
-          'name': name,
-          'status': 'PASSED',
-          'reasonCode': null,
-        },
+        <String, dynamic>{'name': name, 'status': 'PASSED', 'reasonCode': null},
     ],
   },
 };
