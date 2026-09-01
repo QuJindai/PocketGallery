@@ -12,9 +12,8 @@ final class DeviceAcceptanceEvidence {
     required this.deviceAcceptance,
     required this.mergeCandidate,
     required Map<String, String> gateStatuses,
-    required _NestedGoldenEvidence? nestedGolden,
-  })  : gateStatuses = Map<String, String>.unmodifiable(gateStatuses),
-        _nestedGolden = nestedGolden;
+    required this._nestedGolden,
+  }) : gateStatuses = Map<String, String>.unmodifiable(gateStatuses);
 
   factory DeviceAcceptanceEvidence.fromJson(Map<String, dynamic> json) {
     final schema = _requiredString(json, 'schema');
