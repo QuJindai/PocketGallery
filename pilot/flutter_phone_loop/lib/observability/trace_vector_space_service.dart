@@ -20,6 +20,15 @@ class TraceVectorPoint {
     required this.cosineToQuery,
     required this.isQuery,
     required this.lane,
+    required this.text,
+    required this.candidateId,
+    required this.sourceChannels,
+    required this.selectedForEvidence,
+    required this.selectionReason,
+    required this.dropReason,
+    required this.ftsRank,
+    required this.vectorRank,
+    required this.finalRank,
   });
 
   final String embeddingId;
@@ -34,6 +43,15 @@ class TraceVectorPoint {
   final double cosineToQuery;
   final bool isQuery;
   final RetrievalLane? lane;
+  final String text;
+  final String? candidateId;
+  final String? sourceChannels;
+  final bool selectedForEvidence;
+  final String? selectionReason;
+  final String? dropReason;
+  final int? ftsRank;
+  final int? vectorRank;
+  final int? finalRank;
 }
 
 class TraceVectorSpaceSnapshot {
@@ -46,6 +64,8 @@ class TraceVectorSpaceSnapshot {
     required this.points,
     required this.neighbors,
     required this.explainedVarianceRatios,
+    required this.originalDimension,
+    required this.effectiveComponentCount,
   });
 
   final String queryEmbeddingId;
@@ -56,6 +76,8 @@ class TraceVectorSpaceSnapshot {
   final List<TraceVectorPoint> points;
   final List<TraceVectorPoint> neighbors;
   final List<double> explainedVarianceRatios;
+  final int originalDimension;
+  final int effectiveComponentCount;
 }
 
 class TraceVectorSpaceService {
@@ -71,7 +93,7 @@ class TraceVectorSpaceService {
 
   Future<TraceVectorSpaceSnapshot> build(
     TraceSnapshot snapshot, {
-    int maxCorpusPoints = 250,
+    int maxCorpusPoints = 128,
   }) async {
     final query = snapshot.queryEmbedding;
     if (query == null || query.representation != EmbeddingRepresentation.query) {
@@ -80,6 +102,11 @@ class TraceVectorSpaceService {
     final limit = maxCorpusPoints < 0 ? 0 : maxCorpusPoints;
     final selected = <String, LineageEmbedding>{};
     final laneByEmbedding = <String, RetrievalLane>{};
+    final candidateByEmbedding = <String, CandidateRecord>{};
+    final evidenceByCandidate = <String, EvidenceRecord>{
+      for (final evidence in snapshot.evidence)
+        evidence.candidateId: evidence,
+    };
 
     Future<void> addCandidate(CandidateRecord candidate) async {
       if (selected.length >= limit) return;
@@ -93,6 +120,7 @@ class TraceVectorSpaceService {
       }
       selected[embeddingId] = embedding;
       laneByEmbedding[embeddingId] = candidate.lane;
+      candidateByEmbedding[embeddingId] = candidate;
     }
 
     final activeCandidates = snapshot.candidates
@@ -161,6 +189,10 @@ class TraceVectorSpaceService {
       final chunk = embedding.chunkId == null
           ? null
           : await lexicalStore.getChunk(embedding.chunkId!);
+      final candidate = candidateByEmbedding[embedding.embeddingId];
+      final evidence = candidate == null
+          ? null
+          : evidenceByCandidate[candidate.candidateId];
       points.add(TraceVectorPoint(
         embeddingId: embedding.embeddingId,
         chunkId: embedding.chunkId,
@@ -174,6 +206,16 @@ class TraceVectorSpaceService {
         cosineToQuery: _cosine(query.vector, embedding.vector),
         isQuery: false,
         lane: laneByEmbedding[embedding.embeddingId],
+        text: chunk?.text ?? '',
+        candidateId: candidate?.candidateId,
+        sourceChannels: candidate?.sourceChannels,
+        selectedForEvidence:
+            evidence != null || (candidate?.selectedForEvidence ?? false),
+        selectionReason: evidence?.selectionReason,
+        dropReason: candidate?.dropReason,
+        ftsRank: candidate?.ftsRank,
+        vectorRank: candidate?.vectorRank,
+        finalRank: candidate?.finalRank,
       ));
     }
     final queryCoordinate = coordinates[query.embeddingId]!;
@@ -190,6 +232,15 @@ class TraceVectorSpaceService {
       cosineToQuery: 1,
       isQuery: true,
       lane: RetrievalLane.active,
+      text: snapshot.trace.queryText,
+      candidateId: null,
+      sourceChannels: null,
+      selectedForEvidence: false,
+      selectionReason: null,
+      dropReason: null,
+      ftsRank: null,
+      vectorRank: null,
+      finalRank: null,
     ));
     final neighbors = points.where((point) => !point.isQuery).toList()
       ..sort((a, b) => b.cosineToQuery.compareTo(a.cosineToQuery));
@@ -203,6 +254,10 @@ class TraceVectorSpaceService {
       points: List<TraceVectorPoint>.unmodifiable(points),
       neighbors: List<TraceVectorPoint>.unmodifiable(neighbors.take(10)),
       explainedVarianceRatios: projection.explainedVarianceRatios,
+      originalDimension: projection.originalDimension,
+      effectiveComponentCount: projection.explainedVarianceRatios
+          .where((ratio) => ratio.isFinite && ratio > 1e-9)
+          .length,
     );
   }
 
