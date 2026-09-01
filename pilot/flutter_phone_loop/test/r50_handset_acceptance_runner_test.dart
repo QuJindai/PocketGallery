@@ -280,7 +280,7 @@ final class _Harness {
     DeviceIdentitySnapshot? identity,
     bool hasBaseline = true,
     bool modelReady = true,
-    FrameTimingSummary frameTiming = _passingFrameTiming,
+    this.frameTiming = _passingFrameTiming,
     ResourceAcceptanceSummary? resourceSummary,
     PreservationSnapshot? afterPreservation,
     _MemoryPersistence? persistence,
@@ -291,7 +291,6 @@ final class _Harness {
     String Function()? runIdFactory,
     List<String>? events,
   })  : events = events ?? <String>[],
-        frameTiming = frameTiming,
         diagnostics =
             diagnostics ?? _FakeDiagnostics(identity: identity ?? _identity()),
         persistence = persistence ??

@@ -1,5 +1,3 @@
-import 'dart:typed_data';
-
 import 'package:flutter/foundation.dart';
 
 import '../services/golden_gate_executor.dart';
@@ -109,13 +107,13 @@ final class VectorInteractionResult {
   });
 
   const VectorInteractionResult.blocked(
-    String reasonCode, {
+    this.reasonCode, {
     this.rotationComplete = false,
     this.zoomComplete = false,
     this.selectionComplete = false,
     this.viewportConfirmed = false,
     this.frameTiming = unavailableFrameTiming,
-  }) : reasonCode = reasonCode;
+  });
 
   static const FrameTimingSummary unavailableFrameTiming = FrameTimingSummary(
     available: false,
@@ -158,9 +156,8 @@ final class HandsetAcceptanceRunner {
     required this.probeModelReadiness,
     required this.resources,
     DateTime Function()? clock,
-    String Function()? runIdFactory,
-  })  : _clock = clock ?? DateTime.now,
-        _runIdFactory = runIdFactory;
+    this.runIdFactory,
+  }) : _clock = clock ?? DateTime.now;
 
   final DeviceDiagnosticsGateway diagnostics;
   final HandsetAcceptancePersistence persistence;
@@ -173,7 +170,7 @@ final class HandsetAcceptanceRunner {
   final ModelReadinessProbe probeModelReadiness;
   final DeviceResourceSampling resources;
   final DateTime Function() _clock;
-  final String Function()? _runIdFactory;
+  final String Function()? runIdFactory;
   final ValueNotifier<String?> interruption = ValueNotifier<String?>(null);
 
   HandsetAcceptanceSnapshot? _current;
@@ -245,7 +242,7 @@ final class HandsetAcceptanceRunner {
         await _runH9(onProgress);
         await _runH8(onProgress);
         await _writeBaselineIfEligible();
-        return _runH10(onProgress);
+        return await _runH10(onProgress);
       } finally {
         try {
           await resources.stopIfRunning();
@@ -1183,7 +1180,7 @@ final class HandsetAcceptanceRunner {
   }
 
   String _allocateRunId() {
-    final supplied = _runIdFactory?.call().trim();
+    final supplied = runIdFactory?.call().trim();
     if (supplied != null && supplied.isNotEmpty) return supplied;
     _runSequence += 1;
     return 'r50-${_clock().toUtc().microsecondsSinceEpoch}-$_runSequence';
