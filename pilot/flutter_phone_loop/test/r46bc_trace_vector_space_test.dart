@@ -144,6 +144,28 @@ void main() {
       selectedForEvidence: true,
       dropReason: null,
     ));
+    final activeCandidateId = LineageIds.candidateId(
+      traceId,
+      activeStrategy,
+      'c-active',
+    );
+    await store.putEvidence(EvidenceRecord(
+      evidenceId: LineageIds.evidenceId(
+        traceId,
+        activeStrategy,
+        'c-active',
+      ),
+      traceId: traceId,
+      strategyId: activeStrategy,
+      lane: RetrievalLane.active,
+      anchor: 'E1',
+      candidateId: activeCandidateId,
+      chunkId: 'c-active',
+      selectionRank: 1,
+      score: 0.04,
+      tokenCount: 12,
+      selectionReason: 'direct_support',
+    ));
     await store.putCandidate(CandidateRecord(
       candidateId: LineageIds.candidateId(
         traceId,
@@ -166,7 +188,7 @@ void main() {
       rerankScore: null,
       finalRank: 1,
       selectedForEvidence: false,
-      dropReason: null,
+      dropReason: 'max_evidence',
     ));
 
     final snapshot = await TraceSnapshot.load(store, traceId);
@@ -195,5 +217,24 @@ void main() {
     );
     expect(result.samplePolicy, contains('ACTIVE hits'));
     expect(result.samplePolicy, contains('SHADOW hits'));
+    final active = result.points.singleWhere(
+      (point) => point.embeddingId == 'emb-c-active',
+    );
+    expect(active.text, 'active candidate');
+    expect(active.candidateId, activeCandidateId);
+    expect(active.sourceChannels, 'vector');
+    expect(active.selectedForEvidence, isTrue);
+    expect(active.selectionReason, 'direct_support');
+    expect(active.finalRank, 1);
+    expect(active.vectorRank, 1);
+    final shadow = result.points.singleWhere(
+      (point) => point.embeddingId == 'emb-c-shadow',
+    );
+    expect(shadow.text, 'shadow candidate');
+    expect(shadow.sourceChannels, 'heading');
+    expect(shadow.selectedForEvidence, isFalse);
+    expect(shadow.dropReason, 'max_evidence');
+    expect(result.originalDimension, 2);
+    expect(result.effectiveComponentCount, inInclusiveRange(1, 2));
   });
 }
