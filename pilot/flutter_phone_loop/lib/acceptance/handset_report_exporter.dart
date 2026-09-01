@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
 
 import '../services/golden_test_state.dart';
+import 'golden_reason_code_contract.dart';
 import 'handset_acceptance_models.dart';
 import 'pocketgallery_build_identity.dart';
 
@@ -17,9 +18,6 @@ abstract final class HandsetReportExporter {
     caseSensitive: false,
   );
   static final RegExp _sha256 = RegExp(r'^[0-9a-fA-F]{64}$');
-  static final RegExp _stableReasonCode = RegExp(
-    r'^[A-Z][A-Z0-9_]*(?:\|[A-Z][A-Z0-9_]*)*$',
-  );
 
   static const Map<String, String> _messages = <String, String>{
     'TARGET_MANUFACTURER': 'Handset manufacturer measured.',
@@ -163,16 +161,10 @@ abstract final class HandsetReportExporter {
   }
 
   static String? _goldenGateReason(GoldenGateStatus status, String detail) {
-    if (status == GoldenGateStatus.passed) return null;
-    final normalized = detail.trim();
-    if (_stableReasonCode.hasMatch(normalized)) return normalized;
-    return switch (status) {
-      GoldenGateStatus.failed => 'GATE_FAILED',
-      GoldenGateStatus.timedOut => 'GATE_TIMEOUT',
-      GoldenGateStatus.blocked => 'GATE_BLOCKED',
-      GoldenGateStatus.pending || GoldenGateStatus.running => 'GATE_INCOMPLETE',
-      GoldenGateStatus.passed => null,
-    };
+    return GoldenReasonCodeContract.forExport(
+      status.name.toUpperCase(),
+      detail,
+    );
   }
 
   static Object? _approvedActual(String code, Object? value) {

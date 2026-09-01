@@ -1,3 +1,4 @@
+import 'golden_reason_code_contract.dart';
 import 'pocketgallery_build_identity.dart';
 
 final class DeviceAcceptanceEvidence {
@@ -264,8 +265,7 @@ Map<String, String> _nestedGoldenGateStatuses(Map<String, dynamic> json) {
       throw const FormatException('Missing reasonCode');
     }
     final reasonCode = gate['reasonCode'];
-    final allowed = _goldenReasonCodesByStatus[status];
-    if (allowed == null || !allowed.contains(reasonCode)) {
+    if (!GoldenReasonCodeContract.accepts(status, reasonCode)) {
       throw FormatException(
         'Invalid nested Golden reasonCode for status $status: $reasonCode',
       );
@@ -387,20 +387,6 @@ const Set<String> _handsetGateStatuses = <String>{
   'BLOCKED',
 };
 const Set<String> _goldenGateStatuses = _handsetGateStatuses;
-const Map<String, Set<Object?>> _goldenReasonCodesByStatus =
-    <String, Set<Object?>>{
-      'PENDING': <Object?>{'GATE_INCOMPLETE'},
-      'RUNNING': <Object?>{'GATE_INCOMPLETE'},
-      'PASSED': <Object?>{null},
-      'FAILED': <Object?>{'GATE_FAILED'},
-      'TIMEDOUT': <Object?>{'GATE_TIMEOUT'},
-      'BLOCKED': <Object?>{
-        'GATE_BLOCKED',
-        'USER_CANCELLED',
-        'APP_BACKGROUND_INTERRUPTION',
-        'INTERRUPTED',
-      },
-    };
 const Set<String> _goldenPhases = <String>{
   'PREPARING',
   'RUNNING',

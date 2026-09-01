@@ -123,7 +123,11 @@ class GoldenRunControl {
     _closeFuture = future;
     future.then<void>(
       (_) => _clearCloseFuture(future),
-      onError: (Object _, StackTrace _) => _clearCloseFuture(future),
+      onError: (Object _, StackTrace _) {
+        // Closing a native model is terminal for this run. Retain the same
+        // completed-error Future so interruption and final cleanup observe
+        // identical evidence without starting an overlapping native close.
+      },
     );
     return future;
   }
