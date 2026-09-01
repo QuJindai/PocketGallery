@@ -5,12 +5,16 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pocketgallery_phone_pilot/chat/chat_models.dart';
+import 'package:pocketgallery_phone_pilot/chat/chat_session_store.dart';
 import 'package:pocketgallery_phone_pilot/core/models.dart';
 import 'package:pocketgallery_phone_pilot/services/golden_gate_executor.dart';
 import 'package:pocketgallery_phone_pilot/services/golden_test_report_store.dart';
 import 'package:pocketgallery_phone_pilot/services/golden_test_runner.dart';
 import 'package:pocketgallery_phone_pilot/services/golden_test_state.dart';
+import 'package:pocketgallery_phone_pilot/services/knowledge_engine.dart';
+import 'package:pocketgallery_phone_pilot/services/model_setup_service.dart';
 import 'package:pocketgallery_phone_pilot/ui/model_settings_page.dart';
+import 'package:sqlite3/sqlite3.dart';
 
 void main() {
   group('R4.8 bounded phone acceptance', () {
@@ -317,6 +321,30 @@ void main() {
   });
 
   group('R4.8 live phone progress UI', () {
+    testWidgets('focused Phone Golden Test remains under Advanced diagnostics',
+        (tester) async {
+      final database = sqlite3.openInMemory();
+      addTearDown(database.dispose);
+      await tester.pumpWidget(MaterialApp(
+        home: ModelSettingsPage(
+          engine: KnowledgeEngine(),
+          store: ChatSessionStore(database: database),
+          setupService: _R48QuietModelSetupService(),
+          acceptanceSnapshotLoader: () async => null,
+          acceptancePageBuilder: (context) => const SizedBox.shrink(),
+        ),
+      ));
+      await tester.pump();
+      await tester.pump();
+
+      await tester.ensureVisible(find.text('高级 / 诊断'));
+      await tester.tap(find.text('高级 / 诊断'));
+      await tester.pump();
+
+      expect(find.text('Run Phone Golden Test'), findsOneWidget);
+      expect(find.text('诊断未运行'), findsOneWidget);
+    });
+
     testWidgets('renders determinate live progress and checkpoint state',
         (tester) async {
       final now = DateTime.utc(2026, 8, 29, 14, 0, 12);
@@ -428,6 +456,23 @@ void main() {
       expect(int.parse(match!.group(1)!), greaterThanOrEqualTo(18));
     });
   });
+}
+
+final class _R48QuietModelSetupService extends ModelSetupService {
+  @override
+  Future<bool> hasPendingAuthorization() async => false;
+
+  @override
+  Future<ModelSetupSnapshot> prepareAutomatically({
+    void Function(ModelSetupSnapshot state)? onProgress,
+  }) async {
+    const result = ModelSetupSnapshot(
+      phase: ModelSetupPhase.authorizationRequired,
+      message: 'R4.8 regression fixture',
+    );
+    onProgress?.call(result);
+    return result;
+  }
 }
 
 GoldenTestSnapshot _checkpointSnapshot(String runId) {
