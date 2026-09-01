@@ -347,6 +347,7 @@ class _ProjectionWarning extends StatelessWidget {
               : '当前数据只支撑 $effectiveComponentCount 维有效结构；其余主轴方差为零。',
         ),
       );
+}
 
 VectorPlotKind _plotKind(TraceVectorPoint point) {
   if (point.isQuery) return VectorPlotKind.query;
