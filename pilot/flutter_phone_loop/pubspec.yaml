@@ -1,7 +1,7 @@
 name: pocketgallery_phone_pilot
-description: "PocketGallery on-device chat-first assistant: Gemma 4 + optional local knowledge RAG."
+description: "PocketGallery on-device chat-first assistant: Gemma 4 + optional local knowledge RAG + OKF Mobile Lab."
 publish_to: "none"
-version: 0.4.17+21
+version: 0.4.18+22
 
 environment:
   sdk: ">=3.12.0 <4.0.0"
