@@ -29,14 +29,18 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Validate exact OKF target head
+        id: target
         shell: bash
         run: |
           set -euo pipefail
-          test "$TARGET_SHA" != ""
           REMOTE_SHA="$(git ls-remote --exit-code origin "refs/heads/$TARGET_BRANCH" | awk '{print $1}')"
-          echo "REQUESTED_TARGET_SHA=$TARGET_SHA"
-          echo "CURRENT_TARGET_SHA=$REMOTE_SHA"
-          test "$TARGET_SHA" = "$REMOTE_SHA"
+          echo "requested=$TARGET_SHA" >> "$GITHUB_OUTPUT"
+          echo "remote=$REMOTE_SHA" >> "$GITHUB_OUTPUT"
+          if [[ "$TARGET_SHA" = "$REMOTE_SHA" ]]; then
+            echo "match=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "match=false" >> "$GITHUB_OUTPUT"
+          fi
           echo "SIGNING_CARRIER_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
           echo "VALIDATED_TARGET_SHA=$REMOTE_SHA" >> "$GITHUB_ENV"
 
@@ -46,13 +50,41 @@ jobs:
         with:
           path: ~/.android/pocketgallery-r3-signing
           key: pocketgallery-r3-signing-v1
-          fail-on-cache-miss: true
+
+      - name: Persist bridge probe
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          PROBE=/tmp/okf-sign-bridge-probe.txt
+          {
+            echo "run_id=$GITHUB_RUN_ID"
+            echo "carrier_sha=$(git rev-parse HEAD)"
+            echo "target_requested=${{ steps.target.outputs.requested }}"
+            echo "target_remote=${{ steps.target.outputs.remote }}"
+            echo "target_match=${{ steps.target.outputs.match }}"
+            echo "cache_hit=${{ steps.signer-cache.outputs.cache-hit }}"
+          } | tee "$PROBE"
+          ENCODED="$(base64 -w0 "$PROBE")"
+          gh api --method PUT \
+            "repos/${GITHUB_REPOSITORY}/contents/docs/ci-diagnostics/okf-sign-bridge-${GITHUB_RUN_ID}.txt" \
+            -f message="ci: persist OKF signer bridge probe ${GITHUB_RUN_ID}" \
+            -f content="$ENCODED" \
+            -f branch="$GITHUB_REF_NAME" >/dev/null
+
+      - name: Enforce target and signer cache
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${{ steps.target.outputs.match }}" = "true"
+          test "${{ steps.signer-cache.outputs.cache-hit }}" = "true"
 
       - name: Verify canonical identity without mutation
         shell: bash
         run: |
           set -euo pipefail
-          test "${{ steps.signer-cache.outputs.cache-hit }}" = "true"
           SIGN_DIR="$HOME/.android/pocketgallery-r3-signing"
           bash pilot/flutter_phone_loop/scripts/verify_canonical_signer.sh \
             "$SIGN_DIR" \
@@ -118,9 +150,7 @@ jobs:
         run: |
           set -euo pipefail
           flutter build apk --debug --target-platform android-arm64 --split-per-abi
-          cp \
-            build/app/outputs/flutter-apk/app-arm64-v8a-debug.apk \
-            build/app/outputs/flutter-apk/PocketGallery-OKF-Mobile-Lab-arm64.apk
+          cp build/app/outputs/flutter-apk/app-arm64-v8a-debug.apk build/app/outputs/flutter-apk/PocketGallery-OKF-Mobile-Lab-arm64.apk
 
       - name: Verify package version ABI and canonical signer
         working-directory: pilot/flutter_phone_loop
@@ -129,29 +159,20 @@ jobs:
           set -euo pipefail
           APK=build/app/outputs/flutter-apk/PocketGallery-OKF-Mobile-Lab-arm64.apk
           ABIS="$(unzip -Z1 "$APK" | grep -E '^lib/[^/]+/.*\.so$' | sed -E 's#^lib/([^/]+)/.*#\1#' | sort -u | paste -sd, -)"
-          echo "APK_ABIS=$ABIS"
           test "$ABIS" = "arm64-v8a"
-
           AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)"
           BADGING="$("$AAPT" dump badging "$APK")"
           PACKAGE="$(sed -n "s/^package: name='\([^']*\)'.*/\1/p" <<<"$BADGING" | head -1)"
           VERSION_CODE="$(sed -n "s/^package: .*versionCode='\([^']*\)'.*/\1/p" <<<"$BADGING" | head -1)"
           VERSION_NAME="$(sed -n "s/^package: .*versionName='\([^']*\)'.*/\1/p" <<<"$BADGING" | head -1)"
           EXPECTED_VERSION_CODE="$(bash scripts/android_version_code.sh)"
-          echo "APK_PACKAGE=$PACKAGE"
-          echo "APK_VERSION_CODE=$VERSION_CODE"
-          echo "APK_VERSION_NAME=$VERSION_NAME"
-          echo "EXPECTED_VERSION_CODE=$EXPECTED_VERSION_CODE"
           test "$PACKAGE" = "com.qujindai.pocketgallery_phone_pilot.r3"
           test "$VERSION_CODE" = "2022"
           test "$VERSION_CODE" = "$EXPECTED_VERSION_CODE"
-
           APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
           "$APKSIGNER" verify --verbose --print-certs "$APK" 2>&1 | tee /tmp/apksigner.txt
           APK_CERT="$(grep -i 'certificate.*sha-256.*digest' /tmp/apksigner.txt | head -1 | sed -E 's/.*[Dd]igest:[[:space:]]*//' | tr -d '[:space:]:' | tr '[:upper:]' '[:lower:]')"
-          echo "APK_SIGNER_SHA256=$APK_CERT"
           test "$APK_CERT" = "$CANONICAL_SIGNER_SHA256"
-
           APK_SHA256="$(sha256sum "$APK" | awk '{print $1}')"
           OUTPUT_DIR=build/app/outputs/flutter-apk
           printf '%s  %s\n' "$APK_SHA256" "$(basename "$APK")" > "$APK.sha256"
@@ -177,8 +198,6 @@ jobs:
             pilot/flutter_phone_loop/build/app/outputs/flutter-apk/PocketGallery-OKF-Mobile-Lab-arm64.apk
             pilot/flutter_phone_loop/build/app/outputs/flutter-apk/PocketGallery-OKF-Mobile-Lab-arm64.apk.sha256
             pilot/flutter_phone_loop/build/app/outputs/flutter-apk/SIGNED_BUILD_PROOF.txt
-            pilot/flutter_phone_loop/build/app/outputs/flutter-apk/source-inner.sha256
-            pilot/flutter_phone_loop/build/app/outputs/flutter-apk/source-outer.sha256
           if-no-files-found: error
           retention-days: 14
 
