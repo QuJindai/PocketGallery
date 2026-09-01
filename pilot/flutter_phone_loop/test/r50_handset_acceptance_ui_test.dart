@@ -27,7 +27,7 @@ void main() {
         (tester) async {
       _setPhoneSize(tester);
       final database = sqlite3.openInMemory();
-      addTearDown(database.dispose);
+      addTearDown(database.close);
       final latest = _terminalSnapshot(AcceptanceVerdict.pass);
 
       await tester.pumpWidget(
@@ -246,7 +246,7 @@ void main() {
       await tester.tap(find.text('开始手机一键验收'));
       await tester.pump();
 
-      await tester.binding.handleAppLifecycleStateChanged(
+      tester.binding.handleAppLifecycleStateChanged(
         AppLifecycleState.paused,
       );
       await tester.pump();
@@ -257,7 +257,7 @@ void main() {
       ]);
 
       controller.complete(_terminalSnapshot(AcceptanceVerdict.blocked));
-      await tester.binding.handleAppLifecycleStateChanged(
+      tester.binding.handleAppLifecycleStateChanged(
         AppLifecycleState.resumed,
       );
       await tester.pumpAndSettle();
@@ -319,7 +319,7 @@ Future<void> _pumpAcceptancePage(
   HandsetReportSaver? reportSaver,
 }) async {
   final database = sqlite3.openInMemory();
-  addTearDown(database.dispose);
+  addTearDown(database.close);
   await tester.pumpWidget(
     MaterialApp(
       home: HandsetAcceptancePage(

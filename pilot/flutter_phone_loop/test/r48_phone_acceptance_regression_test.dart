@@ -324,7 +324,7 @@ void main() {
     testWidgets('focused Phone Golden Test remains under Advanced diagnostics',
         (tester) async {
       final database = sqlite3.openInMemory();
-      addTearDown(database.dispose);
+      addTearDown(database.close);
       await tester.pumpWidget(MaterialApp(
         home: ModelSettingsPage(
           engine: KnowledgeEngine(),
