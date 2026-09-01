@@ -15,7 +15,7 @@ void main() {
     expect((result.stdout as String).trim(), '2021');
   });
 
-  test('R4.9 CI publishes an unsigned debug APK without weakening signer gate',
+  test('R4.9 CI publishes a non-canonical debug APK without double ABI offset',
       () async {
     final tddWorkflow = await File(
       '../../.github/workflows/pocketgallery-r46-tdd.yml',
@@ -25,7 +25,16 @@ void main() {
     ).readAsString();
 
     expect(tddWorkflow, contains('scripts/android_version_code.sh'));
-    expect(tddWorkflow, contains(r'--build-number="$ANDROID_VERSION_CODE"'));
+    expect(
+      tddWorkflow,
+      isNot(contains(r'--build-number="$ANDROID_VERSION_CODE"')),
+      reason: 'arm64 split APKs add the 2000 ABI offset themselves',
+    );
+    expect(
+      signedWorkflow,
+      isNot(contains(r'--build-number="$ANDROID_VERSION_CODE"')),
+      reason: 'the canonical path must use the same monotonic version mapping',
+    );
     expect(tddWorkflow, contains('PocketGallery-R49-rotatable-3d-debug-apk'));
     expect(tddWorkflow, contains('actions/upload-artifact@v4'));
     expect(
