@@ -17,12 +17,17 @@ source_files() {
 case "$MODE" in
   inner)
     cd "$ROOT"
-    sha256sum ../../.github/workflows/pocketgallery-phone-pilot-apk.yml
+    sha256sum \
+      ../../.github/workflows/pocketgallery-phone-pilot-apk.yml \
+      ../../.github/workflows/pocketgallery-r46-tdd.yml
     source_files
     ;;
   outer)
     cd "$ROOT/../.."
-    sha256sum .github/workflows/pocketgallery-phone-pilot-apk.yml PILOT_DROPIN_README.md
+    sha256sum \
+      .github/workflows/pocketgallery-phone-pilot-apk.yml \
+      .github/workflows/pocketgallery-r46-tdd.yml \
+      PILOT_DROPIN_README.md
     find pilot/flutter_phone_loop -type f \
       ! -path 'pilot/flutter_phone_loop/android/*' \
       ! -path 'pilot/flutter_phone_loop/build/*' \
