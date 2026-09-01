@@ -51,6 +51,30 @@ jobs:
           path: ~/.android/pocketgallery-r3-signing
           key: pocketgallery-r3-signing-v1
 
+      - name: Verify canonical identity without mutation
+        id: verify
+        shell: bash
+        run: |
+          set +e
+          SIGN_DIR="$HOME/.android/pocketgallery-r3-signing"
+          bash pilot/flutter_phone_loop/scripts/verify_canonical_signer.sh \
+            "$SIGN_DIR" \
+            pocketgallery-r3 \
+            "$CANONICAL_SIGNER_SHA256" 2>&1 | tee /tmp/okf-signer-verify.log
+          CODE=${PIPESTATUS[0]}
+          echo "exit_code=$CODE" >> "$GITHUB_OUTPUT"
+          if [[ "$CODE" = "0" && -s "$SIGN_DIR/password" ]]; then
+            PASSWORD="$(<"$SIGN_DIR/password")"
+            echo "::add-mask::$PASSWORD"
+            {
+              echo "POCKETGALLERY_SIGNING_KEYSTORE=$SIGN_DIR/r3.keystore"
+              echo "POCKETGALLERY_SIGNING_STORE_PASSWORD=$PASSWORD"
+              echo "POCKETGALLERY_SIGNING_KEY_PASSWORD=$PASSWORD"
+              echo "POCKETGALLERY_SIGNING_KEY_ALIAS=pocketgallery-r3"
+            } >> "$GITHUB_ENV"
+          fi
+          exit 0
+
       - name: Persist bridge probe
         if: always()
         env:
@@ -66,6 +90,10 @@ jobs:
             echo "target_remote=${{ steps.target.outputs.remote }}"
             echo "target_match=${{ steps.target.outputs.match }}"
             echo "cache_hit=${{ steps.signer-cache.outputs.cache-hit }}"
+            echo "verify_exit=${{ steps.verify.outputs.exit_code }}"
+            echo
+            echo "===== SIGNER VERIFY OUTPUT (NO PASSWORD) ====="
+            cat /tmp/okf-signer-verify.log || true
           } | tee "$PROBE"
           ENCODED="$(base64 -w0 "$PROBE")"
           gh api --method PUT \
@@ -74,30 +102,13 @@ jobs:
             -f content="$ENCODED" \
             -f branch="$GITHUB_REF_NAME" >/dev/null
 
-      - name: Enforce target and signer cache
+      - name: Enforce target signer cache and canonical identity
         shell: bash
         run: |
           set -euo pipefail
           test "${{ steps.target.outputs.match }}" = "true"
           test "${{ steps.signer-cache.outputs.cache-hit }}" = "true"
-
-      - name: Verify canonical identity without mutation
-        shell: bash
-        run: |
-          set -euo pipefail
-          SIGN_DIR="$HOME/.android/pocketgallery-r3-signing"
-          bash pilot/flutter_phone_loop/scripts/verify_canonical_signer.sh \
-            "$SIGN_DIR" \
-            pocketgallery-r3 \
-            "$CANONICAL_SIGNER_SHA256"
-          PASSWORD="$(<"$SIGN_DIR/password")"
-          echo "::add-mask::$PASSWORD"
-          {
-            echo "POCKETGALLERY_SIGNING_KEYSTORE=$SIGN_DIR/r3.keystore"
-            echo "POCKETGALLERY_SIGNING_STORE_PASSWORD=$PASSWORD"
-            echo "POCKETGALLERY_SIGNING_KEY_PASSWORD=$PASSWORD"
-            echo "POCKETGALLERY_SIGNING_KEY_ALIAS=pocketgallery-r3"
-          } >> "$GITHUB_ENV"
+          test "${{ steps.verify.outputs.exit_code }}" = "0"
 
       - name: Checkout validated OKF source
         uses: actions/checkout@v4
