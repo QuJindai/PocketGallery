@@ -144,6 +144,16 @@ void main() {
       canonicalWorkflow,
       isNot(contains('feature/phone-pilot-')),
     );
+    expect(
+      canonicalWorkflow,
+      contains('environment: pocketgallery-canonical-signing'),
+    );
+    expect(canonicalWorkflow, contains('trap cleanup_signing EXIT'));
+    expect(canonicalWorkflow, isNot(contains(r'>> "$GITHUB_ENV"')));
+
+    final tests = canonicalWorkflow.indexOf('- name: Unit tests');
+    final firstSecret = canonicalWorkflow.indexOf(r'${{ secrets.');
+    expect(firstSecret, greaterThan(tests));
 
     final secretNames = RegExp(r'secrets\.([A-Z0-9_]+)')
         .allMatches(canonicalWorkflow)
@@ -174,6 +184,7 @@ void main() {
     );
     expect(canonicalWorkflow, isNot(contains('SIGNING_KEY_ALIAS=new')));
     expect(canonicalWorkflow, contains('SIGNING_IDENTITY_MISSING'));
+    expect(canonicalWorkflow, contains('SIGNING_IDENTITY_MISMATCH'));
     expect(canonicalWorkflow, contains('exit 74'));
   });
 

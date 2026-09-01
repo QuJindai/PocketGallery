@@ -2,102 +2,18 @@ name: PocketGallery Phone Pilot APK
 
 on:
   workflow_dispatch:
-  push:
-    branches: [main, develop, "feature/phone-pilot-r3-final-apk", "feature/phone-pilot-r41-rag-microscope", "feature/phone-pilot-r46-runtime-lineage"]
-    paths:
-      - "pilot/flutter_phone_loop/**"
-      - ".github/workflows/pocketgallery-phone-pilot-apk.yml"
-  pull_request:
-    paths:
-      - "pilot/flutter_phone_loop/**"
-      - ".github/workflows/pocketgallery-phone-pilot-apk.yml"
 
 permissions:
   contents: read
 
 jobs:
   pilot-apk:
-    if: github.event_name != 'pull_request' || github.head_ref != 'feature/phone-pilot-r3-final-apk'
     runs-on: ubuntu-latest
     timeout-minutes: 90
+    environment: pocketgallery-canonical-signing
 
     steps:
       - uses: actions/checkout@v4
-
-      - name: Restore persistent R3 signing identity
-        uses: actions/cache@v5
-        with:
-          path: ~/.android/pocketgallery-r3-signing
-          key: pocketgallery-r3-signing-v1
-          save-always: true
-
-      - name: Prepare canonical R3 signing identity
-        shell: bash
-        env:
-          POCKETGALLERY_SIGNING_KEYSTORE_B64: ${{ secrets.POCKETGALLERY_SIGNING_KEYSTORE_B64 }}
-          POCKETGALLERY_SIGNING_STORE_PASSWORD: ${{ secrets.POCKETGALLERY_SIGNING_STORE_PASSWORD }}
-          POCKETGALLERY_SIGNING_KEY_PASSWORD: ${{ secrets.POCKETGALLERY_SIGNING_KEY_PASSWORD }}
-          POCKETGALLERY_SIGNING_KEY_ALIAS: ${{ secrets.POCKETGALLERY_SIGNING_KEY_ALIAS }}
-        run: |
-          set -euo pipefail
-          CACHE_SIGN_DIR="$HOME/.android/pocketgallery-r3-signing"
-          CACHE_KEYSTORE="$CACHE_SIGN_DIR/r3.keystore"
-          CACHE_PASSFILE="$CACHE_SIGN_DIR/password"
-          CACHE_ALIAS="pocketgallery-r3"
-          SECRET_KEYSTORE="$RUNNER_TEMP/pocketgallery-r3-signing/r3.keystore"
-          CANONICAL_SIGNER_SHA256=81af4a5ef94c236774f0e193b2a4b248805b36c14cc36e2a56df8e451a712541
-          echo "CANONICAL_SIGNER_SHA256=$CANONICAL_SIGNER_SHA256" >> "$GITHUB_ENV"
-
-          if [[ -s "$CACHE_KEYSTORE" && -s "$CACHE_PASSFILE" ]]; then
-            KEYSTORE="$CACHE_KEYSTORE"
-            STORE_PASS="$(cat "$CACHE_PASSFILE")"
-            KEY_PASS="$STORE_PASS"
-            ALIAS="$CACHE_ALIAS"
-            SIGNING_SOURCE="cache"
-          elif [[ -n "$POCKETGALLERY_SIGNING_KEYSTORE_B64" && \
-                  -n "$POCKETGALLERY_SIGNING_STORE_PASSWORD" && \
-                  -n "$POCKETGALLERY_SIGNING_KEY_PASSWORD" && \
-                  -n "$POCKETGALLERY_SIGNING_KEY_ALIAS" ]]; then
-            mkdir -p "$(dirname "$SECRET_KEYSTORE")"
-            if ! printf '%s' "$POCKETGALLERY_SIGNING_KEYSTORE_B64" | base64 --decode > "$SECRET_KEYSTORE"; then
-              echo "::error::SIGNING_IDENTITY_MISSING: provisioned canonical keystore is not valid base64"
-              exit 74
-            fi
-            chmod 600 "$SECRET_KEYSTORE"
-            KEYSTORE="$SECRET_KEYSTORE"
-            STORE_PASS="$POCKETGALLERY_SIGNING_STORE_PASSWORD"
-            KEY_PASS="$POCKETGALLERY_SIGNING_KEY_PASSWORD"
-            ALIAS="$POCKETGALLERY_SIGNING_KEY_ALIAS"
-            SIGNING_SOURCE="provisioned-secret"
-          else
-            echo "::error::SIGNING_IDENTITY_MISSING: canonical PocketGallery pilot key is unavailable; refusing to rotate signing identity"
-            exit 74
-          fi
-
-          echo "::add-mask::$STORE_PASS"
-          echo "::add-mask::$KEY_PASS"
-          echo "::add-mask::$ALIAS"
-          CERT_FILE="$RUNNER_TEMP/pocketgallery-r3-cert.der"
-          keytool -exportcert \
-            -keystore "$KEYSTORE" \
-            -storepass "$STORE_PASS" \
-            -alias "$ALIAS" \
-            -file "$CERT_FILE" >/dev/null
-          KEY_CERT="$(sha256sum "$CERT_FILE" | awk '{print $1}')"
-          echo "CANONICAL_SIGNER_EXPECTED=$CANONICAL_SIGNER_SHA256"
-          echo "RESTORED_SIGNER_SHA256=$KEY_CERT"
-          echo "SIGNING_SOURCE=$SIGNING_SOURCE"
-          if [[ "$KEY_CERT" != "$CANONICAL_SIGNER_SHA256" ]]; then
-            echo "::error::SIGNING_IDENTITY_MISMATCH: refusing to publish an APK that cannot update the installed pilot"
-            exit 75
-          fi
-
-          {
-            printf 'POCKETGALLERY_SIGNING_KEYSTORE=%s\n' "$KEYSTORE"
-            printf 'POCKETGALLERY_SIGNING_STORE_PASSWORD=%s\n' "$STORE_PASS"
-            printf 'POCKETGALLERY_SIGNING_KEY_PASSWORD=%s\n' "$KEY_PASS"
-            printf 'POCKETGALLERY_SIGNING_KEY_ALIAS=%s\n' "$ALIAS"
-          } >> "$GITHUB_ENV"
 
       - name: Record source integrity snapshot
         run: |
@@ -132,9 +48,61 @@ jobs:
       - name: Build same-source R5.0 canonical upgrade pair
         working-directory: pilot/flutter_phone_loop
         shell: bash
+        env:
+          POCKETGALLERY_SIGNING_KEYSTORE_B64: ${{ secrets.POCKETGALLERY_SIGNING_KEYSTORE_B64 }}
+          POCKETGALLERY_SIGNING_STORE_PASSWORD: ${{ secrets.POCKETGALLERY_SIGNING_STORE_PASSWORD }}
+          POCKETGALLERY_SIGNING_KEY_PASSWORD: ${{ secrets.POCKETGALLERY_SIGNING_KEY_PASSWORD }}
+          POCKETGALLERY_SIGNING_KEY_ALIAS: ${{ secrets.POCKETGALLERY_SIGNING_KEY_ALIAS }}
         run: |
           set -euo pipefail
+          SECRET_KEYSTORE="$RUNNER_TEMP/pocketgallery-r3-signing/r3.keystore"
+          CERT_FILE="$RUNNER_TEMP/pocketgallery-r3-cert.der"
+          CANONICAL_SIGNER_SHA256=81af4a5ef94c236774f0e193b2a4b248805b36c14cc36e2a56df8e451a712541
+          cleanup_signing() {
+            unset POCKETGALLERY_SIGNING_KEYSTORE_B64
+            unset POCKETGALLERY_SIGNING_KEYSTORE
+            unset POCKETGALLERY_SIGNING_STORE_PASSWORD
+            unset POCKETGALLERY_SIGNING_KEY_PASSWORD
+            unset POCKETGALLERY_SIGNING_KEY_ALIAS
+            rm -f "$SECRET_KEYSTORE" "$CERT_FILE"
+            rm -f android/app/pocketgallery-pilot.keystore
+            rm -f android/app/build.gradle android/app/build.gradle.kts
+          }
+          trap cleanup_signing EXIT
+
+          if [[ -z "$POCKETGALLERY_SIGNING_KEYSTORE_B64" || \
+                -z "$POCKETGALLERY_SIGNING_STORE_PASSWORD" || \
+                -z "$POCKETGALLERY_SIGNING_KEY_PASSWORD" || \
+                -z "$POCKETGALLERY_SIGNING_KEY_ALIAS" ]]; then
+            echo "::error::SIGNING_IDENTITY_MISSING: all four canonical signing secrets are required"
+            exit 74
+          fi
+          mkdir -p "$(dirname "$SECRET_KEYSTORE")"
+          if ! printf '%s' "$POCKETGALLERY_SIGNING_KEYSTORE_B64" | base64 --decode > "$SECRET_KEYSTORE"; then
+            echo "::error::SIGNING_IDENTITY_MISSING: provisioned canonical keystore is not valid base64"
+            exit 74
+          fi
+          chmod 600 "$SECRET_KEYSTORE"
+          echo "::add-mask::$POCKETGALLERY_SIGNING_STORE_PASSWORD"
+          echo "::add-mask::$POCKETGALLERY_SIGNING_KEY_PASSWORD"
+          echo "::add-mask::$POCKETGALLERY_SIGNING_KEY_ALIAS"
+          keytool -exportcert \
+            -keystore "$SECRET_KEYSTORE" \
+            -storepass "$POCKETGALLERY_SIGNING_STORE_PASSWORD" \
+            -alias "$POCKETGALLERY_SIGNING_KEY_ALIAS" \
+            -file "$CERT_FILE" >/dev/null
+          KEY_CERT="$(sha256sum "$CERT_FILE" | awk '{print $1}')"
+          echo "CANONICAL_SIGNER_EXPECTED=$CANONICAL_SIGNER_SHA256"
+          echo "RESTORED_SIGNER_SHA256=$KEY_CERT"
+          if [[ "$KEY_CERT" != "$CANONICAL_SIGNER_SHA256" ]]; then
+            echo "::error::SIGNING_IDENTITY_MISMATCH: refusing to publish an APK that cannot update the installed pilot"
+            exit 75
+          fi
+
+          export POCKETGALLERY_SIGNING_KEYSTORE="$SECRET_KEYSTORE"
+          bash scripts/bootstrap_android.sh
           SOURCE_COMMIT="$(git rev-parse HEAD)"
+          test "$SOURCE_COMMIT" = "$GITHUB_SHA"
           ARTIFACT_DIR="build/app/outputs/flutter-apk"
           BASELINE_APK="$ARTIFACT_DIR/PocketGallery-R50-baseline-v2022.apk"
           CANDIDATE_APK="$ARTIFACT_DIR/PocketGallery-R50-candidate-v2023.apk"
@@ -151,18 +119,15 @@ jobs:
             --dart-define=POCKETGALLERY_SOURCE_COMMIT="$SOURCE_COMMIT"
           cp "$ARTIFACT_DIR/app-arm64-v8a-debug.apk" "$CANDIDATE_APK"
 
-          {
-            echo "SOURCE_COMMIT=$SOURCE_COMMIT"
-            echo "ARTIFACT_DIR=$ARTIFACT_DIR"
-            echo "BASELINE_APK=$BASELINE_APK"
-            echo "CANDIDATE_APK=$CANDIDATE_APK"
-          } >> "$GITHUB_ENV"
-
       - name: Verify canonical R5.0 upgrade pair
         working-directory: pilot/flutter_phone_loop
         shell: bash
         run: |
           set -euo pipefail
+          CANONICAL_SIGNER_SHA256=81af4a5ef94c236774f0e193b2a4b248805b36c14cc36e2a56df8e451a712541
+          ARTIFACT_DIR="build/app/outputs/flutter-apk"
+          BASELINE_APK="$ARTIFACT_DIR/PocketGallery-R50-baseline-v2022.apk"
+          CANDIDATE_APK="$ARTIFACT_DIR/PocketGallery-R50-candidate-v2023.apk"
           AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)"
           APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
 
@@ -205,6 +170,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          ARTIFACT_DIR="build/app/outputs/flutter-apk"
+          BASELINE_APK="$ARTIFACT_DIR/PocketGallery-R50-baseline-v2022.apk"
+          CANDIDATE_APK="$ARTIFACT_DIR/PocketGallery-R50-candidate-v2023.apk"
           sha256sum "$BASELINE_APK" | tee "$BASELINE_APK.sha256"
           sha256sum "$CANDIDATE_APK" | tee "$CANDIDATE_APK.sha256"
 
@@ -213,6 +181,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          SOURCE_COMMIT="$(git rev-parse HEAD)"
+          CANONICAL_SIGNER_SHA256=81af4a5ef94c236774f0e193b2a4b248805b36c14cc36e2a56df8e451a712541
+          ARTIFACT_DIR="build/app/outputs/flutter-apk"
+          CANDIDATE_APK="$ARTIFACT_DIR/PocketGallery-R50-candidate-v2023.apk"
           CANDIDATE_SHA256="$(awk '{print $1}' "$CANDIDATE_APK.sha256")"
           AUTOMATED_EVIDENCE="$ARTIFACT_DIR/PG_AUTOMATED_EVIDENCE.json"
           cat > "$AUTOMATED_EVIDENCE" <<JSON
@@ -229,7 +201,6 @@ jobs:
           }
           JSON
           test -s "$AUTOMATED_EVIDENCE"
-          echo "AUTOMATED_EVIDENCE=$AUTOMATED_EVIDENCE" >> "$GITHUB_ENV"
 
       - name: Upload canonical R5.0 upgrade pair and evidence
         uses: actions/upload-artifact@v4
