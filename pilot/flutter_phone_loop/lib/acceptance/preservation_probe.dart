@@ -267,13 +267,15 @@ final class PreservationComparison {
   factory PreservationComparison.compare({
     required PreservationSnapshot baseline,
     required PreservationSnapshot current,
+    bool requirePreviousVersion = true,
   }) {
     final reasons = <String>{};
     final baselineVersion = baseline.versionCode;
     final currentVersion = current.versionCode;
-    if (baselineVersion == null ||
-        currentVersion == null ||
-        baselineVersion >= currentVersion) {
+    if (requirePreviousVersion &&
+        (baselineVersion == null ||
+            currentVersion == null ||
+            baselineVersion >= currentVersion)) {
       reasons.add('BASELINE_VERSION_NOT_PREVIOUS');
     }
     if (baseline.packageName == null ||

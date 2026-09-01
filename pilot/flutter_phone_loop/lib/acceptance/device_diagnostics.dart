@@ -57,7 +57,10 @@ final class DeviceIdentitySnapshot {
     required List<String> unavailableReasons,
   }) : unavailableReasons = List<String>.unmodifiable(unavailableReasons);
 
-  factory DeviceIdentitySnapshot.fromMap(Map<String, Object?> value) {
+  factory DeviceIdentitySnapshot.fromMap(
+    Map<String, Object?> value, {
+    String sourceCommit = PocketGalleryBuildIdentity.sourceCommit,
+  }) {
     final reasons = _decodeReasons(value['unavailableReasons']);
     final manufacturer = _stringOrNull(value['manufacturer']);
     final model = _stringOrNull(value['model']);
@@ -68,8 +71,6 @@ final class DeviceIdentitySnapshot {
     final versionCode = _intOrNull(value['versionCode']);
     final signerSha256 = _sha256OrNull(value['signerSha256']);
     final apkSha256 = _sha256OrNull(value['apkSha256']);
-    const sourceCommit = PocketGalleryBuildIdentity.sourceCommit;
-
     _recordMissing(reasons, manufacturer, 'MANUFACTURER_UNAVAILABLE');
     _recordMissing(reasons, model, 'MODEL_UNAVAILABLE');
     _recordMissing(reasons, sdkInt, 'SDK_INT_UNAVAILABLE');
