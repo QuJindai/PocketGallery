@@ -20,16 +20,27 @@ class GemmaChatService implements ChatModelGateway {
   final ContextBudgeter budgeter;
   InferenceModel? _model;
   InferenceChat? _chat;
+  bool _closed = false;
 
   Future<void> _ensureModel() async {
+    if (_closed) throw StateError('Gemma service is closed');
     if (_model != null) return;
     if (!FlutterGemma.hasActiveModel()) {
       throw StateError('Gemma 4 尚未就绪');
     }
-    _model = await FlutterGemma.getActiveModel(
+    final acquired = await FlutterGemma.getActiveModel(
       maxTokens: ContextBudgeter.modelMaxTokens,
       preferredBackend: PreferredBackend.gpu,
     );
+    if (_closed) {
+      try {
+        await acquired.close();
+      } catch (_) {
+        // Closing is best-effort after a concurrent service shutdown.
+      }
+      throw StateError('Gemma service is closed');
+    }
+    _model = acquired;
   }
 
   EvidenceContextSelection _boundedEvidenceContext(
@@ -64,10 +75,9 @@ class GemmaChatService implements ChatModelGateway {
     _chat = chat;
 
     for (final message in selectedHistory) {
-      await chat.addQueryChunk(Message.text(
-        text: message.text,
-        isUser: message.role == ChatRole.user,
-      ));
+      await chat.addQueryChunk(
+        Message.text(text: message.text, isUser: message.role == ChatRole.user),
+      );
     }
     return chat;
   }
@@ -88,7 +98,8 @@ class GemmaChatService implements ChatModelGateway {
         : '$marker\n\nUSER MESSAGE:\n$userText';
     final evidenceTokens = budgeter.estimateTokens(context);
     final systemTokens = budgeter.estimateTokens(_systemInstruction);
-    final currentTurnBudget = ContextBudgeter.modelMaxTokens -
+    final currentTurnBudget =
+        ContextBudgeter.modelMaxTokens -
         ContextBudgeter.outputReserve -
         ContextBudgeter.safetyReserve -
         systemTokens -
@@ -112,9 +123,7 @@ class GemmaChatService implements ChatModelGateway {
     );
     final chat = await _createTurnChat(contextSelection.history);
 
-    final payload = evidence.isEmpty
-        ? currentTurn
-        : '$context\n\n$currentTurn';
+    final payload = evidence.isEmpty ? currentTurn : '$context\n\n$currentTurn';
 
     try {
       await chat.addQueryChunk(Message.text(text: payload, isUser: true));
@@ -138,6 +147,7 @@ class GemmaChatService implements ChatModelGateway {
         text: completed.text,
         budget: contextSelection.decision,
         generation: completed.telemetry,
+        evidenceTokenCounts: evidenceSelection.tokenCountsByAnchor,
       );
     } finally {
       // A failed prefill/generation may already have closed the native session.
@@ -165,8 +175,10 @@ class GemmaChatService implements ChatModelGateway {
 
   @override
   Future<void> close() async {
+    _closed = true;
     await _closeNativeChat();
-    await _model?.close();
+    final model = _model;
     _model = null;
+    await model?.close();
   }
 }

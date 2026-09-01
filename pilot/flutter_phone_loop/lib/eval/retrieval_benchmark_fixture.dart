@@ -101,10 +101,12 @@ class RetrievalBenchmarkFixture {
     final existing = await engine.listDocuments();
     final existingSources = existing.map((e) => e.sourceName).toSet();
     final temp = await getTemporaryDirectory();
-    final dir = await Directory(p.join(
-      temp.path,
-      'pocketgallery_golden_${DateTime.now().microsecondsSinceEpoch}',
-    )).create(recursive: true);
+    final dir = await Directory(
+      p.join(
+        temp.path,
+        'pocketgallery_golden_${DateTime.now().microsecondsSinceEpoch}',
+      ),
+    ).create(recursive: true);
     final importedIds = <String>[];
 
     try {

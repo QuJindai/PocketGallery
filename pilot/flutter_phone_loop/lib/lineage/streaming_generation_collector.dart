@@ -16,10 +16,7 @@ class StreamingGenerationCollector {
   int? _lastTokenAtMs;
   int _outputTokens = 0;
 
-  void addTextToken(
-    String token, {
-    required int elapsedMilliseconds,
-  }) {
+  void addTextToken(String token, {required int elapsedMilliseconds}) {
     _firstTokenAtMs ??= elapsedMilliseconds;
     _lastTokenAtMs = elapsedMilliseconds;
     _outputTokens += 1;
@@ -39,8 +36,8 @@ class StreamingGenerationCollector {
         : lastTokenAtMs - firstTokenAtMs;
     final decodeTokensPerSecond =
         decodedAfterFirst > 0 && decodeMilliseconds > 0
-            ? decodedAfterFirst * 1000 / decodeMilliseconds
-            : null;
+        ? decodedAfterFirst * 1000 / decodeMilliseconds
+        : null;
 
     return StreamingGenerationResult(
       text: _text.toString().trim(),

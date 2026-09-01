@@ -25,10 +25,26 @@ class VectorObservation {
   final DateTime updatedAt;
 }
 
+class VectorObservationIdentity {
+  const VectorObservationIdentity({
+    required this.chunkId,
+    required this.documentId,
+    required this.dimension,
+    required this.norm,
+    required this.modelIdentity,
+  });
+
+  final String chunkId;
+  final String documentId;
+  final int dimension;
+  final double norm;
+  final String modelIdentity;
+}
+
 class VectorObservationStore {
   VectorObservationStore({Database? database})
-      : _db = database,
-        _ownsDatabase = database == null;
+    : _db = database,
+      _ownsDatabase = database == null;
 
   Database? _db;
   final bool _ownsDatabase;
@@ -72,34 +88,42 @@ class VectorObservationStore {
     }
     final norm = math.sqrt(vector.fold<double>(0, (s, x) => s + x * x));
     final bytes = encodeFloat32(vector);
-    _db!.execute('''
+    _db!.execute(
+      '''
       INSERT OR REPLACE INTO pg_vector_observations
       (chunk_id, document_id, dimension, vector_f32, norm, model_identity, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?)
-    ''', [
-      chunkId,
-      documentId,
-      vector.length,
-      bytes,
-      norm,
-      modelIdentity,
-      (updatedAt ?? DateTime.now()).toUtc().toIso8601String(),
-    ]);
+    ''',
+      [
+        chunkId,
+        documentId,
+        vector.length,
+        bytes,
+        norm,
+        modelIdentity,
+        (updatedAt ?? DateTime.now()).toUtc().toIso8601String(),
+      ],
+    );
   }
 
   Future<VectorObservation?> getChunkVector(String chunkId) async {
     await initialize();
-    final rows = _db!.select('''
+    final rows = _db!.select(
+      '''
       SELECT chunk_id, document_id, dimension, vector_f32, norm,
              model_identity, updated_at
       FROM pg_vector_observations
       WHERE chunk_id = ? LIMIT 1
-    ''', [chunkId]);
+    ''',
+      [chunkId],
+    );
     if (rows.isEmpty) return null;
     return _row(rows.first);
   }
 
-  Future<List<VectorObservation>> listForDocuments(Set<String> documentIds) async {
+  Future<List<VectorObservation>> listForDocuments(
+    Set<String> documentIds,
+  ) async {
     await initialize();
     if (documentIds.isEmpty) return const [];
     final ids = documentIds.toList()..sort();
@@ -130,9 +154,31 @@ class VectorObservationStore {
     return _db!.select(sql.toString(), args).map(_row).toList(growable: false);
   }
 
+  Future<List<VectorObservationIdentity>> listIdentities() async {
+    await initialize();
+    final rows = _db!.select('''
+      SELECT chunk_id, document_id, dimension, norm, model_identity
+      FROM pg_vector_observations
+      ORDER BY document_id, chunk_id
+    ''');
+    return rows
+        .map(
+          (row) => VectorObservationIdentity(
+            chunkId: row['chunk_id'] as String,
+            documentId: row['document_id'] as String,
+            dimension: (row['dimension'] as num).toInt(),
+            norm: (row['norm'] as num).toDouble(),
+            modelIdentity: row['model_identity'] as String,
+          ),
+        )
+        .toList(growable: false);
+  }
+
   Future<int> count() async {
     await initialize();
-    return (_db!.select('SELECT COUNT(*) AS c FROM pg_vector_observations').first['c']
+    return (_db!
+                .select('SELECT COUNT(*) AS c FROM pg_vector_observations')
+                .first['c']
             as num)
         .toInt();
   }

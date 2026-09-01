@@ -4,12 +4,10 @@ import '../core/models.dart';
 import 'golden_test_state.dart';
 
 typedef GoldenProgressCallback = void Function(GoldenTestSnapshot snapshot);
-typedef GoldenCheckpointCallback = FutureOr<void> Function(
-  GoldenTestSnapshot snapshot,
-);
-typedef GoldenGateTimeoutCallback = FutureOr<void> Function(
-  GoldenGateSnapshot gate,
-);
+typedef GoldenCheckpointCallback =
+    FutureOr<void> Function(GoldenTestSnapshot snapshot);
+typedef GoldenGateTimeoutCallback =
+    FutureOr<void> Function(GoldenGateSnapshot gate);
 typedef GoldenCleanupCallback = FutureOr<void> Function();
 
 class GoldenGateSpec {
@@ -31,10 +29,13 @@ class GoldenGateSpec {
 }
 
 class GoldenGateExecutor {
-  GoldenGateExecutor({DateTime Function()? clock})
-      : _clock = clock ?? DateTime.now;
+  GoldenGateExecutor({
+    DateTime Function()? clock,
+    this.cleanupTimeout = const Duration(seconds: 12),
+  }) : _clock = clock ?? DateTime.now;
 
   final DateTime Function() _clock;
+  final Duration cleanupTimeout;
 
   Future<GoldenTestSnapshot> execute({
     required String runId,
@@ -45,6 +46,7 @@ class GoldenGateExecutor {
     GoldenCleanupCallback? cleanup,
   }) async {
     final startedAt = _clock();
+    final timedOutOperations = <_TrackedGateOperation>[];
     var snapshot = GoldenTestSnapshot(
       runId: runId,
       phase: GoldenRunPhase.preparing,
@@ -98,17 +100,25 @@ class GoldenGateExecutor {
 
       GoldenGateStatus status;
       String detail;
+      final operation = _TrackedGateOperation(spec.name, spec.run);
       try {
-        final result = await spec.run().timeout(spec.timeout);
+        final result = await operation.future.timeout(spec.timeout);
         status = result.passed
             ? GoldenGateStatus.passed
             : GoldenGateStatus.failed;
         detail = result.detail;
       } on TimeoutException {
+        timedOutOperations.add(operation);
         status = GoldenGateStatus.timedOut;
         detail = 'timeout=${spec.timeout.inMilliseconds}ms';
         try {
-          await onGateTimeout?.call(snapshot.gates[index]);
+          final callback = onGateTimeout;
+          if (callback != null) {
+            await _boundedCleanup(
+              () => callback(snapshot.gates[index]),
+              'GOLDEN_GATE_TIMEOUT_CLEANUP_TIMEOUT',
+            );
+          }
         } catch (error) {
           detail = '$detail; timeoutCleanupError=$error';
         }
@@ -137,9 +147,22 @@ class GoldenGateExecutor {
 
     String? cleanupError;
     try {
-      await cleanup?.call();
+      final callback = cleanup;
+      if (callback != null) {
+        await _boundedCleanup(callback, 'GOLDEN_CLEANUP_TIMEOUT');
+      }
     } catch (error, stackTrace) {
       cleanupError = '$error\n$stackTrace';
+    }
+    final unresolvedOperations = timedOutOperations
+        .where((operation) => !operation.settled)
+        .map((operation) => 'GATE_OPERATION_STILL_ACTIVE:${operation.gateName}')
+        .toList(growable: false);
+    if (unresolvedOperations.isNotEmpty) {
+      cleanupError = <String>[
+        ?cleanupError,
+        ...unresolvedOperations,
+      ].join('; ');
     }
 
     snapshot = snapshot.copyWith(
@@ -149,6 +172,15 @@ class GoldenGateExecutor {
     );
     await _emit(snapshot, onProgress, onCheckpoint);
     return snapshot;
+  }
+
+  Future<void> _boundedCleanup(
+    GoldenCleanupCallback callback,
+    String timeoutCode,
+  ) {
+    return Future<void>.sync(
+      callback,
+    ).timeout(cleanupTimeout, onTimeout: () => throw StateError(timeoutCode));
   }
 
   GoldenTestSnapshot _replaceGate(
@@ -169,4 +201,16 @@ class GoldenGateExecutor {
     await onCheckpoint?.call(snapshot);
     onProgress?.call(snapshot);
   }
+}
+
+final class _TrackedGateOperation {
+  _TrackedGateOperation(this.gateName, Future<GateResult> Function() run) {
+    future = Future<GateResult>.sync(run).whenComplete(() {
+      settled = true;
+    });
+  }
+
+  final String gateName;
+  late final Future<GateResult> future;
+  bool settled = false;
 }

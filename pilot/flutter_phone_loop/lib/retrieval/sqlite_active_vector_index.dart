@@ -43,7 +43,7 @@ abstract interface class ActiveVectorBackend {
 
 class SqliteVectorBackend implements ActiveVectorBackend {
   SqliteVectorBackend({SqliteVectorStore? store})
-      : _store = store ?? SqliteVectorStore();
+    : _store = store ?? SqliteVectorStore();
 
   final SqliteVectorStore _store;
 
@@ -51,7 +51,8 @@ class SqliteVectorBackend implements ActiveVectorBackend {
   bool get isInitialized => _store.isInitialized;
 
   @override
-  Future<void> initialize(String databasePath) => _store.initialize(databasePath);
+  Future<void> initialize(String databasePath) =>
+      _store.initialize(databasePath);
 
   @override
   Future<void> add({
@@ -59,13 +60,12 @@ class SqliteVectorBackend implements ActiveVectorBackend {
     required String content,
     required List<double> embedding,
     required String metadataJson,
-  }) =>
-      _store.addDocument(
-        id: id,
-        content: content,
-        embedding: embedding,
-        metadata: metadataJson,
-      );
+  }) => _store.addDocument(
+    id: id,
+    content: content,
+    embedding: embedding,
+    metadata: metadataJson,
+  );
 
   @override
   Future<void> remove(String id) => _store.removeDocument(id: id);
@@ -95,17 +95,15 @@ class SqliteVectorBackend implements ActiveVectorBackend {
 }
 
 class SqliteActiveVectorIndex implements ActiveVectorIndex {
-  SqliteActiveVectorIndex({
-    ActiveVectorBackend? backend,
-    String? databasePath,
-  })  : _backend = backend ?? SqliteVectorBackend(),
-        _databasePathOverride = databasePath;
+  SqliteActiveVectorIndex({ActiveVectorBackend? backend, String? databasePath})
+    : _backend = backend ?? SqliteVectorBackend(),
+      _databasePathOverride = databasePath;
 
   SqliteActiveVectorIndex.forTest(
     ActiveVectorBackend backend, {
     String databasePath = 'pocketgallery_vectors_v46.db',
-  })  : _backend = backend,
-        _databasePathOverride = databasePath;
+  }) : _backend = backend,
+       _databasePathOverride = databasePath;
 
   static const databaseFileName = 'pocketgallery_vectors_v46.db';
   static const backendId = 'sqlite-vec-v46';
@@ -117,8 +115,12 @@ class SqliteActiveVectorIndex implements ActiveVectorIndex {
   @override
   Future<void> initialize() async {
     if (_backend.isInitialized) return;
-    final path = _databasePathOverride ??
-        p.join((await getApplicationDocumentsDirectory()).path, databaseFileName);
+    final path =
+        _databasePathOverride ??
+        p.join(
+          (await getApplicationDocumentsDirectory()).path,
+          databaseFileName,
+        );
     await _backend.initialize(path);
     _resolvedDatabasePath = path;
   }
@@ -126,14 +128,19 @@ class SqliteActiveVectorIndex implements ActiveVectorIndex {
   @override
   Future<void> add(VectorIndexRecord record) async {
     await initialize();
-    if (record.embeddingId.isEmpty || record.chunkId.isEmpty || record.documentId.isEmpty) {
+    if (record.embeddingId.isEmpty ||
+        record.chunkId.isEmpty ||
+        record.documentId.isEmpty) {
       throw ArgumentError('Vector index identity fields must be non-empty');
     }
     if (record.embeddingId == record.chunkId) {
       throw ArgumentError('embeddingId must be independent from chunkId');
     }
-    if (record.embedding.isEmpty || record.embedding.any((value) => !value.isFinite)) {
-      throw ArgumentError('Vector index embedding must be finite and non-empty');
+    if (record.embedding.isEmpty ||
+        record.embedding.any((value) => !value.isFinite)) {
+      throw ArgumentError(
+        'Vector index embedding must be finite and non-empty',
+      );
     }
     await _backend.add(
       id: record.embeddingId,
@@ -185,13 +192,15 @@ class SqliteActiveVectorIndex implements ActiveVectorIndex {
       if (chunkId is! String || chunkId.isEmpty) continue;
       if (documentId is! String || documentId.isEmpty) continue;
       if (!scope.isAll && !allowed!.contains(documentId)) continue;
-      out.add(VectorSearchHit(
-        embeddingId: row.id,
-        chunkId: chunkId,
-        documentId: documentId,
-        similarity: row.similarity,
-        rank: out.length + 1,
-      ));
+      out.add(
+        VectorSearchHit(
+          embeddingId: row.id,
+          chunkId: chunkId,
+          documentId: documentId,
+          similarity: row.similarity,
+          rank: out.length + 1,
+        ),
+      );
       if (out.length >= topK) break;
     }
     return out;
@@ -209,7 +218,8 @@ class SqliteActiveVectorIndex implements ActiveVectorIndex {
 
   @override
   Future<VectorIndexProbe> probe() async {
-    final path = _resolvedDatabasePath ?? _databasePathOverride ?? databaseFileName;
+    final path =
+        _resolvedDatabasePath ?? _databasePathOverride ?? databaseFileName;
     return VectorIndexProbe(
       initialized: _backend.isInitialized,
       databasePath: path,

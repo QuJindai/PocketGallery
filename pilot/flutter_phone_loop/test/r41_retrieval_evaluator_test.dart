@@ -67,19 +67,22 @@ void main() {
       expectedSourceNames: {'pg_golden_calibration.txt'},
       tags: {'zh'},
     );
-    final metrics = evaluator.aggregate(const [sourceCase], const [
-      BenchmarkCaseResult(
-        caseId: 'q',
-        strategy: RetrievalStrategy.ftsOnly,
-        hits: [
-          BenchmarkHit(
-            chunkId: 'x',
-            documentId: 'dynamic-id',
-            sourceName: 'pg_golden_calibration.txt',
-          ),
-        ],
-      ),
-    ]);
+    final metrics = evaluator.aggregate(
+      const [sourceCase],
+      const [
+        BenchmarkCaseResult(
+          caseId: 'q',
+          strategy: RetrievalStrategy.ftsOnly,
+          hits: [
+            BenchmarkHit(
+              chunkId: 'x',
+              documentId: 'dynamic-id',
+              sourceName: 'pg_golden_calibration.txt',
+            ),
+          ],
+        ),
+      ],
+    );
     expect(metrics!.hitAt1, 1);
   });
 
@@ -127,9 +130,6 @@ void main() {
     expect(comparison.pairedCaseCount, 2);
     expect(comparison.rankingChangedCases, 1);
     expect(comparison.top1ChangedCases, 1);
-    expect(
-      comparison.summary,
-      '对比 C · 1/2 cases 排名变化 · 1 top1 变化',
-    );
+    expect(comparison.summary, '对比 C · 1/2 cases 排名变化 · 1 top1 变化');
   });
 }

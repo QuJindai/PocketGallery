@@ -34,7 +34,7 @@ class ModelSetupSnapshot {
 
 class ModelSetupService {
   ModelSetupService({HfOAuthDeviceService? oauth})
-      : oauth = oauth ?? HfOAuthDeviceService();
+    : oauth = oauth ?? HfOAuthDeviceService();
 
   static const gemma4Url =
       'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it.litertlm';
@@ -94,15 +94,17 @@ class ModelSetupService {
         await _retryCanceledDownload(
           () async {
             await FlutterGemma.installModel(
-              modelType: ModelType.gemma4,
-              fileType: ModelFileType.litertlm,
-            )
+                  modelType: ModelType.gemma4,
+                  fileType: ModelFileType.litertlm,
+                )
                 .fromNetwork(gemma4Url, foreground: true)
-                .withProgress((p) => emit(
-                      ModelSetupPhase.downloadingGemma,
-                      '自动下载 Gemma 4 · $p%',
-                      progress: p,
-                    ))
+                .withProgress(
+                  (p) => emit(
+                    ModelSetupPhase.downloadingGemma,
+                    '自动下载 Gemma 4 · $p%',
+                    progress: p,
+                  ),
+                )
                 .install();
           },
           onRetry: (attempt, maxRestarts) => emit(
@@ -135,16 +137,20 @@ class ModelSetupService {
             await FlutterGemma.installEmbedder()
                 .modelFromNetwork(embeddingModelUrl, token: token)
                 .tokenizerFromNetwork(embeddingTokenizerUrl, token: token)
-                .withModelProgress((p) => emit(
-                      ModelSetupPhase.downloadingEmbedding,
-                      '自动下载 EmbeddingGemma · $p%',
-                      progress: p,
-                    ))
-                .withTokenizerProgress((p) => emit(
-                      ModelSetupPhase.downloadingTokenizer,
-                      '自动下载 Tokenizer · $p%',
-                      progress: p,
-                    ))
+                .withModelProgress(
+                  (p) => emit(
+                    ModelSetupPhase.downloadingEmbedding,
+                    '自动下载 EmbeddingGemma · $p%',
+                    progress: p,
+                  ),
+                )
+                .withTokenizerProgress(
+                  (p) => emit(
+                    ModelSetupPhase.downloadingTokenizer,
+                    '自动下载 Tokenizer · $p%',
+                    progress: p,
+                  ),
+                )
                 .install();
           },
           onRetry: (attempt, maxRestarts) => emit(
@@ -154,8 +160,7 @@ class ModelSetupService {
         );
       }
 
-      if (!FlutterGemma.hasActiveModel() ||
-          !FlutterGemma.hasActiveEmbedder()) {
+      if (!FlutterGemma.hasActiveModel() || !FlutterGemma.hasActiveEmbedder()) {
         return emit(
           ModelSetupPhase.failed,
           '模型文件已处理，但激活身份自检未通过。可直接重试；已就绪模型与 OAuth 不会被清除。',
@@ -203,28 +208,29 @@ class ModelSetupService {
       // Non-download runtime failures must never be interpreted as an OAuth
       // failure. In particular, do not clear credentials based on substring
       // matching of arbitrary exception text.
-      return emit(
-        ModelSetupPhase.failed,
-        '自动准备模型失败：$e；OAuth 与已就绪模型均保留。',
-      );
+      return emit(ModelSetupPhase.failed, '自动准备模型失败：$e；OAuth 与已就绪模型均保留。');
     }
   }
 
   Future<ModelSetupSnapshot> authorizeAndPrepare({
     void Function(ModelSetupSnapshot state)? onProgress,
   }) async {
-    onProgress?.call(const ModelSetupSnapshot(
-      phase: ModelSetupPhase.authorizing,
-      message: '正在启动 Hugging Face 官方授权…',
-    ));
+    onProgress?.call(
+      const ModelSetupSnapshot(
+        phase: ModelSetupPhase.authorizing,
+        message: '正在启动 Hugging Face 官方授权…',
+      ),
+    );
     try {
       final authorization = await oauth.beginAuthorization(
         onDeviceCode: (authorization) {
-          onProgress?.call(ModelSetupSnapshot(
-            phase: ModelSetupPhase.authorizing,
-            message:
-                '浏览器已打开 · 授权码 ${authorization.userCode} 已复制到剪贴板 · 在网页粘贴并继续，完成后返回 App',
-          ));
+          onProgress?.call(
+            ModelSetupSnapshot(
+              phase: ModelSetupPhase.authorizing,
+              message:
+                  '浏览器已打开 · 授权码 ${authorization.userCode} 已复制到剪贴板 · 在网页粘贴并继续，完成后返回 App',
+            ),
+          );
         },
       );
       final state = ModelSetupSnapshot(
@@ -262,12 +268,14 @@ class ModelSetupService {
     }
 
     final code = await oauth.getPendingUserCode();
-    onProgress?.call(ModelSetupSnapshot(
-      phase: ModelSetupPhase.authorizing,
-      message: code == null
-          ? '已返回 PocketGallery · 正在领取 Hugging Face OAuth 令牌…'
-          : '授权码 $code 已复制到剪贴板 · 如果网页仍显示 8 位输入框，请粘贴并继续；App 正在等待授权完成…',
-    ));
+    onProgress?.call(
+      ModelSetupSnapshot(
+        phase: ModelSetupPhase.authorizing,
+        message: code == null
+            ? '已返回 PocketGallery · 正在领取 Hugging Face OAuth 令牌…'
+            : '授权码 $code 已复制到剪贴板 · 如果网页仍显示 8 位输入框，请粘贴并继续；App 正在等待授权完成…',
+      ),
+    );
 
     try {
       final token = await oauth.resumePendingAuthorization(

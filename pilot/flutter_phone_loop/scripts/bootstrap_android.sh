@@ -101,6 +101,12 @@ if 'androidx.work.impl.foreground.SystemForegroundService' not in s:
 p.write_text(s)
 PY
 
+HOST_DIR="$ROOT/android_host"
+KOTLIN_DIR="$ROOT/android/app/src/main/kotlin/com/qujindai/pocketgallery_phone_pilot"
+mkdir -p "$KOTLIN_DIR"
+cp "$HOST_DIR/MainActivity.kt" "$KOTLIN_DIR/MainActivity.kt"
+cp "$HOST_DIR/DeviceDiagnosticsHost.kt" "$KOTLIN_DIR/DeviceDiagnosticsHost.kt"
+
 grep -Rqs 'com.qujindai.pocketgallery_phone_pilot.r3' android/app/build.gradle* || exit 3
 grep -q 'android:label="PocketGallery R3"' android/app/src/main/AndroidManifest.xml || exit 4
 

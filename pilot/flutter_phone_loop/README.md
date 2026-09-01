@@ -1,4 +1,4 @@
-# PocketGallery Phone Pilot R4.8
+# PocketGallery Phone Pilot R5.0
 
 这是 PocketGallery 的手机功能闭环 Pilot，核心链路为：
 
@@ -7,7 +7,7 @@
 ## 升级与模型复用
 
 - 设置页会自动检查、下载并激活 Gemma 4、EmbeddingGemma 和 tokenizer，不再手工选择模型文件。
-- 同包名、同签名的 R4.x APK 可原位升级；已保存的 Hugging Face OAuth、已接受的模型许可、本机模型文件、聊天与知识库数据会继续复用。
+- 同包名、同签名的 R4.x/R5.0 APK 可原位升级；已保存的 Hugging Face OAuth、已接受的模型许可、本机模型文件、聊天、知识库、向量 observation 与血缘数据会继续复用。
 - 已完成授权且模型已下载时，升级后不会重复登录或重复下载。只有模型缺失、损坏或上游版本策略变化时才重新准备。
 
 ## 使用流程
@@ -15,8 +15,28 @@
 1. 安装或原位升级 APK，打开“模型 / 设置”，等待 Gemma 4 与 EmbeddingGemma 显示 READY。
 2. 导入 TXT、MD 或可提取文字的 PDF；扫描件需要先 OCR。
 3. 在 Chat 中选择自动、本地知识或纯模型模式并提问。
-4. 在“模型 / 设置 → 高级 / 诊断”运行 `Run Phone Golden Test`。
-5. 查看确定性进度、当前关卡、已完成数量、耗时、逐关状态和最终 PASS/FAIL。
+4. 在“模型 / 设置”直接打开醒目的“手机一键验收”；入口不因模型未就绪而消失，模型前置条件只在开始后如实判定。
+5. 到 H6 时，在真实高维向量的 `768D → 3D PCA` 图中完成单指旋转、双指缩放、点选与界面确认。
+6. 查看 H1–H10、嵌套 F1–F10、帧 P95、PSS、可用内存、电池温度与 Android thermal status，并在终态导出脱敏报告。
+7. `Run Phone Golden Test` 仍保留在“高级 / 诊断”，用于只运行聚焦的 F1–F10 功能闭环。
+
+## 手机一键验收 H1–H10
+
+| Gate | 实体手机验收内容 |
+|---|---|
+| H1 | Samsung Galaxy S24 Ultra 目标机型（`SM-S928*`） |
+| H2 | 包名、版本、固定签名、APK SHA-256 与编译提交 |
+| H3 | 低版本私有升级基线 |
+| H4 | 嵌套 Phone Golden Test F1–F10 |
+| H5 | 同次 F6 trace 的真实高维向量、Query/Chunk 身份与三分量 PCA 真值 |
+| H6 | 实体旋转、缩放、点选、视口确认与 15 秒帧采样 |
+| H7 | 持续渲染门槛 |
+| H8 | PSS、系统可用内存、低内存状态、电池温度与 thermal status |
+| H9 | 模型、OAuth、知识、聊天、向量与血缘的同次/跨版本保全 |
+| H10 | 脱敏报告完整性与原子持久化 |
+
+App 只输出 `DEVICE_ACCEPTANCE` 与 `MERGE_CANDIDATE`，绝不自行宣称 `MERGE_READY`。最终结果必须在仓库侧用设备报告、`PG_AUTOMATED_EVIDENCE.json` 和 candidate APK SHA-256 sidecar 做同提交裁决。
+设备报告只在用户点击导出后保存到用户选定的位置，App 不会自动上传。
 
 ## Phone Golden Test F1–F10
 
@@ -51,4 +71,13 @@ Chunk 是可引用、可排序的文本单元；向量是该文本的数值表�
 bash scripts/build_debug_apk.sh
 ```
 
-GitHub Actions 会构建仅包含 `arm64-v8a` 的 Phone Pilot 更新 APK，并验证包名、versionCode、ABI、固定签名证书和 SHA-256。
+R5.0 的普通 TDD 工作流会发布非 canonical 的 `PocketGallery-R50-handset-acceptance-debug.apk`，仅用于自动化与安装烟测，不能证明可原位升级。
+
+canonical 工作流在同一源码提交上构建并逐个验证：
+
+- `PocketGallery-R50-baseline-v2022.apk`（Android versionCode 2022）；
+- `PocketGallery-R50-candidate-v2023.apk`（Android versionCode 2023）；
+- 两个 SHA-256 sidecar；
+- `PG_AUTOMATED_EVIDENCE.json`。
+
+两 APK 都必须仅含 `arm64-v8a`、保持包名 `com.qujindai.pocketgallery_phone_pilot.r3`，并使用固定签名证书 `81af4a5ef94c236774f0e193b2a4b248805b36c14cc36e2a56df8e451a712541`。缺少 canonical 凭据时工作流以 `SIGNING_IDENTITY_MISSING` 失败，不会生成替代密钥。完整实体机步骤见 `docs/phone-pilot/r50-s24u-handset-acceptance-runbook.md`。

@@ -18,15 +18,20 @@ class RetrievalBenchmarkCase {
     required this.expectedDocumentIds,
     required this.expectedSourceNames,
     required this.tags,
+    this.expectedChunkIds = const <String>{},
+    this.expectedUseKnowledge,
   });
 
   final String id;
   final String question;
   final Set<String> expectedDocumentIds;
   final Set<String> expectedSourceNames;
+  final Set<String> expectedChunkIds;
+  final bool? expectedUseKnowledge;
   final Set<String> tags;
 
   bool isRelevant(BenchmarkHit hit) =>
+      expectedChunkIds.contains(hit.chunkId) ||
       expectedDocumentIds.contains(hit.documentId) ||
       expectedSourceNames.contains(hit.sourceName);
 
@@ -42,6 +47,11 @@ class RetrievalBenchmarkCase {
             (json['expectedSourceNames'] as List<dynamic>? ?? const [])
                 .whereType<String>()
                 .toSet(),
+        expectedChunkIds:
+            (json['expectedChunkIds'] as List<dynamic>? ?? const [])
+                .whereType<String>()
+                .toSet(),
+        expectedUseKnowledge: json['expectedUseKnowledge'] as bool?,
         tags: (json['tags'] as List<dynamic>? ?? const [])
             .whereType<String>()
             .toSet(),
@@ -65,11 +75,17 @@ class BenchmarkCaseResult {
     required this.caseId,
     required this.strategy,
     required this.hits,
+    this.routerUseKnowledge,
+    this.citedChunkIds,
+    this.failureCode,
   });
 
   final String caseId;
   final RetrievalStrategy strategy;
   final List<BenchmarkHit> hits;
+  final bool? routerUseKnowledge;
+  final Set<String>? citedChunkIds;
+  final String? failureCode;
 }
 
 class RetrievalBenchmarkDataset {
@@ -77,9 +93,7 @@ class RetrievalBenchmarkDataset {
   final String name;
   final List<RetrievalBenchmarkCase> cases;
 
-  static Future<RetrievalBenchmarkDataset> loadAsset(
-    String assetPath,
-  ) async {
+  static Future<RetrievalBenchmarkDataset> loadAsset(String assetPath) async {
     final raw = await rootBundle.loadString(assetPath);
     final json = jsonDecode(raw) as Map<String, dynamic>;
     return RetrievalBenchmarkDataset(
@@ -98,13 +112,14 @@ class RetrievalBenchmarkRunner {
     required this.semanticStore,
     HybridRanker? currentHybrid,
     HybridRanker? alternateHybrid,
-  })  : currentHybrid = currentHybrid ?? const HybridRanker(),
-        alternateHybrid = alternateHybrid ??
-            const HybridRanker(
-              lexicalWeight: 1.15,
-              semanticWeight: 1.0,
-              dualChannelBonus: 0.02,
-            );
+  }) : currentHybrid = currentHybrid ?? const HybridRanker(),
+       alternateHybrid =
+           alternateHybrid ??
+           const HybridRanker(
+             lexicalWeight: 1.15,
+             semanticWeight: 1.0,
+             dualChannelBonus: 0.02,
+           );
 
   final LexicalFtsStore lexicalStore;
   final SemanticStore semanticStore;
@@ -157,15 +172,16 @@ class RetrievalBenchmarkRunner {
                 scope: scope,
               )
             : const <RetrievalHit>[];
-        ranked = (strategy == RetrievalStrategy.hybrid
-                ? currentHybrid
-                : alternateHybrid)
-            .fuse(
-          query: benchmark.question,
-          lexical: lexical,
-          semantic: semantic,
-          limit: topK,
-        );
+        ranked =
+            (strategy == RetrievalStrategy.hybrid
+                    ? currentHybrid
+                    : alternateHybrid)
+                .fuse(
+                  query: benchmark.question,
+                  lexical: lexical,
+                  semantic: semantic,
+                  limit: topK,
+                );
         return BenchmarkCaseResult(
           caseId: benchmark.id,
           strategy: strategy,
@@ -189,22 +205,17 @@ class RetrievalBenchmarkRunner {
   }) async {
     final out = <BenchmarkCaseResult>[];
     for (final benchmark in dataset.cases) {
-      out.add(await runCase(
-        benchmark,
-        strategy,
-        scope: scope,
-        topK: topK,
-      ));
+      out.add(await runCase(benchmark, strategy, scope: scope, topK: topK));
     }
     return out;
   }
 
   List<BenchmarkHit> _fromRetrieval(List<RetrievalHit> hits) => [
-        for (final hit in hits)
-          BenchmarkHit(
-            chunkId: hit.chunk.id,
-            documentId: hit.chunk.documentId,
-            sourceName: hit.chunk.sourceName,
-          ),
-      ];
+    for (final hit in hits)
+      BenchmarkHit(
+        chunkId: hit.chunk.id,
+        documentId: hit.chunk.documentId,
+        sourceName: hit.chunk.sourceName,
+      ),
+  ];
 }

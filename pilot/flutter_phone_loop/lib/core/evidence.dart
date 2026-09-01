@@ -27,11 +27,13 @@ class EvidencePackBuilder {
         final relative = hit.score / topScore;
         if (relative < minRelativeScore) break;
       }
-      out.add(EvidenceItem(
-        anchor: 'E${out.length + 1}',
-        chunk: hit.chunk,
-        score: hit.score,
-      ));
+      out.add(
+        EvidenceItem(
+          anchor: 'E${out.length + 1}',
+          chunk: hit.chunk,
+          score: hit.score,
+        ),
+      );
     }
     return out;
   }

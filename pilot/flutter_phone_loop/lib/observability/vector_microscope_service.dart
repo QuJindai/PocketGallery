@@ -92,8 +92,9 @@ class VectorMicroscopeService {
 
     final observations = scope.isAll
         ? await semanticStore.observationStore.listAll(limit: maxPoints)
-        : await semanticStore.observationStore
-            .listForDocuments(scope.documentIds ?? const <String>{});
+        : await semanticStore.observationStore.listForDocuments(
+            scope.documentIds ?? const <String>{},
+          );
 
     final byId = <String, VectorObservation>{
       for (final observation in observations.take(maxPoints))
@@ -101,7 +102,9 @@ class VectorMicroscopeService {
     };
     for (final id in preferredChunkIds) {
       if (byId.length >= maxPoints && byId.containsKey(id)) continue;
-      final observation = await semanticStore.observationStore.getChunkVector(id);
+      final observation = await semanticStore.observationStore.getChunkVector(
+        id,
+      );
       if (observation != null) byId[id] = observation;
     }
 
@@ -128,37 +131,49 @@ class VectorMicroscopeService {
     for (final observation in selected) {
       final chunk = await lexicalStore.getChunk(observation.chunkId);
       if (chunk == null) continue;
-      final cosine =
-          _cosine(queryVector, queryNorm, observation.vector, observation.norm);
-      neighborRows.add((observation: observation, chunk: chunk, cosine: cosine));
-      final point = coords[observation.chunkId]!;
-      points.add(VectorMapPoint(
-        id: observation.chunkId,
-        documentId: observation.documentId,
-        sourceName: chunk.sourceName,
-        locator: chunk.locator,
-        x: point.x,
-        y: point.y,
-        z: point.z,
-        cosineToQuery: cosine,
-        isQuery: false,
+      final cosine = _cosine(
+        queryVector,
+        queryNorm,
+        observation.vector,
+        observation.norm,
+      );
+      neighborRows.add((
+        observation: observation,
+        chunk: chunk,
+        cosine: cosine,
       ));
+      final point = coords[observation.chunkId]!;
+      points.add(
+        VectorMapPoint(
+          id: observation.chunkId,
+          documentId: observation.documentId,
+          sourceName: chunk.sourceName,
+          locator: chunk.locator,
+          x: point.x,
+          y: point.y,
+          z: point.z,
+          cosineToQuery: cosine,
+          isQuery: false,
+        ),
+      );
     }
     neighborRows.sort((a, b) => b.cosine.compareTo(a.cosine));
 
     final q = coords['__query__'];
     if (q != null) {
-      points.add(VectorMapPoint(
-        id: '__query__',
-        documentId: '',
-        sourceName: 'Query',
-        locator: '',
-        x: q.x,
-        y: q.y,
-        z: q.z,
-        cosineToQuery: 1,
-        isQuery: true,
-      ));
+      points.add(
+        VectorMapPoint(
+          id: '__query__',
+          documentId: '',
+          sourceName: 'Query',
+          locator: '',
+          x: q.x,
+          y: q.y,
+          z: q.z,
+          cosineToQuery: 1,
+          isQuery: true,
+        ),
+      );
     }
 
     return VectorMicroscopeSnapshot(

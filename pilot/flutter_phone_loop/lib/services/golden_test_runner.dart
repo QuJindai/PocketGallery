@@ -18,10 +18,22 @@ import 'golden_test_state.dart';
 import 'knowledge_engine.dart';
 import 'knowledge_retriever.dart';
 
-class GoldenTestReport {
-  GoldenTestReport(this.startedAt, this.results, {this.snapshot});
+typedef GoldenTraceReadyCallback = Future<void> Function(String traceId);
 
-  factory GoldenTestReport.fromSnapshot(GoldenTestSnapshot snapshot) {
+class GoldenTestReport {
+  GoldenTestReport(
+    this.startedAt,
+    this.results, {
+    this.snapshot,
+    this.traceId,
+    this.traceCaptureError,
+  });
+
+  factory GoldenTestReport.fromSnapshot(
+    GoldenTestSnapshot snapshot, {
+    String? traceId,
+    String? traceCaptureError,
+  }) {
     return GoldenTestReport(
       snapshot.startedAt,
       [
@@ -33,21 +45,105 @@ class GoldenTestReport {
           ),
       ],
       snapshot: snapshot,
+      traceId: traceId,
+      traceCaptureError: traceCaptureError,
     );
   }
 
   final DateTime startedAt;
   final List<GateResult> results;
   final GoldenTestSnapshot? snapshot;
+  final String? traceId;
+  final String? traceCaptureError;
 
   bool get passed =>
       snapshot?.passed ?? results.every((result) => result.passed);
 
-  Map<String, Object?> toJson() => snapshot?.toJson() ?? {
-        'startedAt': startedAt.toIso8601String(),
-        'passed': passed,
-        'results': results.map((result) => result.toJson()).toList(),
-      };
+  Map<String, Object?> toJson() => <String, Object?>{
+    ...?snapshot?.toJson(),
+    if (snapshot == null) ...<String, Object?>{
+      'startedAt': startedAt.toIso8601String(),
+      'passed': passed,
+      'results': results.map((result) => result.toJson()).toList(),
+    },
+    'traceId': traceId,
+    'traceCaptureError': traceCaptureError,
+  };
+}
+
+class GoldenTraceHandoff {
+  GoldenTraceHandoff(this._onTraceReady);
+
+  final GoldenTraceReadyCallback? _onTraceReady;
+  String? traceId;
+  String? captureError;
+
+  Future<T> captureAfter<T>(Future<T> Function() action) async {
+    final result = await action();
+    final callback = _onTraceReady;
+    final id = traceId?.trim();
+    if (callback == null || id == null || id.isEmpty) return result;
+    try {
+      await callback(id);
+    } catch (error) {
+      captureError = _sanitizeGoldenError(error);
+    }
+    return result;
+  }
+}
+
+class GoldenRunControl {
+  static const Duration _modelCloseTimeout = Duration(seconds: 5);
+
+  factory GoldenRunControl({
+    required Future<void> Function() closeActiveModel,
+  }) {
+    return GoldenRunControl._(closeActiveModel);
+  }
+
+  GoldenRunControl._(this._closeActiveModel);
+
+  final Future<void> Function() _closeActiveModel;
+  Future<void>? _closeFuture;
+  Future<void>? _cleanupFuture;
+  String? reasonCode;
+
+  Future<void> interrupt(String reason) {
+    reasonCode ??= reason.trim().isEmpty ? 'INTERRUPTED' : reason.trim();
+    return closeActiveModel();
+  }
+
+  Future<void> closeActiveModel() {
+    final active = _closeFuture;
+    if (active != null) return active;
+    final future = Future<void>.sync(_closeActiveModel).timeout(
+      _modelCloseTimeout,
+      onTimeout: () => throw StateError('GOLDEN_MODEL_CLOSE_TIMEOUT'),
+    );
+    _closeFuture = future;
+    future.then<void>(
+      (_) => _clearCloseFuture(future),
+      onError: (Object _, StackTrace _) {
+        // Closing a native model is terminal for this run. Retain the same
+        // completed-error Future so interruption and final cleanup observe
+        // identical evidence without starting an overlapping native close.
+      },
+    );
+    return future;
+  }
+
+  void _clearCloseFuture(Future<void> completed) {
+    if (identical(_closeFuture, completed)) _closeFuture = null;
+  }
+
+  Future<void> cleanup(Future<void> Function() action) {
+    return _cleanupFuture ??= Future<void>.sync(action);
+  }
+
+  void throwIfInterrupted() {
+    final reason = reasonCode;
+    if (reason != null) throw _GoldenRunInterrupted(reason);
+  }
 }
 
 class GoldenLineageVerifier {
@@ -68,10 +164,7 @@ class GoldenLineageVerifier {
     'trace.completed',
   };
 
-  Future<List<GateResult>> verify(
-    LineageStore store,
-    String? traceId,
-  ) async {
+  Future<List<GateResult>> verify(LineageStore store, String? traceId) async {
     if (traceId == null || traceId.trim().isEmpty) {
       return const <GateResult>[
         GateResult('F8_RUNTIME_LINEAGE', false, 'traceId 未捕获'),
@@ -85,12 +178,12 @@ class GoldenLineageVerifier {
     final activeEvents = trace == null
         ? const <TraceEventRecord>[]
         : events
-            .where(
-              (event) =>
-                  event.lane == RetrievalLane.active &&
-                  event.strategyId == trace.activeStrategyId,
-            )
-            .toList(growable: false);
+              .where(
+                (event) =>
+                    event.lane == RetrievalLane.active &&
+                    event.strategyId == trace.activeStrategyId,
+              )
+              .toList(growable: false);
     final capturedKinds = activeEvents.map((event) => event.kind).toSet();
     final missingKinds = requiredRuntimeEventKinds.difference(capturedKinds);
     final f8Passed =
@@ -144,10 +237,11 @@ class GoldenLineageVerifier {
     final componentSum = budget == null
         ? null
         : budget.systemTokens +
-            budget.historyTokens +
-            budget.evidenceTokens +
-            budget.queryTokens;
-    final componentsNonNegative = budget != null &&
+              budget.historyTokens +
+              budget.evidenceTokens +
+              budget.queryTokens;
+    final componentsNonNegative =
+        budget != null &&
         <int>[
           budget.systemTokens,
           budget.historyTokens,
@@ -181,10 +275,7 @@ class GoldenLineageVerifier {
     return <GateResult>[f8, f9, f10];
   }
 
-  TraceEventRecord? _event(
-    List<TraceEventRecord> events,
-    String kind,
-  ) {
+  TraceEventRecord? _event(List<TraceEventRecord> events, String kind) {
     for (final event in events) {
       if (event.kind == kind) return event;
     }
@@ -210,23 +301,25 @@ class GoldenLineageVerifier {
 class GoldenF7Assertion {
   static final RegExp _citationPattern = RegExp(r'\[E\d+\]');
 
-  static GateResult evaluate(
-    ChatMessage reply,
-    Set<String> validAnchors,
-  ) {
+  static GateResult evaluate(ChatMessage reply, Set<String> validAnchors) {
     final text = reply.text.trim();
     final rawCitations = _citationPattern
         .allMatches(text)
-        .map((match) => match.group(0)!.substring(1, match.group(0)!.length - 1))
+        .map(
+          (match) => match.group(0)!.substring(1, match.group(0)!.length - 1),
+        )
         .toSet();
     final sentinel = text.contains('PG_EVIDENCE_LAST_6');
-    final citesE6 = rawCitations.contains('E6') &&
-        reply.citedAnchors.contains('E6');
-    final validCitations = rawCitations.isNotEmpty &&
+    final citesE6 =
+        rawCitations.contains('E6') && reply.citedAnchors.contains('E6');
+    final validCitations =
+        rawCitations.isNotEmpty &&
         rawCitations.every(validAnchors.contains) &&
         reply.citedAnchors.every(validAnchors.contains);
-    final knowledgeMode = reply.retrievalMode?.startsWith('knowledge:') ?? false;
-    final passed = text.isNotEmpty &&
+    final knowledgeMode =
+        reply.retrievalMode?.startsWith('knowledge:') ?? false;
+    final passed =
+        text.isNotEmpty &&
         sentinel &&
         citesE6 &&
         validCitations &&
@@ -235,9 +328,9 @@ class GoldenF7Assertion {
       'F7_CHAT_REALWORLD',
       passed,
       'sentinel=$sentinel citesE6=$citesE6 '
-      'validCitations=$validCitations knowledgeMode=$knowledgeMode '
-      'citations=${rawCitations.toList()..sort()} '
-      'reply=${_compact(text, 180)}',
+          'validCitations=$validCitations knowledgeMode=$knowledgeMode '
+          'citations=${rawCitations.toList()..sort()} '
+          'reply=${_compact(text, 180)}',
     );
   }
 }
@@ -247,122 +340,203 @@ class GoldenTestRunner {
     this.engine, {
     GoldenGateExecutor? executor,
     GoldenTestReportStore? reportStore,
-  })  : _executor = executor ?? GoldenGateExecutor(),
-        _reportStore = reportStore ?? GoldenTestReportStore();
+  }) : _executor = executor ?? GoldenGateExecutor(),
+       _reportStore = reportStore ?? GoldenTestReportStore();
 
   final KnowledgeEngine engine;
   final GoldenGateExecutor _executor;
   final GoldenTestReportStore _reportStore;
+  _GoldenRunContext? _activeContext;
 
-  Future<GoldenTestReport> run({GoldenProgressCallback? onProgress}) async {
-    final context = _GoldenRunContext(engine);
-    final snapshot = await _executor.execute(
-      runId: 'phone-${DateTime.now().toUtc().microsecondsSinceEpoch}',
-      gates: [
-        GoldenGateSpec(
-          name: 'F1_IMPORT_CHUNK',
-          label: '导入并切分临时语料',
-          timeout: const Duration(seconds: 45),
-          run: context.runF1,
-        ),
-        GoldenGateSpec(
-          name: 'F2_FTS5',
-          label: 'FTS5 精确召回',
-          timeout: const Duration(seconds: 30),
-          blockedWhen: _f1DidNotPass,
-          blockedReason: 'F1 fixture preparation did not pass',
-          run: context.runF2,
-        ),
-        GoldenGateSpec(
-          name: 'F3_EMBEDDING',
-          label: 'Embedding 语义召回',
-          timeout: const Duration(seconds: 90),
-          blockedWhen: _f1DidNotPass,
-          blockedReason: 'F1 fixture preparation did not pass',
-          run: context.runF3,
-        ),
-        GoldenGateSpec(
-          name: 'F4_HYBRID_RERANK',
-          label: 'Hybrid / Rerank',
-          timeout: const Duration(seconds: 90),
-          blockedWhen: _f1DidNotPass,
-          blockedReason: 'F1 fixture preparation did not pass',
-          run: context.runF4,
-        ),
-        GoldenGateSpec(
-          name: 'F5_EVIDENCE',
-          label: '证据包与锚点',
-          timeout: const Duration(seconds: 20),
-          blockedWhen: _f1DidNotPass,
-          blockedReason: 'F1 fixture preparation did not pass',
-          run: context.runF5,
-        ),
-        GoldenGateSpec(
-          name: 'F6_GEMMA_CITATION',
-          label: '真实 Gemma 引用回答',
-          timeout: const Duration(seconds: 240),
-          blockedWhen: _f1DidNotPass,
-          blockedReason: 'F1 fixture preparation did not pass',
-          run: context.runF6,
-        ),
-        GoldenGateSpec(
-          name: 'F7_CHAT_REALWORLD',
-          label: '重证据连续第二轮',
-          timeout: const Duration(seconds: 240),
-          blockedWhen: (snapshot) =>
-              _f1DidNotPass(snapshot) ||
-              snapshot.gate('F6_GEMMA_CITATION')?.status !=
-                  GoldenGateStatus.passed,
-          blockedReason: 'F1 or F6 did not pass',
-          run: context.runF7,
-        ),
-        GoldenGateSpec(
-          name: 'F8_RUNTIME_LINEAGE',
-          label: 'ACTIVE 运行时血缘闭环',
-          timeout: const Duration(seconds: 10),
-          blockedWhen: _f6DidNotPass,
-          blockedReason: 'F6 lineage source did not pass',
-          run: context.runF8,
-        ),
-        GoldenGateSpec(
-          name: 'F9_QUERY_VECTOR_IDENTITY',
-          label: '查询向量身份一致性',
-          timeout: const Duration(seconds: 10),
-          blockedWhen: _f6DidNotPass,
-          blockedReason: 'F6 lineage source did not pass',
-          run: context.runF9,
-        ),
-        GoldenGateSpec(
-          name: 'F10_CONTEXT_BUDGET',
-          label: '上下文预算守恒',
-          timeout: const Duration(seconds: 10),
-          blockedWhen: _f6DidNotPass,
-          blockedReason: 'F6 lineage source did not pass',
-          run: context.runF10,
-        ),
-      ],
-      onProgress: onProgress,
-      onCheckpoint: (snapshot) async {
+  Future<GoldenTestReport> run({
+    GoldenProgressCallback? onProgress,
+    GoldenTraceReadyCallback? onTraceReady,
+  }) async {
+    if (_activeContext != null) {
+      throw StateError('Golden Test is already running');
+    }
+    final context = _GoldenRunContext(engine, onTraceReady: onTraceReady);
+    _activeContext = context;
+    try {
+      var snapshot = await _executor.execute(
+        runId: 'phone-${DateTime.now().toUtc().microsecondsSinceEpoch}',
+        gates: [
+          GoldenGateSpec(
+            name: 'F1_IMPORT_CHUNK',
+            label: '导入并切分临时语料',
+            timeout: const Duration(seconds: 45),
+            run: context.runF1,
+          ),
+          GoldenGateSpec(
+            name: 'F2_FTS5',
+            label: 'FTS5 精确召回',
+            timeout: const Duration(seconds: 30),
+            blockedWhen: _f1DidNotPass,
+            blockedReason: 'F1 fixture preparation did not pass',
+            run: context.runF2,
+          ),
+          GoldenGateSpec(
+            name: 'F3_EMBEDDING',
+            label: 'Embedding 语义召回',
+            timeout: const Duration(seconds: 90),
+            blockedWhen: _f1DidNotPass,
+            blockedReason: 'F1 fixture preparation did not pass',
+            run: context.runF3,
+          ),
+          GoldenGateSpec(
+            name: 'F4_HYBRID_RERANK',
+            label: 'Hybrid / Rerank',
+            timeout: const Duration(seconds: 90),
+            blockedWhen: _f1DidNotPass,
+            blockedReason: 'F1 fixture preparation did not pass',
+            run: context.runF4,
+          ),
+          GoldenGateSpec(
+            name: 'F5_EVIDENCE',
+            label: '证据包与锚点',
+            timeout: const Duration(seconds: 20),
+            blockedWhen: _f1DidNotPass,
+            blockedReason: 'F1 fixture preparation did not pass',
+            run: context.runF5,
+          ),
+          GoldenGateSpec(
+            name: 'F6_GEMMA_CITATION',
+            label: '真实 Gemma 引用回答',
+            timeout: const Duration(seconds: 240),
+            blockedWhen: _f1DidNotPass,
+            blockedReason: 'F1 fixture preparation did not pass',
+            run: context.runF6,
+          ),
+          GoldenGateSpec(
+            name: 'F7_CHAT_REALWORLD',
+            label: '重证据连续第二轮',
+            timeout: const Duration(seconds: 240),
+            blockedWhen: (snapshot) =>
+                _f1DidNotPass(snapshot) ||
+                snapshot.gate('F6_GEMMA_CITATION')?.status !=
+                    GoldenGateStatus.passed,
+            blockedReason: 'F1 or F6 did not pass',
+            run: context.runF7,
+          ),
+          GoldenGateSpec(
+            name: 'F8_RUNTIME_LINEAGE',
+            label: 'ACTIVE 运行时血缘闭环',
+            timeout: const Duration(seconds: 10),
+            blockedWhen: _f6DidNotPass,
+            blockedReason: 'F6 lineage source did not pass',
+            run: context.runF8,
+          ),
+          GoldenGateSpec(
+            name: 'F9_QUERY_VECTOR_IDENTITY',
+            label: '查询向量身份一致性',
+            timeout: const Duration(seconds: 10),
+            blockedWhen: _f6DidNotPass,
+            blockedReason: 'F6 lineage source did not pass',
+            run: context.runF9,
+          ),
+          GoldenGateSpec(
+            name: 'F10_CONTEXT_BUDGET',
+            label: '上下文预算守恒',
+            timeout: const Duration(seconds: 10),
+            blockedWhen: _f6DidNotPass,
+            blockedReason: 'F6 lineage source did not pass',
+            run: context.runF10,
+          ),
+        ],
+        onProgress: onProgress,
+        onCheckpoint: (snapshot) async {
+          await _reportStore.save(snapshot);
+        },
+        onGateTimeout: context.onGateTimeout,
+        cleanup: context.cleanup,
+      );
+      final interruptionReason = context.control.reasonCode;
+      if (interruptionReason != null) {
+        snapshot = _mapInterruptedSnapshot(snapshot, interruptionReason);
         await _reportStore.save(snapshot);
-      },
-      onGateTimeout: context.onGateTimeout,
-      cleanup: context.cleanup,
-    );
-    return GoldenTestReport.fromSnapshot(snapshot);
+        onProgress?.call(snapshot);
+      }
+      return GoldenTestReport.fromSnapshot(
+        snapshot,
+        traceId: context.traceHandoff.traceId,
+        traceCaptureError: context.traceHandoff.captureError,
+      );
+    } finally {
+      if (identical(_activeContext, context)) {
+        _activeContext = null;
+      }
+    }
+  }
+
+  Future<void> interrupt(String reasonCode) async {
+    final context = _activeContext;
+    if (context == null) return;
+    try {
+      await context.control.interrupt(reasonCode);
+    } catch (_) {
+      // The run maps an interruption to BLOCKED after its cleanup path finishes.
+    }
   }
 
   static bool _f1DidNotPass(GoldenTestSnapshot snapshot) =>
       snapshot.gate('F1_IMPORT_CHUNK')?.status != GoldenGateStatus.passed;
 
   static bool _f6DidNotPass(GoldenTestSnapshot snapshot) =>
-      snapshot.gate('F6_GEMMA_CITATION')?.status !=
-      GoldenGateStatus.passed;
+      snapshot.gate('F6_GEMMA_CITATION')?.status != GoldenGateStatus.passed;
+
+  GoldenTestSnapshot _mapInterruptedSnapshot(
+    GoldenTestSnapshot snapshot,
+    String reasonCode,
+  ) {
+    final now = DateTime.now();
+    final gates = <GoldenGateSnapshot>[
+      for (final gate in snapshot.gates)
+        if (gate.status == GoldenGateStatus.pending ||
+            gate.status == GoldenGateStatus.running)
+          gate.copyWith(
+            status: GoldenGateStatus.blocked,
+            detail: reasonCode,
+            finishedAt: gate.finishedAt ?? now,
+          )
+        else
+          gate,
+    ];
+    final mappedAnActiveGate = snapshot.gates.any(
+      (gate) =>
+          gate.status == GoldenGateStatus.pending ||
+          gate.status == GoldenGateStatus.running,
+    );
+    final allPassed =
+        gates.isNotEmpty &&
+        gates.every((gate) => gate.status == GoldenGateStatus.passed);
+    if (!mappedAnActiveGate && allPassed) {
+      gates[gates.length - 1] = gates.last.copyWith(
+        status: GoldenGateStatus.blocked,
+        detail: reasonCode,
+        finishedAt: gates.last.finishedAt ?? now,
+      );
+    }
+    return snapshot.copyWith(
+      phase: GoldenRunPhase.completed,
+      updatedAt: now,
+      gates: gates,
+    );
+  }
 }
 
 class _GoldenRunContext {
-  _GoldenRunContext(this.engine);
+  _GoldenRunContext(this.engine, {GoldenTraceReadyCallback? onTraceReady})
+    : traceHandoff = GoldenTraceHandoff(onTraceReady) {
+    control = GoldenRunControl(
+      closeActiveModel: () async {
+        await chatModel?.close();
+      },
+    );
+  }
 
   final KnowledgeEngine engine;
+  final GoldenTraceHandoff traceHandoff;
+  late final GoldenRunControl control;
   RetrievalBenchmarkLease? fixture;
   GemmaChatService? chatModel;
   ChatSessionStore? chatStore;
@@ -373,12 +547,15 @@ class _GoldenRunContext {
   bool f1TimedOut = false;
 
   Future<GateResult> runF1() async {
+    control.throwIfInterrupted();
     try {
       fixture = await RetrievalBenchmarkFixture.prepare(
         engine,
         resetKnownFixtures: true,
       );
+      control.throwIfInterrupted();
       final documents = await engine.listDocuments();
+      control.throwIfInterrupted();
       final bySource = {
         for (final document in documents) document.sourceName: document,
       };
@@ -392,13 +569,14 @@ class _GoldenRunContext {
         final chunks = document == null
             ? const <PgChunk>[]
             : await engine.lexicalStore.chunksForDocument(document.documentId);
+        control.throwIfInterrupted();
         chunkCounts.add(chunks.length);
       }
       return GateResult(
         'F1_IMPORT_CHUNK',
         chunkCounts.every((count) => count > 0),
         'chunks=${chunkCounts.fold<int>(0, (sum, count) => sum + count)} '
-        'perSource=$chunkCounts',
+            'perSource=$chunkCounts',
       );
     } finally {
       if (f1TimedOut) {
@@ -409,7 +587,9 @@ class _GoldenRunContext {
   }
 
   Future<GateResult> runF2() async {
+    control.throwIfInterrupted();
     final hits = await engine.lexicalStore.search('31 03 51 01');
+    control.throwIfInterrupted();
     return GateResult(
       'F2_FTS5',
       hits.isNotEmpty &&
@@ -419,8 +599,9 @@ class _GoldenRunContext {
   }
 
   Future<GateResult> runF3() async {
-    final hits =
-        await engine.semanticStore.search('为什么诊断程序一直等不到标定完成状态');
+    control.throwIfInterrupted();
+    final hits = await engine.semanticStore.search('为什么诊断程序一直等不到标定完成状态');
+    control.throwIfInterrupted();
     return GateResult(
       'F3_EMBEDDING',
       hits.isNotEmpty &&
@@ -428,20 +609,26 @@ class _GoldenRunContext {
       hits.isEmpty
           ? 'no hit'
           : 'top1=${hits.first.chunk.sourceName} '
-              'score=${hits.first.score.toStringAsFixed(3)}',
+                'score=${hits.first.score.toStringAsFixed(3)}',
     );
   }
 
   Future<List<HybridHit>> _hybridHits() async {
+    control.throwIfInterrupted();
     const query = '31 03 51 01 为什么 DSA 一直等待';
+    final lexical = await engine.lexicalStore.search(query);
+    control.throwIfInterrupted();
+    final semantic = await engine.semanticStore.search(query);
+    control.throwIfInterrupted();
     return engine.ranker.fuse(
       query: query,
-      lexical: await engine.lexicalStore.search(query),
-      semantic: await engine.semanticStore.search(query),
+      lexical: lexical,
+      semantic: semantic,
     );
   }
 
   Future<GateResult> runF4() async {
+    control.throwIfInterrupted();
     final hits = await _hybridHits();
     return GateResult(
       'F4_HYBRID_RERANK',
@@ -450,12 +637,14 @@ class _GoldenRunContext {
       hits.isEmpty
           ? 'no hit'
           : 'top1=${hits.first.chunk.sourceName} '
-              'channels=${hits.first.channels.join("+")}',
+                'channels=${hits.first.channels.join("+")}',
     );
   }
 
   Future<GateResult> runF5() async {
+    control.throwIfInterrupted();
     final evidence = const EvidencePackBuilder().build(await _hybridHits());
+    control.throwIfInterrupted();
     return GateResult(
       'F5_EVIDENCE',
       evidence.isNotEmpty &&
@@ -468,9 +657,11 @@ class _GoldenRunContext {
   }
 
   Future<GateResult> runF6() async {
+    control.throwIfInterrupted();
     chatDatabase = sqlite3.openInMemory();
     chatStore = ChatSessionStore(database: chatDatabase);
     await chatStore!.initialize();
+    control.throwIfInterrupted();
     chatModel = GemmaChatService();
     final orchestrator = ChatOrchestrator(
       store: chatStore!,
@@ -480,14 +671,19 @@ class _GoldenRunContext {
       lineageStore: engine.lineageStore,
     );
     var session = await orchestrator.newSession(title: 'Golden real chat');
+    control.throwIfInterrupted();
     session = await orchestrator.setMode(session.id, ChatMode.knowledge);
+    control.throwIfInterrupted();
     chatSession = session;
     final reply = await orchestrator.sendMessage(
       session.id,
       '请解释 31 03 51 01 获取标定结果时为什么 DSA 可能持续等待；回答中必须保留 31 03 51 01 并引用本轮证据。',
     );
+    control.throwIfInterrupted();
     lineageTraceId = reply.traceId;
-    final passed = reply.text.contains('31 03 51 01') &&
+    traceHandoff.traceId = reply.traceId;
+    final passed =
+        reply.text.contains('31 03 51 01') &&
         (reply.text.contains('等待') || reply.text.contains('处理中')) &&
         reply.citedAnchors.isNotEmpty &&
         (reply.retrievalMode?.startsWith('knowledge:') ?? false);
@@ -495,11 +691,12 @@ class _GoldenRunContext {
       'F6_GEMMA_CITATION',
       passed,
       'citations=${reply.citedAnchors} mode=${reply.retrievalMode} '
-      'reply=${_compact(reply.text, 220)}',
+          'reply=${_compact(reply.text, 220)}',
     );
   }
 
   Future<GateResult> runF7() async {
+    control.throwIfInterrupted();
     final store = chatStore;
     final model = chatModel;
     final session = chatSession;
@@ -515,6 +712,7 @@ class _GoldenRunContext {
       session.id,
       '请只回答本轮证据中编号最大的那条证据正文开头的标记，并引用该条证据；不要回答其他内容。',
     );
+    control.throwIfInterrupted();
     final validAnchors = reply.evidence
         .map((evidence) => evidence.anchor)
         .toSet();
@@ -525,15 +723,16 @@ class _GoldenRunContext {
 
   Future<GateResult> runF9() => _lineageGate(1);
 
-  Future<GateResult> runF10() => _lineageGate(2);
+  Future<GateResult> runF10() {
+    return traceHandoff.captureAfter(() => _lineageGate(2));
+  }
 
   Future<GateResult> _lineageGate(int index) async {
-    final verification = lineageVerification ??=
-        const GoldenLineageVerifier().verify(
-      engine.lineageStore,
-      lineageTraceId,
-    );
+    control.throwIfInterrupted();
+    final verification = lineageVerification ??= const GoldenLineageVerifier()
+        .verify(engine.lineageStore, lineageTraceId);
     final gates = await verification;
+    control.throwIfInterrupted();
     return gates[index];
   }
 
@@ -542,16 +741,17 @@ class _GoldenRunContext {
       f1TimedOut = true;
       await RetrievalBenchmarkFixture.removeKnownFixtures(engine);
     }
-    if (gate.name == 'F6_GEMMA_CITATION' ||
-        gate.name == 'F7_CHAT_REALWORLD') {
-      await chatModel?.close();
+    if (gate.name == 'F6_GEMMA_CITATION' || gate.name == 'F7_CHAT_REALWORLD') {
+      await control.closeActiveModel();
     }
   }
 
-  Future<void> cleanup() async {
+  Future<void> cleanup() => control.cleanup(_performCleanup);
+
+  Future<void> _performCleanup() async {
     final errors = <Object>[];
     try {
-      await chatModel?.close();
+      await control.closeActiveModel();
     } catch (error) {
       errors.add(error);
     }
@@ -597,7 +797,8 @@ class _GoldenHeavyEvidenceRetriever implements KnowledgeRetrievalGateway {
         sourceName: 'pg_golden_heavy_$number.txt',
         locator: 'chunk#$number',
         ordinal: 0,
-        text: '$marker。第$number条上下文证据。'
+        text:
+            '$marker。第$number条上下文证据。'
             '${'制造现场诊断与模型上下文预算验证内容。' * 120}',
       );
     }, growable: false);
@@ -635,6 +836,21 @@ class _GoldenHeavyEvidenceRetriever implements KnowledgeRetrievalGateway {
       lexicalOnly: true,
     );
   }
+}
+
+class _GoldenRunInterrupted implements Exception {
+  const _GoldenRunInterrupted(this.reasonCode);
+
+  final String reasonCode;
+
+  @override
+  String toString() => 'Golden Test interrupted: $reasonCode';
+}
+
+String _sanitizeGoldenError(Object error) {
+  final compact = error.toString().replaceAll(RegExp(r'\s+'), ' ').trim();
+  if (compact.length <= 400) return compact;
+  return compact.substring(0, 400);
 }
 
 String _compact(String text, int maxCharacters) {

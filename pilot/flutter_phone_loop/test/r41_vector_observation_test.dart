@@ -31,12 +31,17 @@ void main() {
     expect((await store.listForDocuments({'d1'})).single.chunkId, 'c1');
   });
 
-  test('semantic index writes one explicit vector to observation and RAG paths', () async {
-    final source = await File('lib/services/semantic_store.dart').readAsString();
-    expect(source, contains('FlutterGemma.getActiveEmbedder()'));
-    expect(source, contains('TaskType.retrievalDocument'));
-    expect(source, contains('putChunkVector'));
-    expect(source, contains('addDocumentWithEmbedding'));
-    expect(source, isNot(contains('FlutterGemma.rag.addDocument(')));
-  });
+  test(
+    'semantic index writes one explicit vector to observation and RAG paths',
+    () async {
+      final source = await File(
+        'lib/services/semantic_store.dart',
+      ).readAsString();
+      expect(source, contains('FlutterGemma.getActiveEmbedder()'));
+      expect(source, contains('TaskType.retrievalDocument'));
+      expect(source, contains('putChunkVector'));
+      expect(source, contains('addDocumentWithEmbedding'));
+      expect(source, isNot(contains('FlutterGemma.rag.addDocument(')));
+    },
+  );
 }

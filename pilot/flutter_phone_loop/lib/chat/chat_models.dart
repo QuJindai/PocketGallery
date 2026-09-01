@@ -58,15 +58,14 @@ class ChatSession {
     ChatMode? mode,
     KnowledgeScope? scope,
     DateTime? updatedAt,
-  }) =>
-      ChatSession(
-        id: id,
-        title: title ?? this.title,
-        mode: mode ?? this.mode,
-        scope: scope ?? this.scope,
-        createdAt: createdAt,
-        updatedAt: updatedAt ?? this.updatedAt,
-      );
+  }) => ChatSession(
+    id: id,
+    title: title ?? this.title,
+    mode: mode ?? this.mode,
+    scope: scope ?? this.scope,
+    createdAt: createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+  );
 }
 
 class ChatMessage {
@@ -87,14 +86,13 @@ class ChatMessage {
     required String sessionId,
     required String text,
     DateTime? createdAt,
-  }) =>
-      ChatMessage(
-        id: id,
-        sessionId: sessionId,
-        role: ChatRole.user,
-        text: text,
-        createdAt: createdAt ?? DateTime.now(),
-      );
+  }) => ChatMessage(
+    id: id,
+    sessionId: sessionId,
+    role: ChatRole.user,
+    text: text,
+    createdAt: createdAt ?? DateTime.now(),
+  );
 
   factory ChatMessage.assistant({
     required String id,
@@ -105,18 +103,17 @@ class ChatMessage {
     String? evidenceJson,
     String? citedAnchorsJson,
     String? traceId,
-  }) =>
-      ChatMessage(
-        id: id,
-        sessionId: sessionId,
-        role: ChatRole.assistant,
-        text: text,
-        createdAt: createdAt ?? DateTime.now(),
-        retrievalMode: retrievalMode,
-        evidenceJson: evidenceJson,
-        citedAnchorsJson: citedAnchorsJson,
-        traceId: traceId,
-      );
+  }) => ChatMessage(
+    id: id,
+    sessionId: sessionId,
+    role: ChatRole.assistant,
+    text: text,
+    createdAt: createdAt ?? DateTime.now(),
+    retrievalMode: retrievalMode,
+    evidenceJson: evidenceJson,
+    citedAnchorsJson: citedAnchorsJson,
+    traceId: traceId,
+  );
 
   final String id;
   final String sessionId;
@@ -164,20 +161,20 @@ class ChatMessage {
   }
 
   static String encodeEvidence(List<EvidenceItem> evidence) => jsonEncode([
-        for (final item in evidence)
-          {
-            'anchor': item.anchor,
-            'score': item.score,
-            'chunk': {
-              'id': item.chunk.id,
-              'documentId': item.chunk.documentId,
-              'sourceName': item.chunk.sourceName,
-              'locator': item.chunk.locator,
-              'ordinal': item.chunk.ordinal,
-              'text': item.chunk.text,
-            },
-          },
-      ]);
+    for (final item in evidence)
+      {
+        'anchor': item.anchor,
+        'score': item.score,
+        'chunk': {
+          'id': item.chunk.id,
+          'documentId': item.chunk.documentId,
+          'sourceName': item.chunk.sourceName,
+          'locator': item.chunk.locator,
+          'ordinal': item.chunk.ordinal,
+          'text': item.chunk.text,
+        },
+      },
+  ]);
 
   static String encodeAnchors(List<String> anchors) => jsonEncode(anchors);
 }

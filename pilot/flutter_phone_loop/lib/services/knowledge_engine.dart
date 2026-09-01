@@ -5,6 +5,9 @@ import 'package:flutter_gemma/flutter_gemma.dart';
 import '../core/evidence.dart';
 import '../core/hybrid_ranker.dart';
 import '../core/models.dart';
+import '../experiments/representation_builder.dart';
+import '../experiments/retrieval_experiment_engine.dart';
+import '../eval/local_benchmark_store.dart';
 import '../lineage/lineage_ids.dart';
 import '../lineage/lineage_models.dart';
 import '../lineage/lineage_store.dart';
@@ -44,9 +47,9 @@ class KnowledgeEngine {
     SemanticStore? semanticStore,
     LineageStore? lineageStore,
     ActiveVectorIndex? activeVectorIndex,
-  })  : lexicalStore = lexicalStore ?? LexicalFtsStore(),
-        importer = importer ?? DocumentImporter(),
-        gemma = gemma ?? GemmaService() {
+  }) : lexicalStore = lexicalStore ?? LexicalFtsStore(),
+       importer = importer ?? DocumentImporter(),
+       gemma = gemma ?? GemmaService() {
     this.semanticStore = semanticStore ?? SemanticStore(this.lexicalStore);
     this.lineageStore = lineageStore ?? LineageStore();
     this.activeVectorIndex = activeVectorIndex ?? SqliteActiveVectorIndex();
@@ -55,6 +58,18 @@ class KnowledgeEngine {
       store: this.lineageStore,
       modelIdentity: SemanticStore.embeddingModelIdentity,
     );
+    representationBuilder = RepresentationBuilder(
+      store: this.lineageStore,
+      lexicalStore: this.lexicalStore,
+      generator: const FlutterGemmaEmbeddingGenerator(),
+      modelIdentity: SemanticStore.embeddingModelIdentity,
+    );
+    experimentEngine = RetrievalExperimentEngine(
+      store: this.lineageStore,
+      lexicalStore: this.lexicalStore,
+      representationBuilder: representationBuilder,
+    );
+    localBenchmarkStore = LocalBenchmarkStore();
     runtimeLineageRecorder = RuntimeLineageRecorder(store: this.lineageStore);
     retrievalRuntime = RetrievalRuntime(
       lexicalStore: this.lexicalStore,
@@ -92,6 +107,9 @@ class KnowledgeEngine {
   late final LineageStore lineageStore;
   late final ActiveVectorIndex activeVectorIndex;
   late final QueryEmbeddingRuntime queryEmbeddingRuntime;
+  late final RepresentationBuilder representationBuilder;
+  late final RetrievalExperimentEngine experimentEngine;
+  late final LocalBenchmarkStore localBenchmarkStore;
   late final RuntimeLineageRecorder runtimeLineageRecorder;
   late final RetrievalRuntime retrievalRuntime;
   late final R45VectorMigration r45VectorMigration;
@@ -205,33 +223,35 @@ class KnowledgeEngine {
       R45VectorMigration.activeStrategyId,
     );
     final existing = await lineageStore.buildJobById(jobId);
-    await lineageStore.putBuildJob(BuildJobRecord(
-      jobId: jobId,
-      jobType: 'r46-import-lineage',
-      strategyId: R45VectorMigration.activeStrategyId,
-      documentId: document.documentId,
-      status: status,
-      totalItems: document.chunks.length,
-      completedItems: state == BuildState.ready ? document.chunks.length : 0,
-      checkpointJson: jsonEncode({
-        'state': _buildStateValue(state),
-        'chunkCount': document.chunks.length,
-      }),
-      currentSource: document.sourceName,
-      failureCode: failureCode,
-      failureDetail: failureDetail,
-      createdAt: existing?.createdAt ?? now,
-      updatedAt: now,
-    ));
+    await lineageStore.putBuildJob(
+      BuildJobRecord(
+        jobId: jobId,
+        jobType: 'r46-import-lineage',
+        strategyId: R45VectorMigration.activeStrategyId,
+        documentId: document.documentId,
+        status: status,
+        totalItems: document.chunks.length,
+        completedItems: state == BuildState.ready ? document.chunks.length : 0,
+        checkpointJson: jsonEncode({
+          'state': _buildStateValue(state),
+          'chunkCount': document.chunks.length,
+        }),
+        currentSource: document.sourceName,
+        failureCode: failureCode,
+        failureDetail: failureDetail,
+        createdAt: existing?.createdAt ?? now,
+        updatedAt: now,
+      ),
+    );
   }
 
   String _buildStateValue(BuildState state) => switch (state) {
-        BuildState.prepared => 'prepared',
-        BuildState.lexicalCommitted => 'lexical_committed',
-        BuildState.lineageCommitted => 'lineage_committed',
-        BuildState.vectorCommitted => 'vector_committed',
-        BuildState.ready => 'ready',
-      };
+    BuildState.prepared => 'prepared',
+    BuildState.lexicalCommitted => 'lexical_committed',
+    BuildState.lineageCommitted => 'lineage_committed',
+    BuildState.vectorCommitted => 'vector_committed',
+    BuildState.ready => 'ready',
+  };
 
   Future<List<KnowledgeDocument>> listDocuments() async {
     await lexicalStore.initialize();
@@ -298,32 +318,39 @@ class KnowledgeEngine {
     // Do not re-embed healthy chunks. This operation is deliberately
     // checkpoint/resume friendly: every successful add is persisted, and a
     // later run recomputes only the remaining missing/stale set.
-    final pendingChunks = chunks.where((chunk) {
-      final observation = observationsByChunk[chunk.id];
-      return observation == null ||
-          observation.modelIdentity != SemanticStore.embeddingModelIdentity;
-    }).toList(growable: false);
+    final pendingChunks = chunks
+        .where((chunk) {
+          final observation = observationsByChunk[chunk.id];
+          return observation == null ||
+              observation.modelIdentity != SemanticStore.embeddingModelIdentity;
+        })
+        .toList(growable: false);
 
     if (pendingChunks.isEmpty) {
       onProgress?.call(const SemanticSyncProgress(total: 0, completed: 0));
       return;
     }
 
-    onProgress?.call(SemanticSyncProgress(
-      total: pendingChunks.length,
-      completed: 0,
-      currentSource: pendingChunks.first.sourceName,
-      currentChunkId: pendingChunks.first.id,
-    ));
+    onProgress?.call(
+      SemanticSyncProgress(
+        total: pendingChunks.length,
+        completed: 0,
+        currentSource: pendingChunks.first.sourceName,
+        currentChunkId: pendingChunks.first.id,
+      ),
+    );
 
-    await semanticStore.addChunks(pendingChunks,
+    await semanticStore.addChunks(
+      pendingChunks,
       onProgress: (completed, total, current) {
-        onProgress?.call(SemanticSyncProgress(
-          total: total,
-          completed: completed,
-          currentSource: current.sourceName,
-          currentChunkId: current.id,
-        ));
+        onProgress?.call(
+          SemanticSyncProgress(
+            total: total,
+            completed: completed,
+            currentSource: current.sourceName,
+            currentChunkId: current.id,
+          ),
+        );
       },
     );
   }
@@ -378,6 +405,7 @@ class KnowledgeEngine {
   Future<void> close() async {
     await gemma.close();
     await activeVectorIndex.close();
+    localBenchmarkStore.dispose();
     lineageStore.dispose();
     lexicalStore.dispose();
     _r46MigrationReady = false;

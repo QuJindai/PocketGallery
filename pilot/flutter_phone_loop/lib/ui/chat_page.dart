@@ -73,8 +73,9 @@ class _ChatPageState extends State<ChatPage> {
     if (current == null) return;
     final loaded = await widget.store.getSession(current.id);
     final history = await widget.store.messages(current.id);
-    final docs =
-        reloadDocuments ? await widget.engine.listDocuments() : documents;
+    final docs = reloadDocuments
+        ? await widget.engine.listDocuments()
+        : documents;
     if (!mounted) return;
     setState(() {
       session = loaded ?? current;
@@ -146,8 +147,8 @@ class _ChatPageState extends State<ChatPage> {
                         onPressed: () async {
                           await widget.store.deleteSession(item.id);
                           if (item.id == session?.id) {
-                            final created =
-                                await widget.orchestrator.newSession();
+                            final created = await widget.orchestrator
+                                .newSession();
                             if (!mounted) return;
                             setState(() {
                               session = created;
@@ -231,12 +232,12 @@ class _ChatPageState extends State<ChatPage> {
                           onChanged: all
                               ? null
                               : (value) => setLocalState(() {
-                                    if (value == true) {
-                                      selected.add(doc.documentId);
-                                    } else {
-                                      selected.remove(doc.documentId);
-                                    }
-                                  }),
+                                  if (value == true) {
+                                    selected.add(doc.documentId);
+                                  } else {
+                                    selected.remove(doc.documentId);
+                                  }
+                                }),
                         ),
                     ],
                   ),
@@ -321,9 +322,9 @@ class _ChatPageState extends State<ChatPage> {
         message += ' · ${failedFiles.length} 个文件导入失败';
       }
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
     } finally {
       if (mounted) setState(() => attaching = false);
     }
@@ -340,9 +341,9 @@ class _ChatPageState extends State<ChatPage> {
     );
     if (!mounted) return;
     setState(() => session = updated);
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('已解除当前聊天附件；文件仍保留在知识库')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('已解除当前聊天附件；文件仍保留在知识库')));
   }
 
   Future<void> _showTrace(ChatMessage message) async {
@@ -353,13 +354,16 @@ class _ChatPageState extends State<ChatPage> {
       final lineageTrace = await lineageStore.traceById(traceId);
       if (!mounted) return;
       if (lineageTrace != null) {
-        await Navigator.of(context).push(MaterialPageRoute<void>(
-          builder: (_) => RagLineageDashboardPage(
-            engine: widget.engine,
-            lineageStore: lineageStore,
-            traceId: traceId,
+        await Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => RagLineageDashboardPage(
+              engine: widget.engine,
+              lineageStore: lineageStore,
+              traceId: traceId,
+              orchestrator: widget.orchestrator,
+            ),
           ),
-        ));
+        );
         return;
       }
     }
@@ -368,14 +372,16 @@ class _ChatPageState extends State<ChatPage> {
     final trace = await traceStore.get(traceId);
     if (!mounted) return;
     if (trace == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('该历史回答没有可读取的 Trace。')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('该历史回答没有可读取的 Trace。')));
       return;
     }
-    await Navigator.of(context).push(MaterialPageRoute<void>(
-      builder: (_) => RetrievalTracePage(trace: trace, engine: widget.engine),
-    ));
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => RetrievalTracePage(trace: trace, engine: widget.engine),
+      ),
+    );
   }
 
   List<KnowledgeDocument> _boundDocuments(KnowledgeScope scope) {
@@ -464,14 +470,13 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   String _modeLabel(ChatMode mode) => switch (mode) {
-        ChatMode.modelOnly => '纯模型',
-        ChatMode.auto => '自动',
-        ChatMode.knowledge => '强制知识库',
-      };
+    ChatMode.modelOnly => '纯模型',
+    ChatMode.auto => '自动',
+    ChatMode.knowledge => '强制知识库',
+  };
 
-  String _scopeLabel(KnowledgeScope scope) => scope.isAll
-      ? '全部知识库'
-      : '指定文档 ${scope.documentIds?.length ?? 0}';
+  String _scopeLabel(KnowledgeScope scope) =>
+      scope.isAll ? '全部知识库' : '指定文档 ${scope.documentIds?.length ?? 0}';
 
   String _retrievalRouteLabel(String mode) {
     if (mode.startsWith('modelOnly')) return '本机模型';
@@ -542,7 +547,10 @@ class _ChatPageState extends State<ChatPage> {
                       const Spacer(),
                       TextButton.icon(
                         onPressed: sending || attaching ? null : _selectScope,
-                        icon: const Icon(Icons.library_books_outlined, size: 18),
+                        icon: const Icon(
+                          Icons.library_books_outlined,
+                          size: 18,
+                        ),
                         label: Text(_scopeLabel(current.scope)),
                       ),
                     ],
@@ -585,7 +593,10 @@ class _ChatPageState extends State<ChatPage> {
             ),
             if (error != null)
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 4,
+                ),
                 child: Text(
                   error!,
                   style: TextStyle(color: Theme.of(context).colorScheme.error),
@@ -644,8 +655,8 @@ class _ChatPageState extends State<ChatPage> {
                         hintText: current.mode == ChatMode.modelOnly
                             ? '直接和本机模型聊天…'
                             : current.mode == ChatMode.auto
-                                ? '聊天；需要时自动外挂本地知识库…'
-                                : '基于本地知识库提问…',
+                            ? '聊天；需要时自动外挂本地知识库…'
+                            : '基于本地知识库提问…',
                         border: const OutlineInputBorder(),
                       ),
                     ),

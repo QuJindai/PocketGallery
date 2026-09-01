@@ -140,11 +140,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             icon: const Icon(Icons.library_add),
             label: const Text('导入 TXT / MD / PDF'),
           ),
-          ...imported.map((x) => ListTile(
-                dense: true,
-                leading: const Icon(Icons.description_outlined),
-                title: Text(x),
-              )),
+          ...imported.map(
+            (x) => ListTile(
+              dense: true,
+              leading: const Icon(Icons.description_outlined),
+              title: Text(x),
+            ),
+          ),
           const SizedBox(height: 12),
           TextField(
             controller: query,
@@ -213,17 +215,17 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   Future<void> _ask() async {
     if (mounted) {
-      setState(() => status = modelState.ready
-          ? 'FTS5 + Embedding + Hybrid/Rerank → Gemma 4…'
-          : 'FTS5 / Evidence 检索…');
+      setState(
+        () => status = modelState.ready
+            ? 'FTS5 + Embedding + Hybrid/Rerank → Gemma 4…'
+            : 'FTS5 / Evidence 检索…',
+      );
     }
     final r = await widget.engine.ask(query.text);
     if (!mounted) return;
     setState(() {
       answer = r;
-      status = modelState.ready
-          ? '完成'
-          : '检索完成 · Embedding 尚未就绪（FTS5 可用）';
+      status = modelState.ready ? '完成' : '检索完成 · Embedding 尚未就绪（FTS5 可用）';
     });
   }
 
@@ -248,28 +250,32 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(children: [
-              Icon(modelState.ready
-                  ? Icons.check_circle
-                  : failed
+            Row(
+              children: [
+                Icon(
+                  modelState.ready
+                      ? Icons.check_circle
+                      : failed
                       ? Icons.error_outline
                       : authorizing
-                          ? Icons.verified_user_outlined
-                          : Icons.downloading),
-              const SizedBox(width: 8),
-              const Expanded(
-                child: Text(
-                  '自动准备模型',
-                  style: TextStyle(fontWeight: FontWeight.bold),
+                      ? Icons.verified_user_outlined
+                      : Icons.downloading,
                 ),
-              ),
-              if (modelBusy)
-                const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
+                const SizedBox(width: 8),
+                const Expanded(
+                  child: Text(
+                    '自动准备模型',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
                 ),
-            ]),
+                if (modelBusy)
+                  const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+              ],
+            ),
             const SizedBox(height: 8),
             Text(modelState.message),
             if (modelState.progress != null) ...[
@@ -325,8 +331,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             ),
             const SizedBox(height: 8),
             OutlinedButton.icon(
-              onPressed:
-                  busy ? null : () => _run(setup.openEmbeddingLicensePage),
+              onPressed: busy
+                  ? null
+                  : () => _run(setup.openEmbeddingLicensePage),
               icon: const Icon(Icons.open_in_browser),
               label: const Text('打开 EmbeddingGemma 官方许可页'),
             ),
@@ -363,16 +370,18 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               'Embedding=${a.semanticHits.length} · Hybrid=${a.hybridHits.length}',
             ),
             const Divider(),
-            ...a.evidence.map((e) => ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: CircleAvatar(child: Text(e.anchor)),
-                  title: Text(e.chunk.sourceName),
-                  subtitle: Text(
-                    '${e.chunk.locator} · ${e.chunk.id}\n${e.chunk.text}',
-                    maxLines: 4,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                )),
+            ...a.evidence.map(
+              (e) => ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: CircleAvatar(child: Text(e.anchor)),
+                title: Text(e.chunk.sourceName),
+                subtitle: Text(
+                  '${e.chunk.locator} · ${e.chunk.id}\n${e.chunk.text}',
+                  maxLines: 4,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ),
           ],
         ),
       ),
@@ -382,14 +391,18 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   Widget _reportCard(GoldenTestReport r) {
     return Card(
       margin: const EdgeInsets.only(top: 12),
-      child: Column(children: [
-        ListTile(
-          leading: Icon(r.passed ? Icons.check_circle : Icons.cancel),
-          title: Text(r.passed
-              ? 'PHONE_FUNCTION_LOOP = PASS'
-              : 'PHONE_FUNCTION_LOOP = FAIL'),
-        ),
-        ...r.results.map((g) => ListTile(
+      child: Column(
+        children: [
+          ListTile(
+            leading: Icon(r.passed ? Icons.check_circle : Icons.cancel),
+            title: Text(
+              r.passed
+                  ? 'PHONE_FUNCTION_LOOP = PASS'
+                  : 'PHONE_FUNCTION_LOOP = FAIL',
+            ),
+          ),
+          ...r.results.map(
+            (g) => ListTile(
               dense: true,
               leading: Icon(g.passed ? Icons.check : Icons.close),
               title: Text(g.name),
@@ -398,8 +411,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 maxLines: 3,
                 overflow: TextOverflow.ellipsis,
               ),
-            )),
-      ]),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

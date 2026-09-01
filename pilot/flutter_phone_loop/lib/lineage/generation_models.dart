@@ -51,9 +51,11 @@ class ChatTurnResult {
     required this.text,
     required this.budget,
     required this.generation,
+    this.evidenceTokenCounts = const <String, int>{},
   });
 
   final String text;
   final ContextBudgetDecision budget;
   final GenerationTelemetry generation;
+  final Map<String, int> evidenceTokenCounts;
 }

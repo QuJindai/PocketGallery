@@ -80,60 +80,58 @@ class RuntimeLineageRecorder {
     TruthKind truthKind = TruthKind.real,
     int? durationUs,
     Map<String, Object?> payload = const {},
-  }) =>
-      _serialized(traceId, () async {
-        final record = await _createEvent(
-          traceId: traceId,
-          stage: stage,
-          kind: kind,
-          truthKind: truthKind,
-          durationUs: durationUs,
-          payload: payload,
-        );
-        await store.appendEvent(record);
-      });
+  }) => _serialized(traceId, () async {
+    final record = await _createEvent(
+      traceId: traceId,
+      stage: stage,
+      kind: kind,
+      truthKind: truthKind,
+      durationUs: durationUs,
+      payload: payload,
+    );
+    await store.appendEvent(record);
+  });
 
   Future<void> candidates({
     required String traceId,
     required List<CandidateRecord> records,
-  }) =>
-      _serialized(traceId, () async {
-        final counts = <String, int>{};
-        final persisted = <CandidateRecord>[];
-        for (final record in records) {
-          _validateRecordScope(
-            traceId,
-            record.traceId,
-            record.strategyId,
-            record.lane,
-          );
-          final key =
-              '${record.strategyId}|${record.lane.dbValue}|${record.sourceChannels}';
-          final count = counts[key] ?? 0;
-          if (count >= maxCandidatesPerChannelStrategy) continue;
-          counts[key] = count + 1;
-          persisted.add(record);
-        }
-        final capEvent = await _createEvent(
-          traceId: traceId,
-          stage: 'candidate',
-          kind: 'candidate.pool_built',
-          truthKind: TruthKind.real,
-          durationUs: null,
-          payload: {
-            'received': records.length,
-            'persisted': persisted.length,
-            'droppedByCap': records.length - persisted.length,
-            'capPerChannelStrategy': maxCandidatesPerChannelStrategy,
-          },
-        );
-        await store.runInTransaction(() async {
-          for (final record in persisted) {
-            await store.putCandidate(record);
-          }
-          await store.appendEvent(capEvent);
-        });
-      });
+  }) => _serialized(traceId, () async {
+    final counts = <String, int>{};
+    final persisted = <CandidateRecord>[];
+    for (final record in records) {
+      _validateRecordScope(
+        traceId,
+        record.traceId,
+        record.strategyId,
+        record.lane,
+      );
+      final key =
+          '${record.strategyId}|${record.lane.dbValue}|${record.sourceChannels}';
+      final count = counts[key] ?? 0;
+      if (count >= maxCandidatesPerChannelStrategy) continue;
+      counts[key] = count + 1;
+      persisted.add(record);
+    }
+    final capEvent = await _createEvent(
+      traceId: traceId,
+      stage: 'candidate',
+      kind: 'candidate.pool_built',
+      truthKind: TruthKind.real,
+      durationUs: null,
+      payload: {
+        'received': records.length,
+        'persisted': persisted.length,
+        'droppedByCap': records.length - persisted.length,
+        'capPerChannelStrategy': maxCandidatesPerChannelStrategy,
+      },
+    );
+    await store.runInTransaction(() async {
+      for (final record in persisted) {
+        await store.putCandidate(record);
+      }
+      await store.appendEvent(capEvent);
+    });
+  });
 
   Future<void> routerDecision(RouterDecisionRecord record) =>
       _serialized(record.traceId, () async {
@@ -168,31 +166,30 @@ class RuntimeLineageRecorder {
   Future<void> evidence({
     required String traceId,
     required List<EvidenceRecord> records,
-  }) =>
-      _serialized(traceId, () async {
-        for (final record in records) {
-          _validateRecordScope(
-            traceId,
-            record.traceId,
-            record.strategyId,
-            record.lane,
-          );
-        }
-        final event = await _createEvent(
-          traceId: traceId,
-          stage: 'evidence',
-          kind: 'evidence.selected',
-          truthKind: TruthKind.real,
-          durationUs: null,
-          payload: {'count': records.length},
-        );
-        await store.runInTransaction(() async {
-          for (final record in records) {
-            await store.putEvidence(record);
-          }
-          await store.appendEvent(event);
-        });
-      });
+  }) => _serialized(traceId, () async {
+    for (final record in records) {
+      _validateRecordScope(
+        traceId,
+        record.traceId,
+        record.strategyId,
+        record.lane,
+      );
+    }
+    final event = await _createEvent(
+      traceId: traceId,
+      stage: 'evidence',
+      kind: 'evidence.selected',
+      truthKind: TruthKind.real,
+      durationUs: null,
+      payload: {'count': records.length},
+    );
+    await store.runInTransaction(() async {
+      for (final record in records) {
+        await store.putEvidence(record);
+      }
+      await store.appendEvent(event);
+    });
+  });
 
   Future<void> promptBudget(PromptBudgetRecord record) =>
       _serialized(record.traceId, () async {
@@ -253,31 +250,30 @@ class RuntimeLineageRecorder {
   Future<void> citations({
     required String traceId,
     required List<CitationRecord> records,
-  }) =>
-      _serialized(traceId, () async {
-        final event = await _createEvent(
-          traceId: traceId,
-          stage: 'citation',
-          kind: 'citation.resolved',
-          truthKind: TruthKind.real,
-          durationUs: null,
-          payload: {
-            'count': records.length,
-            'resolved': records
-                .where((record) => record.citationStatus == 'resolved')
-                .length,
-          },
-        );
-        await store.runInTransaction(() async {
-          for (final record in records) {
-            if (record.traceId != traceId) {
-              throw ArgumentError('Citation trace does not match batch trace');
-            }
-            await store.putCitation(record);
-          }
-          await store.appendEvent(event);
-        });
-      });
+  }) => _serialized(traceId, () async {
+    final event = await _createEvent(
+      traceId: traceId,
+      stage: 'citation',
+      kind: 'citation.resolved',
+      truthKind: TruthKind.real,
+      durationUs: null,
+      payload: {
+        'count': records.length,
+        'resolved': records
+            .where((record) => record.citationStatus == 'resolved')
+            .length,
+      },
+    );
+    await store.runInTransaction(() async {
+      for (final record in records) {
+        if (record.traceId != traceId) {
+          throw ArgumentError('Citation trace does not match batch trace');
+        }
+        await store.putCitation(record);
+      }
+      await store.appendEvent(event);
+    });
+  });
 
   Future<void> completeTrace(
     String traceId, {
@@ -300,21 +296,23 @@ class RuntimeLineageRecorder {
       );
       await store.runInTransaction(() async {
         await store.appendEvent(event);
-        await store.putTrace(LineageTrace(
-          traceId: trace.traceId,
-          sessionId: trace.sessionId,
-          turnId: trace.turnId,
-          queryText: trace.queryText,
-          requestedMode: trace.requestedMode,
-          finalMode: finalMode,
-          scopeJson: trace.scopeJson,
-          activeStrategyId: trace.activeStrategyId,
-          startedAt: trace.startedAt,
-          completedAt: completedAt,
-          status: TraceStatus.complete,
-          failureStage: null,
-          failureCode: null,
-        ));
+        await store.putTrace(
+          LineageTrace(
+            traceId: trace.traceId,
+            sessionId: trace.sessionId,
+            turnId: trace.turnId,
+            queryText: trace.queryText,
+            requestedMode: trace.requestedMode,
+            finalMode: finalMode,
+            scopeJson: trace.scopeJson,
+            activeStrategyId: trace.activeStrategyId,
+            startedAt: trace.startedAt,
+            completedAt: completedAt,
+            status: TraceStatus.complete,
+            failureStage: null,
+            failureCode: null,
+          ),
+        );
       });
     });
     await store.pruneCompletedTraces(keep: retentionLimit);
@@ -324,43 +322,44 @@ class RuntimeLineageRecorder {
     String traceId, {
     required String stage,
     required Object error,
-  }) =>
-      _serialized(traceId, () async {
-        final trace = await _requiredTrace(traceId);
-        final completedAt = clock().toUtc();
-        final errorCode = _errorCode(error);
-        final detail = _sanitizeString(error.toString());
-        final event = await _createEvent(
-          traceId: traceId,
-          stage: stage,
-          kind: 'trace.failed',
-          truthKind: TruthKind.real,
-          durationUs: null,
-          payload: {
-            'failureStage': stage,
-            'failureCode': errorCode,
-            'detail': detail,
-          },
-        );
-        await store.runInTransaction(() async {
-          await store.appendEvent(event);
-          await store.putTrace(LineageTrace(
-            traceId: trace.traceId,
-            sessionId: trace.sessionId,
-            turnId: trace.turnId,
-            queryText: trace.queryText,
-            requestedMode: trace.requestedMode,
-            finalMode: trace.finalMode,
-            scopeJson: trace.scopeJson,
-            activeStrategyId: trace.activeStrategyId,
-            startedAt: trace.startedAt,
-            completedAt: completedAt,
-            status: TraceStatus.failed,
-            failureStage: stage,
-            failureCode: errorCode,
-          ));
-        });
-      });
+  }) => _serialized(traceId, () async {
+    final trace = await _requiredTrace(traceId);
+    final completedAt = clock().toUtc();
+    final errorCode = _errorCode(error);
+    final detail = _sanitizeString(error.toString());
+    final event = await _createEvent(
+      traceId: traceId,
+      stage: stage,
+      kind: 'trace.failed',
+      truthKind: TruthKind.real,
+      durationUs: null,
+      payload: {
+        'failureStage': stage,
+        'failureCode': errorCode,
+        'detail': detail,
+      },
+    );
+    await store.runInTransaction(() async {
+      await store.appendEvent(event);
+      await store.putTrace(
+        LineageTrace(
+          traceId: trace.traceId,
+          sessionId: trace.sessionId,
+          turnId: trace.turnId,
+          queryText: trace.queryText,
+          requestedMode: trace.requestedMode,
+          finalMode: trace.finalMode,
+          scopeJson: trace.scopeJson,
+          activeStrategyId: trace.activeStrategyId,
+          startedAt: trace.startedAt,
+          completedAt: completedAt,
+          status: TraceStatus.failed,
+          failureStage: stage,
+          failureCode: errorCode,
+        ),
+      );
+    });
+  });
 
   Future<TraceEventRecord> _createEvent({
     required String traceId,
@@ -437,18 +436,18 @@ class RuntimeLineageRecorder {
   }
 
   Map<String, Object?> _sanitizeMap(Map<String, Object?> input) => {
-        for (final entry in input.entries)
-          entry.key: _sensitiveKey(entry.key)
-              ? '[REDACTED]'
-              : _sanitizeValue(entry.value),
-      };
+    for (final entry in input.entries)
+      entry.key: _sensitiveKey(entry.key)
+          ? '[REDACTED]'
+          : _sanitizeValue(entry.value),
+  };
 
   Object? _sanitizeValue(Object? value) => switch (value) {
-        String text => _sanitizeString(text),
-        Map<String, Object?> map => _sanitizeMap(map),
-        List<Object?> list => list.map(_sanitizeValue).toList(growable: false),
-        _ => value,
-      };
+    String text => _sanitizeString(text),
+    Map<String, Object?> map => _sanitizeMap(map),
+    List<Object?> list => list.map(_sanitizeValue).toList(growable: false),
+    _ => value,
+  };
 
   Object? _safeJsonValue(String value) {
     try {
@@ -459,9 +458,9 @@ class RuntimeLineageRecorder {
   }
 
   bool _sensitiveKey(String key) => RegExp(
-        r'(authorization|password|passwd|token|secret|cookie|api[_-]?key)',
-        caseSensitive: false,
-      ).hasMatch(key);
+    r'(authorization|password|passwd|token|secret|cookie|api[_-]?key)',
+    caseSensitive: false,
+  ).hasMatch(key);
 
   String _sanitizeString(String input) {
     var output = input.replaceAllMapped(

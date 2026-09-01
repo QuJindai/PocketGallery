@@ -1,10 +1,16 @@
 import 'package:flutter/material.dart';
 
 import '../../core/hybrid_ranker.dart';
+import '../../eval/local_benchmark_store.dart';
 import '../../eval/retrieval_benchmark.dart';
 import '../../eval/retrieval_benchmark_fixture.dart';
 import '../../eval/retrieval_evaluator.dart';
+import '../../lineage/lineage_models.dart';
+import '../../lineage/trace_snapshot.dart';
 import '../../services/knowledge_engine.dart';
+import 'benchmark_case_detail_page.dart';
+
+enum _BenchmarkDatasetKind { golden, local }
 
 class RetrievalBenchmarkPage extends StatefulWidget {
   const RetrievalBenchmarkPage({super.key, required this.engine});
@@ -17,6 +23,8 @@ class RetrievalBenchmarkPage extends StatefulWidget {
 
 class _RetrievalBenchmarkPageState extends State<RetrievalBenchmarkPage> {
   RetrievalBenchmarkDataset? dataset;
+  List<LocalBenchmarkCase> localCases = const <LocalBenchmarkCase>[];
+  _BenchmarkDatasetKind datasetKind = _BenchmarkDatasetKind.golden;
   final Map<RetrievalStrategy, RetrievalMetrics?> metrics = {};
   final Map<RetrievalStrategy, List<BenchmarkCaseResult>> results = {};
   bool loading = true;
@@ -40,9 +48,12 @@ class _RetrievalBenchmarkPageState extends State<RetrievalBenchmarkPage> {
       final value = await RetrievalBenchmarkDataset.loadAsset(
         'assets/golden/rag_microscope_benchmark.json',
       );
+      await widget.engine.localBenchmarkStore.initialize();
+      final local = await widget.engine.localBenchmarkStore.listCases();
       if (!mounted) return;
       setState(() {
         dataset = value;
+        localCases = local;
         loading = false;
       });
     } catch (e) {
@@ -54,9 +65,120 @@ class _RetrievalBenchmarkPageState extends State<RetrievalBenchmarkPage> {
     }
   }
 
+  RetrievalBenchmarkDataset? get _selectedDataset {
+    if (datasetKind == _BenchmarkDatasetKind.golden) return dataset;
+    return RetrievalBenchmarkDataset(
+      'Local Real Corpus',
+      localCases.map((item) => item.toBenchmarkCase()).toList(growable: false),
+    );
+  }
+
+  Future<void> _saveLatestTrace() async {
+    final traces = await widget.engine.lineageStore.latestTraces(limit: 30);
+    LineageTrace? selectedTrace;
+    for (final item in traces) {
+      if (item.status == TraceStatus.complete) {
+        selectedTrace = item;
+        break;
+      }
+    }
+    if (selectedTrace == null) {
+      if (mounted) setState(() => status = '没有可保存的完整 Trace');
+      return;
+    }
+    final snapshot = await TraceSnapshot.load(
+      widget.engine.lineageStore,
+      selectedTrace.traceId,
+    );
+    final candidates = snapshot.candidatesFor(
+      strategyId: selectedTrace.activeStrategyId,
+      lane: RetrievalLane.active,
+    );
+    if (!mounted) return;
+    if (candidates.isEmpty) {
+      setState(() => status = '该 Trace 没有可标注候选');
+      return;
+    }
+    final chosen = <String>{};
+    final selectedChunks = await showDialog<Set<String>>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) => AlertDialog(
+          title: const Text('选择期望 Chunk'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: ListView(
+              shrinkWrap: true,
+              children: [
+                Text(selectedTrace!.queryText),
+                const SizedBox(height: 8),
+                for (final candidate in candidates)
+                  CheckboxListTile(
+                    value: chosen.contains(candidate.chunkId),
+                    title: Text(candidate.chunkId),
+                    subtitle: Text(
+                      snapshot.chunksById[candidate.chunkId]?.documentId ??
+                          '来源文档未捕获',
+                    ),
+                    onChanged: (checked) => setDialogState(() {
+                      if (checked ?? false) {
+                        chosen.add(candidate.chunkId);
+                      } else {
+                        chosen.remove(candidate.chunkId);
+                      }
+                    }),
+                  ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              onPressed: chosen.isEmpty
+                  ? null
+                  : () => Navigator.of(dialogContext).pop(Set.of(chosen)),
+              child: const Text('保存 Case'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (selectedChunks == null || selectedChunks.isEmpty) return;
+    final now = DateTime.now().toUtc();
+    final expectedDocuments = <String>{
+      for (final chunkId in selectedChunks)
+        if (snapshot.chunksById[chunkId] != null)
+          snapshot.chunksById[chunkId]!.documentId,
+    };
+    await widget.engine.localBenchmarkStore.putCase(
+      LocalBenchmarkCase(
+        id: 'local-${now.microsecondsSinceEpoch}',
+        question: selectedTrace.queryText,
+        expectedDocumentIds: expectedDocuments,
+        expectedChunkIds: selectedChunks,
+        tags: const <String>{'local-real', 'trace-labeled'},
+        sourceTraceId: selectedTrace.traceId,
+        createdAt: now,
+        updatedAt: now,
+      ),
+    );
+    final updated = await widget.engine.localBenchmarkStore.listCases();
+    if (!mounted) return;
+    setState(() {
+      localCases = updated;
+      datasetKind = _BenchmarkDatasetKind.local;
+      metrics.clear();
+      results.clear();
+      status = '已保存本地 Case · ${selectedTrace!.traceId}';
+    });
+  }
+
   Future<void> _run() async {
-    final data = dataset;
-    if (data == null || running) return;
+    final data = _selectedDataset;
+    if (data == null || data.cases.isEmpty || running) return;
     final currentHybrid = widget.engine.ranker;
     final alternateHybrid = HybridRanker(
       lexicalWeight: alternateLexicalWeight,
@@ -76,14 +198,14 @@ class _RetrievalBenchmarkPageState extends State<RetrievalBenchmarkPage> {
     RetrievalBenchmarkLease? lease;
     var completed = false;
     try {
-      // The benchmark labels refer to pg_golden_* sources. Running those cases
-      // against an arbitrary user corpus made every metric appear as 0.0 even
-      // when retrieval was healthy. Seed the deterministic fixture only for
-      // this run, then remove it again so diagnostics never pollute the library.
-      lease = await RetrievalBenchmarkFixture.prepare(
-        widget.engine,
-        resetKnownFixtures: true,
-      );
+      if (datasetKind == _BenchmarkDatasetKind.golden) {
+        // Golden labels refer to pg_golden_* sources. Seed their deterministic
+        // fixture only for this run; local cases always use the real corpus.
+        lease = await RetrievalBenchmarkFixture.prepare(
+          widget.engine,
+          resetKnownFixtures: true,
+        );
+      }
 
       final runner = RetrievalBenchmarkRunner(
         lexicalStore: widget.engine.lexicalStore,
@@ -119,7 +241,9 @@ class _RetrievalBenchmarkPageState extends State<RetrievalBenchmarkPage> {
         setState(() {
           running = false;
           if (completed) {
-            status = '完成 · ${data.cases.length} cases · 临时 Golden 已清理';
+            status = datasetKind == _BenchmarkDatasetKind.golden
+                ? '完成 · ${data.cases.length} cases · 临时 Golden 已清理'
+                : '完成 · ${data.cases.length} local-real cases';
           }
         });
       }
@@ -128,6 +252,7 @@ class _RetrievalBenchmarkPageState extends State<RetrievalBenchmarkPage> {
 
   @override
   Widget build(BuildContext context) {
+    final selectedDataset = _selectedDataset;
     return Scaffold(
       appBar: AppBar(title: const Text('检索基准 / A-B Lab')),
       body: SafeArea(
@@ -136,11 +261,37 @@ class _RetrievalBenchmarkPageState extends State<RetrievalBenchmarkPage> {
           children: [
             if (loading) const LinearProgressIndicator(),
             if (dataset != null) ...[
-              Text(dataset!.name,
-                  style: Theme.of(context).textTheme.titleMedium),
+              SegmentedButton<_BenchmarkDatasetKind>(
+                segments: const [
+                  ButtonSegment(
+                    value: _BenchmarkDatasetKind.golden,
+                    label: Text('Packaged Golden'),
+                  ),
+                  ButtonSegment(
+                    value: _BenchmarkDatasetKind.local,
+                    label: Text('Local Real Corpus'),
+                  ),
+                ],
+                selected: <_BenchmarkDatasetKind>{datasetKind},
+                onSelectionChanged: running
+                    ? null
+                    : (values) => setState(() {
+                        datasetKind = values.single;
+                        metrics.clear();
+                        results.clear();
+                        status = '未运行';
+                      }),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                selectedDataset?.name ?? '数据集不可用',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               const SizedBox(height: 4),
               Text(
-                '${dataset!.cases.length} 个带人工期望来源的 Golden cases · 运行时自动装载临时基准语料，结束后清理',
+                datasetKind == _BenchmarkDatasetKind.golden
+                    ? '${selectedDataset?.cases.length ?? 0} 个带人工期望来源的 Golden cases · 运行时自动装载临时基准语料，结束后清理'
+                    : '${localCases.length} 个持久化本地真实语料 cases · 不复制原始向量',
               ),
             ],
             const SizedBox(height: 8),
@@ -150,8 +301,10 @@ class _RetrievalBenchmarkPageState extends State<RetrievalBenchmarkPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Alternate Hybrid 参数',
-                        style: TextStyle(fontWeight: FontWeight.w600)),
+                    const Text(
+                      'Alternate Hybrid 参数',
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
                     _slider(
                       'Lexical weight',
                       alternateLexicalWeight,
@@ -174,9 +327,21 @@ class _RetrievalBenchmarkPageState extends State<RetrievalBenchmarkPage> {
                       (v) => setState(() => alternateDualBonus = v),
                     ),
                     FilledButton.icon(
-                      onPressed: dataset == null || running ? null : _run,
+                      onPressed:
+                          selectedDataset == null ||
+                              selectedDataset.cases.isEmpty ||
+                              running
+                          ? null
+                          : _run,
                       icon: const Icon(Icons.science_outlined),
                       label: Text(running ? status : '运行 A/B 检索基准'),
+                    ),
+                    const SizedBox(height: 8),
+                    OutlinedButton.icon(
+                      key: const ValueKey<String>('save-trace-local-benchmark'),
+                      onPressed: running ? null : _saveLatestTrace,
+                      icon: const Icon(Icons.bookmark_add_outlined),
+                      label: const Text('保存最新 Trace 为本地 Case'),
                     ),
                   ],
                 ),
@@ -191,8 +356,10 @@ class _RetrievalBenchmarkPageState extends State<RetrievalBenchmarkPage> {
                 ),
               ),
             const SizedBox(height: 8),
-            Text('评估结果 · $status',
-                style: Theme.of(context).textTheme.titleMedium),
+            Text(
+              '评估结果 · $status',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
             const SizedBox(height: 6),
             for (final strategy in RetrievalStrategy.values)
               _metricsCard(strategy, metrics[strategy]),
@@ -213,46 +380,48 @@ class _RetrievalBenchmarkPageState extends State<RetrievalBenchmarkPage> {
     double min,
     double max,
     ValueChanged<double> onChanged,
-  ) =>
-      Row(
-        children: [
-          SizedBox(width: 120, child: Text(label)),
-          Expanded(
-            child: Slider(
-              value: value,
-              min: min,
-              max: max,
-              onChanged: running ? null : onChanged,
-            ),
-          ),
-          SizedBox(width: 52, child: Text(value.toStringAsFixed(3))),
-        ],
-      );
+  ) => Row(
+    children: [
+      SizedBox(width: 120, child: Text(label)),
+      Expanded(
+        child: Slider(
+          value: value,
+          min: min,
+          max: max,
+          onChanged: running ? null : onChanged,
+        ),
+      ),
+      SizedBox(width: 52, child: Text(value.toStringAsFixed(3))),
+    ],
+  );
 
   Widget _metricsCard(RetrievalStrategy strategy, RetrievalMetrics? value) {
     final comparison = strategy == RetrievalStrategy.alternateHybrid
         ? _alternateComparison()
         : null;
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(_label(strategy),
-                      style: const TextStyle(fontWeight: FontWeight.w600)),
-                ),
-                Text(value == null ? '未运行' : '${value.caseCount} cases'),
-              ],
-            ),
-            const SizedBox(height: 8),
-            if (value == null)
-              const Text('—')
-            else
-              ...[
+      child: InkWell(
+        onTap: value == null ? null : () => _openCaseResults(strategy),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      _label(strategy),
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                  Text(value == null ? '未运行' : '${value.caseCount} cases'),
+                ],
+              ),
+              const SizedBox(height: 8),
+              if (value == null)
+                const Text('—')
+              else ...[
                 if (strategy == RetrievalStrategy.hybrid ||
                     strategy == RetrievalStrategy.alternateHybrid) ...[
                   Text(
@@ -270,6 +439,11 @@ class _RetrievalBenchmarkPageState extends State<RetrievalBenchmarkPage> {
                     _metric('Recall@5', value.recallAt5),
                     _metric('MRR', value.mrr),
                     _metric('Context Precision', value.contextPrecision),
+                    _optionalMetric('Router Accuracy', value.routerAccuracy),
+                    _optionalMetric(
+                      'Citation Grounding',
+                      value.citationGroundingRate,
+                    ),
                   ],
                 ),
                 if (comparison != null) ...[
@@ -282,27 +456,98 @@ class _RetrievalBenchmarkPageState extends State<RetrievalBenchmarkPage> {
                     ),
                 ],
               ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openCaseResults(RetrievalStrategy strategy) async {
+    final data = _selectedDataset;
+    final strategyResults = results[strategy];
+    if (data == null || strategyResults == null || strategyResults.isEmpty) {
+      return;
+    }
+    final selectedId = await showModalBottomSheet<String>(
+      context: context,
+      builder: (sheetContext) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            const ListTile(title: Text('选择 Benchmark Case')),
+            for (final benchmark in data.cases)
+              ListTile(
+                title: Text(benchmark.question),
+                subtitle: Text(benchmark.id),
+                onTap: () => Navigator.of(sheetContext).pop(benchmark.id),
+              ),
           ],
+        ),
+      ),
+    );
+    if (selectedId == null || !mounted) return;
+    RetrievalBenchmarkCase? benchmark;
+    BenchmarkCaseResult? result;
+    BenchmarkCaseResult? baseline;
+    for (final item in data.cases) {
+      if (item.id == selectedId) benchmark = item;
+    }
+    for (final item in strategyResults) {
+      if (item.caseId == selectedId) result = item;
+    }
+    for (final item
+        in results[RetrievalStrategy.ftsOnly] ??
+            const <BenchmarkCaseResult>[]) {
+      if (item.caseId == selectedId) baseline = item;
+    }
+    if (benchmark == null || result == null || !mounted) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => BenchmarkCaseDetailPage(
+          benchmark: benchmark!,
+          result: result!,
+          baseline: strategy == RetrievalStrategy.ftsOnly ? null : baseline,
         ),
       ),
     );
   }
 
   Widget _metric(String label, double value) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
-        decoration: BoxDecoration(
-          border: Border.all(color: Theme.of(context).dividerColor),
-          borderRadius: BorderRadius.circular(8),
+    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
+    decoration: BoxDecoration(
+      border: Border.all(color: Theme.of(context).dividerColor),
+      borderRadius: BorderRadius.circular(8),
+    ),
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          (value * 100).toStringAsFixed(1),
+          style: const TextStyle(fontWeight: FontWeight.bold),
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text((value * 100).toStringAsFixed(1),
-                style: const TextStyle(fontWeight: FontWeight.bold)),
-            Text(label, style: const TextStyle(fontSize: 10)),
-          ],
+        Text(label, style: const TextStyle(fontSize: 10)),
+      ],
+    ),
+  );
+
+  Widget _optionalMetric(String label, double? value) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
+    decoration: BoxDecoration(
+      border: Border.all(color: Theme.of(context).dividerColor),
+      borderRadius: BorderRadius.circular(8),
+    ),
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          value == null ? '不可用' : (value * 100).toStringAsFixed(1),
+          style: const TextStyle(fontWeight: FontWeight.bold),
         ),
-      );
+        Text(label, style: const TextStyle(fontSize: 10)),
+      ],
+    ),
+  );
 
   RetrievalRankingComparison? _alternateComparison() {
     final current = results[RetrievalStrategy.hybrid];
@@ -323,9 +568,9 @@ class _RetrievalBenchmarkPageState extends State<RetrievalBenchmarkPage> {
   }
 
   String _label(RetrievalStrategy strategy) => switch (strategy) {
-        RetrievalStrategy.ftsOnly => 'A · FTS5 only',
-        RetrievalStrategy.embeddingOnly => 'B · Embedding only',
-        RetrievalStrategy.hybrid => 'C · Current Hybrid',
-        RetrievalStrategy.alternateHybrid => 'D · Alternate Hybrid',
-      };
+    RetrievalStrategy.ftsOnly => 'A · FTS5 only',
+    RetrievalStrategy.embeddingOnly => 'B · Embedding only',
+    RetrievalStrategy.hybrid => 'C · Current Hybrid',
+    RetrievalStrategy.alternateHybrid => 'D · Alternate Hybrid',
+  };
 }

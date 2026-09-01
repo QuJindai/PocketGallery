@@ -54,9 +54,10 @@ class RouterPolicy {
     final gap = top1 == null
         ? null
         : top2 == null
-            ? 0.0
-            : top1 - top2;
-    final dual = hybridHits.isNotEmpty &&
+        ? 0.0
+        : top1 - top2;
+    final dual =
+        hybridHits.isNotEmpty &&
         hybridHits.first.channels.contains('fts5') &&
         hybridHits.first.channels.contains('embedding');
     final lexicalPass = lexicalHits.isNotEmpty;

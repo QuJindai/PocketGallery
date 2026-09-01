@@ -8,8 +8,8 @@ import 'chat_models.dart';
 
 class ChatSessionStore {
   ChatSessionStore({Database? database})
-      : _db = database,
-        _ownsDatabase = database == null;
+    : _db = database,
+      _ownsDatabase = database == null;
 
   Database? _db;
   final bool _ownsDatabase;
@@ -77,18 +77,21 @@ class ChatSessionStore {
       createdAt: now,
       updatedAt: now,
     );
-    _db!.execute('''
+    _db!.execute(
+      '''
       INSERT INTO chat_sessions
       (session_id, title, mode, knowledge_scope_json, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?)
-    ''', [
-      session.id,
-      session.title,
-      session.mode.name,
-      session.scope.toJson(),
-      session.createdAt.toIso8601String(),
-      session.updatedAt.toIso8601String(),
-    ]);
+    ''',
+      [
+        session.id,
+        session.title,
+        session.mode.name,
+        session.scope.toJson(),
+        session.createdAt.toIso8601String(),
+        session.updatedAt.toIso8601String(),
+      ],
+    );
     return session;
   }
 
@@ -104,10 +107,13 @@ class ChatSessionStore {
 
   Future<ChatSession?> getSession(String sessionId) async {
     await initialize();
-    final rows = _db!.select('''
+    final rows = _db!.select(
+      '''
       SELECT session_id, title, mode, knowledge_scope_json, created_at, updated_at
       FROM chat_sessions WHERE session_id = ? LIMIT 1
-    ''', [sessionId]);
+    ''',
+      [sessionId],
+    );
     if (rows.isEmpty) return null;
     return _rowToSession(rows.first);
   }
@@ -126,38 +132,44 @@ class ChatSessionStore {
       scope: scope,
       updatedAt: DateTime.now(),
     );
-    _db!.execute('''
+    _db!.execute(
+      '''
       UPDATE chat_sessions
       SET title = ?, mode = ?, knowledge_scope_json = ?, updated_at = ?
       WHERE session_id = ?
-    ''', [
-      updated.title,
-      updated.mode.name,
-      updated.scope.toJson(),
-      updated.updatedAt.toIso8601String(),
-      updated.id,
-    ]);
+    ''',
+      [
+        updated.title,
+        updated.mode.name,
+        updated.scope.toJson(),
+        updated.updatedAt.toIso8601String(),
+        updated.id,
+      ],
+    );
     return updated;
   }
 
   Future<void> appendMessage(ChatMessage message) async {
     await initialize();
-    _db!.execute('''
+    _db!.execute(
+      '''
       INSERT INTO chat_messages
       (message_id, session_id, role, text, created_at,
        retrieval_mode, evidence_json, cited_anchors_json, trace_id)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    ''', [
-      message.id,
-      message.sessionId,
-      message.role.name,
-      message.text,
-      message.createdAt.toIso8601String(),
-      message.retrievalMode,
-      message.evidenceJson,
-      message.citedAnchorsJson,
-      message.traceId,
-    ]);
+    ''',
+      [
+        message.id,
+        message.sessionId,
+        message.role.name,
+        message.text,
+        message.createdAt.toIso8601String(),
+        message.retrievalMode,
+        message.evidenceJson,
+        message.citedAnchorsJson,
+        message.traceId,
+      ],
+    );
     _db!.execute(
       'UPDATE chat_sessions SET updated_at = ? WHERE session_id = ?',
       [DateTime.now().toIso8601String(), message.sessionId],
@@ -166,13 +178,16 @@ class ChatSessionStore {
 
   Future<List<ChatMessage>> messages(String sessionId) async {
     await initialize();
-    final rows = _db!.select('''
+    final rows = _db!.select(
+      '''
       SELECT message_id, session_id, role, text, created_at,
              retrieval_mode, evidence_json, cited_anchors_json, trace_id
       FROM chat_messages
       WHERE session_id = ?
       ORDER BY created_at, rowid
-    ''', [sessionId]);
+    ''',
+      [sessionId],
+    );
     return rows.map(_rowToMessage).toList();
   }
 
@@ -207,18 +222,18 @@ class ChatSessionStore {
   }
 
   ChatMessage _rowToMessage(Row row) => ChatMessage(
-        id: row['message_id'] as String,
-        sessionId: row['session_id'] as String,
-        role: (row['role'] as String) == ChatRole.assistant.name
-            ? ChatRole.assistant
-            : ChatRole.user,
-        text: row['text'] as String,
-        createdAt: DateTime.parse(row['created_at'] as String),
-        retrievalMode: row['retrieval_mode'] as String?,
-        evidenceJson: row['evidence_json'] as String?,
-        citedAnchorsJson: row['cited_anchors_json'] as String?,
-        traceId: row['trace_id'] as String?,
-      );
+    id: row['message_id'] as String,
+    sessionId: row['session_id'] as String,
+    role: (row['role'] as String) == ChatRole.assistant.name
+        ? ChatRole.assistant
+        : ChatRole.user,
+    text: row['text'] as String,
+    createdAt: DateTime.parse(row['created_at'] as String),
+    retrievalMode: row['retrieval_mode'] as String?,
+    evidenceJson: row['evidence_json'] as String?,
+    citedAnchorsJson: row['cited_anchors_json'] as String?,
+    traceId: row['trace_id'] as String?,
+  );
 
   String _nextId(String prefix) {
     _idCounter++;

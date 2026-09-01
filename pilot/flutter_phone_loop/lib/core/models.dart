@@ -124,8 +124,8 @@ class GateResult {
   final String detail;
 
   Map<String, Object> toJson() => {
-        'name': name,
-        'passed': passed,
-        'detail': detail,
-      };
+    'name': name,
+    'passed': passed,
+    'detail': detail,
+  };
 }

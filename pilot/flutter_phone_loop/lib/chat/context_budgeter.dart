@@ -8,19 +8,18 @@ class EvidenceContextSelection {
     required this.includedItemCount,
     required this.trimmedItemCount,
     required this.trimDetails,
+    required this.tokenCountsByAnchor,
   });
 
   final String context;
   final int includedItemCount;
   final int trimmedItemCount;
   final List<String> trimDetails;
+  final Map<String, int> tokenCountsByAnchor;
 }
 
 class ContextSelection {
-  const ContextSelection({
-    required this.history,
-    required this.decision,
-  });
+  const ContextSelection({required this.history, required this.decision});
 
   final List<ChatMessage> history;
   final ContextBudgetDecision decision;
@@ -48,12 +47,11 @@ class ContextBudgeter {
     List<EvidenceItem> evidence, {
     int maxTokens = evidenceReserveMax,
     int maxItems = 8,
-  }) =>
-      composeEvidenceContextWithDecision(
-        evidence,
-        maxTokens: maxTokens,
-        maxItems: maxItems,
-      ).context;
+  }) => composeEvidenceContextWithDecision(
+    evidence,
+    maxTokens: maxTokens,
+    maxItems: maxItems,
+  ).context;
 
   EvidenceContextSelection composeEvidenceContextWithDecision(
     List<EvidenceItem> evidence, {
@@ -71,8 +69,8 @@ class ContextBudgeter {
     final included = context.isEmpty
         ? 0
         : considered
-            .where((item) => context.contains('[${item.anchor}]'))
-            .length;
+              .where((item) => context.contains('[${item.anchor}]'))
+              .length;
     final trimmed = evidence.length - included;
     final details = <String>[
       if (evidence.length > considered.length)
@@ -80,9 +78,9 @@ class ContextBudgeter {
       if (included < considered.length)
         'evidence_budget:${considered.length - included}',
       if (included > 0 &&
-          considered.take(included).any(
-                (item) => !context.contains(item.chunk.text),
-              ))
+          considered
+              .take(included)
+              .any((item) => !context.contains(item.chunk.text)))
         'evidence_body_truncated',
     ];
     return EvidenceContextSelection(
@@ -90,7 +88,34 @@ class ContextBudgeter {
       includedItemCount: included,
       trimmedItemCount: trimmed,
       trimDetails: List<String>.unmodifiable(details),
+      tokenCountsByAnchor: Map<String, int>.unmodifiable(
+        _evidenceTokenCounts(context, considered),
+      ),
     );
+  }
+
+  Map<String, int> _evidenceTokenCounts(
+    String context,
+    List<EvidenceItem> considered,
+  ) {
+    if (context.isEmpty || considered.isEmpty) return const <String, int>{};
+    final anchors = <({String anchor, int offset})>[];
+    for (final item in considered) {
+      final offset = context.indexOf('[${item.anchor}]');
+      if (offset >= 0) anchors.add((anchor: item.anchor, offset: offset));
+    }
+    anchors.sort((a, b) => a.offset.compareTo(b.offset));
+    final result = <String, int>{};
+    var priorCumulative = 0;
+    for (var index = 0; index < anchors.length; index++) {
+      final end = index + 1 < anchors.length
+          ? anchors[index + 1].offset
+          : context.length;
+      final cumulative = estimateTokens(context.substring(0, end).trimRight());
+      result[anchors[index].anchor] = cumulative - priorCumulative;
+      priorCumulative = cumulative;
+    }
+    return result;
   }
 
   String _composeEvidenceContext(
@@ -113,11 +138,7 @@ class ContextBudgeter {
       final headerBudget = preferredHeaderBudget < maxTokens
           ? preferredHeaderBudget
           : maxTokens;
-      headers = _expandEvidenceHeaders(
-        selected,
-        minimumHeaders,
-        headerBudget,
-      );
+      headers = _expandEvidenceHeaders(selected, minimumHeaders, headerBudget);
       headerContext = headers.join('\n\n');
     } else {
       headers = [for (final item in selected) '[${item.anchor}]'];
@@ -180,8 +201,7 @@ class ContextBudgeter {
     while (low <= high) {
       final fieldLimit = (low + high) >> 1;
       final candidate = [
-        for (final item in evidence)
-          _limitedEvidenceHeader(item, fieldLimit),
+        for (final item in evidence) _limitedEvidenceHeader(item, fieldLimit),
       ];
       if (estimateTokens(candidate.join('\n\n')) <= maxTokens) {
         best = candidate;
@@ -238,7 +258,8 @@ class ContextBudgeter {
     int currentTurnTokens = 0,
   }) {
     final evidenceReserve = evidenceTokens.clamp(0, evidenceReserveMax);
-    final budget = modelMaxTokens -
+    final budget =
+        modelMaxTokens -
         systemReserve -
         outputReserve -
         safetyReserve -
@@ -251,12 +272,11 @@ class ContextBudgeter {
     List<ChatMessage> messages, {
     int evidenceTokens = 0,
     int currentTurnTokens = 0,
-  }) =>
-      selectHistoryWithDecision(
-        messages,
-        evidenceTokens: evidenceTokens,
-        currentTurnTokens: currentTurnTokens,
-      ).history;
+  }) => selectHistoryWithDecision(
+    messages,
+    evidenceTokens: evidenceTokens,
+    currentTurnTokens: currentTurnTokens,
+  ).history;
 
   ContextSelection selectHistoryWithDecision(
     List<ChatMessage> messages, {
@@ -267,7 +287,8 @@ class ContextBudgeter {
     int includedEvidenceItemCount = 0,
     List<String> trimDetails = const <String>[],
   }) {
-    final budget = modelMaxTokens -
+    final budget =
+        modelMaxTokens -
         outputReserve -
         safetyReserve -
         systemTokens -
@@ -297,8 +318,7 @@ class ContextBudgeter {
       );
     }
     final trimmedHistory = messages.length - history.length;
-    final trimmedEvidence =
-        evidenceItemCount - includedEvidenceItemCount;
+    final trimmedEvidence = evidenceItemCount - includedEvidenceItemCount;
     final details = <String>[
       ...trimDetails,
       if (trimmedHistory > 0) 'history_messages:$trimmedHistory',

@@ -4,13 +4,12 @@ enum GoldenGateStatus { pending, running, passed, failed, timedOut, blocked }
 
 extension GoldenGateStatusTerminal on GoldenGateStatus {
   bool get isTerminal => switch (this) {
-        GoldenGateStatus.passed ||
-        GoldenGateStatus.failed ||
-        GoldenGateStatus.timedOut ||
-        GoldenGateStatus.blocked =>
-          true,
-        GoldenGateStatus.pending || GoldenGateStatus.running => false,
-      };
+    GoldenGateStatus.passed ||
+    GoldenGateStatus.failed ||
+    GoldenGateStatus.timedOut ||
+    GoldenGateStatus.blocked => true,
+    GoldenGateStatus.pending || GoldenGateStatus.running => false,
+  };
 }
 
 class GoldenGateSnapshot {
@@ -61,15 +60,15 @@ class GoldenGateSnapshot {
   }
 
   Map<String, Object?> toJson() => {
-        'name': name,
-        'label': label,
-        'timeoutMs': timeout.inMilliseconds,
-        'status': status.name,
-        'detail': detail,
-        'startedAt': startedAt?.toIso8601String(),
-        'finishedAt': finishedAt?.toIso8601String(),
-        'durationMs': duration?.inMilliseconds,
-      };
+    'name': name,
+    'label': label,
+    'timeoutMs': timeout.inMilliseconds,
+    'status': status.name,
+    'detail': detail,
+    'startedAt': startedAt?.toIso8601String(),
+    'finishedAt': finishedAt?.toIso8601String(),
+    'durationMs': duration?.inMilliseconds,
+  };
 
   factory GoldenGateSnapshot.fromJson(Map<String, dynamic> json) {
     return GoldenGateSnapshot(
@@ -163,17 +162,17 @@ class GoldenTestSnapshot {
   }
 
   Map<String, Object?> toJson() => {
-        'schemaVersion': schemaVersion,
-        'runId': runId,
-        'phase': phase.name,
-        'startedAt': startedAt.toIso8601String(),
-        'updatedAt': updatedAt.toIso8601String(),
-        'percent': percent,
-        'completedCount': completedCount,
-        'passed': passed,
-        'cleanupError': cleanupError,
-        'gates': gates.map((gate) => gate.toJson()).toList(growable: false),
-      };
+    'schemaVersion': schemaVersion,
+    'runId': runId,
+    'phase': phase.name,
+    'startedAt': startedAt.toIso8601String(),
+    'updatedAt': updatedAt.toIso8601String(),
+    'percent': percent,
+    'completedCount': completedCount,
+    'passed': passed,
+    'cleanupError': cleanupError,
+    'gates': gates.map((gate) => gate.toJson()).toList(growable: false),
+  };
 
   factory GoldenTestSnapshot.fromJson(Map<String, dynamic> json) {
     final schemaVersion = _requiredInt(json, 'schemaVersion');
@@ -198,9 +197,7 @@ class GoldenTestSnapshot {
             if (gate is! Map) {
               throw const FormatException('Golden Test gate must be an object');
             }
-            return GoldenGateSnapshot.fromJson(
-              Map<String, dynamic>.from(gate),
-            );
+            return GoldenGateSnapshot.fromJson(Map<String, dynamic>.from(gate));
           })
           .toList(growable: false),
       cleanupError: json['cleanupError'] as String?,

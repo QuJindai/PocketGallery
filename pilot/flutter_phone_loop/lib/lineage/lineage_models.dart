@@ -4,10 +4,15 @@ import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
 
 enum TruthKind { real, derived }
+
 enum RetrievalLane { active, shadow, experimental }
+
 enum EmbeddingRepresentation { body, heading, sentence, query }
+
 enum VectorCommitStatus { pending, committed, failed }
+
 enum TraceStatus { running, complete, failed }
+
 enum BuildState {
   prepared,
   lexicalCommitted,
@@ -15,23 +20,27 @@ enum BuildState {
   vectorCommitted,
   ready,
 }
+
 enum BuildJobStatus { pending, running, complete, failed, cancelled }
+
+enum ExperimentRunStatus { pending, running, complete, failed, cancelled }
 
 extension TruthKindStorage on TruthKind {
   String get dbValue => name.toUpperCase();
 }
 
 TruthKind truthKindFromDb(String value) => switch (value.toUpperCase()) {
-      'REAL' => TruthKind.real,
-      'DERIVED' => TruthKind.derived,
-      _ => throw StateError('Unknown truth kind: $value'),
-    };
+  'REAL' => TruthKind.real,
+  'DERIVED' => TruthKind.derived,
+  _ => throw StateError('Unknown truth kind: $value'),
+};
 
 extension RetrievalLaneStorage on RetrievalLane {
   String get dbValue => name.toUpperCase();
 }
 
-RetrievalLane retrievalLaneFromDb(String value) => switch (value.toUpperCase()) {
+RetrievalLane retrievalLaneFromDb(String value) =>
+    switch (value.toUpperCase()) {
       'ACTIVE' => RetrievalLane.active,
       'SHADOW' => RetrievalLane.shadow,
       'EXPERIMENTAL' => RetrievalLane.experimental,
@@ -45,14 +54,20 @@ EmbeddingRepresentation embeddingRepresentationFromDb(String value) =>
     );
 
 TraceStatus traceStatusFromDb(String value) => TraceStatus.values.firstWhere(
-      (item) => item.name == value,
-      orElse: () => throw StateError('Unknown trace status: $value'),
-    );
+  (item) => item.name == value,
+  orElse: () => throw StateError('Unknown trace status: $value'),
+);
 
 BuildJobStatus buildJobStatusFromDb(String value) =>
     BuildJobStatus.values.firstWhere(
       (item) => item.name == value,
       orElse: () => throw StateError('Unknown build job status: $value'),
+    );
+
+ExperimentRunStatus experimentRunStatusFromDb(String value) =>
+    ExperimentRunStatus.values.firstWhere(
+      (item) => item.name == value,
+      orElse: () => throw StateError('Unknown experiment run status: $value'),
     );
 
 class LineageEmbedding {
@@ -93,13 +108,21 @@ class LineageEmbedding {
     TruthKind truthKind = TruthKind.real,
   }) {
     if (vector.isEmpty || vector.any((value) => !value.isFinite)) {
-      throw ArgumentError.value(vector, 'vector', 'Vector must be finite and non-empty');
+      throw ArgumentError.value(
+        vector,
+        'vector',
+        'Vector must be finite and non-empty',
+      );
     }
     final bytes = encodeFloat32(vector);
     final persisted = decodeFloat32(bytes);
     final norm = vectorNorm(persisted);
     if (!norm.isFinite || norm <= 0) {
-      throw ArgumentError.value(vector, 'vector', 'Vector norm must be finite and non-zero');
+      throw ArgumentError.value(
+        vector,
+        'vector',
+        'Vector norm must be finite and non-zero',
+      );
     }
     return LineageEmbedding(
       embeddingId: embeddingId,
@@ -134,21 +157,20 @@ class LineageEmbedding {
     required List<double> vector,
     required String modelIdentity,
     required String taskMode,
-  }) =>
-      LineageEmbedding.fromVector(
-        embeddingId: embeddingId,
-        sourceKind: sourceKind,
-        sourceId: sourceId,
-        documentId: documentId,
-        chunkId: chunkId,
-        representation: representation,
-        spanStart: spanStart,
-        spanEnd: spanEnd,
-        vector: vector,
-        modelIdentity: modelIdentity,
-        taskMode: taskMode,
-        generatedAt: DateTime.utc(2026, 1, 1),
-      );
+  }) => LineageEmbedding.fromVector(
+    embeddingId: embeddingId,
+    sourceKind: sourceKind,
+    sourceId: sourceId,
+    documentId: documentId,
+    chunkId: chunkId,
+    representation: representation,
+    spanStart: spanStart,
+    spanEnd: spanEnd,
+    vector: vector,
+    modelIdentity: modelIdentity,
+    taskMode: taskMode,
+    generatedAt: DateTime.utc(2026, 1, 1),
+  );
 
   final String embeddingId;
   final String sourceKind;
@@ -204,7 +226,11 @@ class LineageEmbedding {
 
   static List<double> decodeFloat32(Uint8List bytes) {
     if (bytes.length % 4 != 0) {
-      throw ArgumentError.value(bytes.length, 'bytes.length', 'Float32 BLOB length must be divisible by 4');
+      throw ArgumentError.value(
+        bytes.length,
+        'bytes.length',
+        'Float32 BLOB length must be divisible by 4',
+      );
     }
     final data = ByteData.sublistView(bytes);
     return List<double>.generate(
@@ -323,6 +349,42 @@ class CandidateRecord {
   final int? finalRank;
   final bool selectedForEvidence;
   final String? dropReason;
+}
+
+class RerankFeatureRecord {
+  const RerankFeatureRecord({
+    required this.featureId,
+    required this.traceId,
+    required this.strategyId,
+    required this.lane,
+    required this.candidateId,
+    required this.chunkId,
+    required this.normalizedLexicalAffinity,
+    required this.cosine,
+    required this.dualChannelAgreement,
+    required this.queryWindowCoverage,
+    required this.headingMatch,
+    required this.exactTermMatch,
+    required this.sourceDiversity,
+    required this.rerankScore,
+    required this.contributionJson,
+  });
+
+  final String featureId;
+  final String traceId;
+  final String strategyId;
+  final RetrievalLane lane;
+  final String candidateId;
+  final String chunkId;
+  final double normalizedLexicalAffinity;
+  final double cosine;
+  final double dualChannelAgreement;
+  final double queryWindowCoverage;
+  final double headingMatch;
+  final double exactTermMatch;
+  final double sourceDiversity;
+  final double rerankScore;
+  final String contributionJson;
 }
 
 class RouterDecisionRecord {
@@ -471,6 +533,64 @@ class CitationRecord {
   final String? sectionId;
   final int? pageNo;
   final String citationStatus;
+}
+
+class ExperimentRunRecord {
+  const ExperimentRunRecord({
+    required this.experimentRunId,
+    required this.traceId,
+    required this.strategyId,
+    required this.lane,
+    required this.status,
+    required this.startedAt,
+    required this.completedAt,
+    required this.completedItems,
+    required this.totalItems,
+    required this.metricJson,
+    required this.failureCode,
+    this.failureDetail,
+  });
+
+  final String experimentRunId;
+  final String traceId;
+  final String strategyId;
+  final RetrievalLane lane;
+  final ExperimentRunStatus status;
+  final DateTime? startedAt;
+  final DateTime? completedAt;
+  final int completedItems;
+  final int totalItems;
+  final String? metricJson;
+  final String? failureCode;
+  final String? failureDetail;
+
+  ExperimentRunRecord copyWith({
+    String? experimentRunId,
+    String? traceId,
+    String? strategyId,
+    RetrievalLane? lane,
+    ExperimentRunStatus? status,
+    DateTime? startedAt,
+    DateTime? completedAt,
+    int? completedItems,
+    int? totalItems,
+    String? metricJson,
+    String? failureCode,
+    String? failureDetail,
+  }) => ExperimentRunRecord(
+    experimentRunId: experimentRunId ?? this.experimentRunId,
+    traceId: traceId ?? this.traceId,
+    strategyId: strategyId ?? this.strategyId,
+    lane: lane ?? this.lane,
+    status: status ?? this.status,
+    startedAt: startedAt ?? this.startedAt,
+    completedAt: completedAt ?? this.completedAt,
+    completedItems: completedItems ?? this.completedItems,
+    totalItems: totalItems ?? this.totalItems,
+    metricJson: metricJson ?? this.metricJson,
+    failureCode: failureCode ?? this.failureCode,
+    failureDetail: failureDetail ?? this.failureDetail,
+  );
 }
 
 class BuildJobRecord {

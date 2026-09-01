@@ -113,9 +113,12 @@ class IndexHealthService {
       try {
         final dir = await getApplicationDocumentsDirectory();
         ftsBytes = await _fileLength(p.join(dir.path, 'pocketgallery_fts5.db'));
-        vectorBytes = await _fileLength(p.join(dir.path, 'pocketgallery_vectors.db'));
-        observationBytes =
-            await _fileLength(p.join(dir.path, 'pocketgallery_observability.db'));
+        vectorBytes = await _fileLength(
+          p.join(dir.path, 'pocketgallery_vectors.db'),
+        );
+        observationBytes = await _fileLength(
+          p.join(dir.path, 'pocketgallery_observability.db'),
+        );
       } catch (_) {
         // File-size telemetry is optional; logical health remains available.
       }
@@ -130,8 +133,9 @@ class IndexHealthService {
       documentCount: documents.length,
       chunkCount: chunks.length,
       ftsIndexedCount: ftsCount,
-      vectorIndexedCount:
-          chunks.where((chunk) => observationById.containsKey(chunk.id)).length,
+      vectorIndexedCount: chunks
+          .where((chunk) => observationById.containsKey(chunk.id))
+          .length,
       missingVectorCount: missing,
       staleVectorCount: stale,
       zeroChunkDocuments: documents.where((d) => d.chunkCount == 0).length,
@@ -146,23 +150,27 @@ class IndexHealthService {
   Future<List<ChunkInspection>> inspectDocument(String documentId) async {
     final chunks = await lexicalStore.chunksForDocument(documentId);
     final observations = {
-      for (final observation in await vectorStore.listForDocuments({documentId}))
+      for (final observation in await vectorStore.listForDocuments({
+        documentId,
+      }))
         observation.chunkId: observation,
     };
     final result = <ChunkInspection>[];
     for (var i = 0; i < chunks.length; i++) {
       final chunk = chunks[i];
       final observation = observations[chunk.id];
-      result.add(ChunkInspection(
-        chunk: chunk,
-        characterCount: chunk.text.runes.length,
-        overlapChars: i == 0 ? 0 : _overlap(chunks[i - 1].text, chunk.text),
-        ftsReady: true,
-        vectorReady: observation != null,
-        vectorDimension: observation?.dimension,
-        vectorNorm: observation?.norm,
-        vectorModelIdentity: observation?.modelIdentity,
-      ));
+      result.add(
+        ChunkInspection(
+          chunk: chunk,
+          characterCount: chunk.text.runes.length,
+          overlapChars: i == 0 ? 0 : _overlap(chunks[i - 1].text, chunk.text),
+          ftsReady: true,
+          vectorReady: observation != null,
+          vectorDimension: observation?.dimension,
+          vectorNorm: observation?.norm,
+          vectorModelIdentity: observation?.modelIdentity,
+        ),
+      );
     }
     return result;
   }
@@ -173,7 +181,9 @@ class IndexHealthService {
   }
 
   int _overlap(String previous, String current) {
-    final max = previous.length < current.length ? previous.length : current.length;
+    final max = previous.length < current.length
+        ? previous.length
+        : current.length;
     final bound = max > 256 ? 256 : max;
     for (var length = bound; length > 0; length--) {
       if (previous.substring(previous.length - length) ==

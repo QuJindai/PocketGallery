@@ -19,22 +19,21 @@ class TraceStageTiming {
     int? fusionMs,
     int? evidenceMs,
     int? generationMs,
-  }) =>
-      TraceStageTiming(
-        lexicalMs: lexicalMs ?? this.lexicalMs,
-        semanticMs: semanticMs ?? this.semanticMs,
-        fusionMs: fusionMs ?? this.fusionMs,
-        evidenceMs: evidenceMs ?? this.evidenceMs,
-        generationMs: generationMs ?? this.generationMs,
-      );
+  }) => TraceStageTiming(
+    lexicalMs: lexicalMs ?? this.lexicalMs,
+    semanticMs: semanticMs ?? this.semanticMs,
+    fusionMs: fusionMs ?? this.fusionMs,
+    evidenceMs: evidenceMs ?? this.evidenceMs,
+    generationMs: generationMs ?? this.generationMs,
+  );
 
   Map<String, Object> toJson() => {
-        'lexicalMs': lexicalMs,
-        'semanticMs': semanticMs,
-        'fusionMs': fusionMs,
-        'evidenceMs': evidenceMs,
-        'generationMs': generationMs,
-      };
+    'lexicalMs': lexicalMs,
+    'semanticMs': semanticMs,
+    'fusionMs': fusionMs,
+    'evidenceMs': evidenceMs,
+    'generationMs': generationMs,
+  };
 
   factory TraceStageTiming.fromJson(Map<String, dynamic> json) =>
       TraceStageTiming(
@@ -85,40 +84,38 @@ class TraceHit {
   final double? exactTermBonus;
 
   Map<String, Object?> toJson() => {
-        'channel': channel,
-        'chunkId': chunkId,
-        'documentId': documentId,
-        'sourceName': sourceName,
-        'locator': locator,
-        'rank': rank,
-        'rawScore': rawScore,
-        'normalizedScore': normalizedScore,
-        'lexicalRank': lexicalRank,
-        'semanticRank': semanticRank,
-        'lexicalContribution': lexicalContribution,
-        'semanticContribution': semanticContribution,
-        'dualChannelBonus': dualChannelBonus,
-        'exactTermBonus': exactTermBonus,
-      };
+    'channel': channel,
+    'chunkId': chunkId,
+    'documentId': documentId,
+    'sourceName': sourceName,
+    'locator': locator,
+    'rank': rank,
+    'rawScore': rawScore,
+    'normalizedScore': normalizedScore,
+    'lexicalRank': lexicalRank,
+    'semanticRank': semanticRank,
+    'lexicalContribution': lexicalContribution,
+    'semanticContribution': semanticContribution,
+    'dualChannelBonus': dualChannelBonus,
+    'exactTermBonus': exactTermBonus,
+  };
 
   factory TraceHit.fromJson(Map<String, dynamic> json) => TraceHit(
-        channel: json['channel'] as String,
-        chunkId: json['chunkId'] as String,
-        documentId: json['documentId'] as String,
-        sourceName: json['sourceName'] as String,
-        locator: json['locator'] as String,
-        rank: (json['rank'] as num).toInt(),
-        rawScore: (json['rawScore'] as num?)?.toDouble(),
-        normalizedScore: (json['normalizedScore'] as num).toDouble(),
-        lexicalRank: (json['lexicalRank'] as num?)?.toInt(),
-        semanticRank: (json['semanticRank'] as num?)?.toInt(),
-        lexicalContribution:
-            (json['lexicalContribution'] as num?)?.toDouble(),
-        semanticContribution:
-            (json['semanticContribution'] as num?)?.toDouble(),
-        dualChannelBonus: (json['dualChannelBonus'] as num?)?.toDouble(),
-        exactTermBonus: (json['exactTermBonus'] as num?)?.toDouble(),
-      );
+    channel: json['channel'] as String,
+    chunkId: json['chunkId'] as String,
+    documentId: json['documentId'] as String,
+    sourceName: json['sourceName'] as String,
+    locator: json['locator'] as String,
+    rank: (json['rank'] as num).toInt(),
+    rawScore: (json['rawScore'] as num?)?.toDouble(),
+    normalizedScore: (json['normalizedScore'] as num).toDouble(),
+    lexicalRank: (json['lexicalRank'] as num?)?.toInt(),
+    semanticRank: (json['semanticRank'] as num?)?.toInt(),
+    lexicalContribution: (json['lexicalContribution'] as num?)?.toDouble(),
+    semanticContribution: (json['semanticContribution'] as num?)?.toDouble(),
+    dualChannelBonus: (json['dualChannelBonus'] as num?)?.toDouble(),
+    exactTermBonus: (json['exactTermBonus'] as num?)?.toDouble(),
+  );
 }
 
 class RetrievalTrace {
@@ -155,63 +152,63 @@ class RetrievalTrace {
   final String? queryVectorFingerprint;
 
   RetrievalTrace bounded({int maxHits = 20}) => RetrievalTrace(
-        traceId: traceId,
-        sessionId: sessionId,
-        query: query,
-        mode: mode,
-        startedAt: startedAt,
-        completedAt: completedAt,
-        scopeDocumentIds: scopeDocumentIds,
-        timings: timings,
-        lexicalHits: lexicalHits.take(maxHits).toList(growable: false),
-        semanticHits: semanticHits.take(maxHits).toList(growable: false),
-        hybridHits: hybridHits.take(maxHits).toList(growable: false),
-        evidenceAnchors: evidenceAnchors,
-        citations: citations,
-        queryVectorFingerprint: queryVectorFingerprint,
-      );
+    traceId: traceId,
+    sessionId: sessionId,
+    query: query,
+    mode: mode,
+    startedAt: startedAt,
+    completedAt: completedAt,
+    scopeDocumentIds: scopeDocumentIds,
+    timings: timings,
+    lexicalHits: lexicalHits.take(maxHits).toList(growable: false),
+    semanticHits: semanticHits.take(maxHits).toList(growable: false),
+    hybridHits: hybridHits.take(maxHits).toList(growable: false),
+    evidenceAnchors: evidenceAnchors,
+    citations: citations,
+    queryVectorFingerprint: queryVectorFingerprint,
+  );
 
   Map<String, Object?> toJson() => {
-        'traceId': traceId,
-        'sessionId': sessionId,
-        'query': query,
-        'mode': mode,
-        'startedAt': startedAt.toUtc().toIso8601String(),
-        'completedAt': completedAt.toUtc().toIso8601String(),
-        'scopeDocumentIds': (scopeDocumentIds.toList()..sort()),
-        'timings': timings.toJson(),
-        'lexicalHits': lexicalHits.map((e) => e.toJson()).toList(),
-        'semanticHits': semanticHits.map((e) => e.toJson()).toList(),
-        'hybridHits': hybridHits.map((e) => e.toJson()).toList(),
-        'evidenceAnchors': evidenceAnchors,
-        'citations': citations,
-        'queryVectorFingerprint': queryVectorFingerprint,
-      };
+    'traceId': traceId,
+    'sessionId': sessionId,
+    'query': query,
+    'mode': mode,
+    'startedAt': startedAt.toUtc().toIso8601String(),
+    'completedAt': completedAt.toUtc().toIso8601String(),
+    'scopeDocumentIds': (scopeDocumentIds.toList()..sort()),
+    'timings': timings.toJson(),
+    'lexicalHits': lexicalHits.map((e) => e.toJson()).toList(),
+    'semanticHits': semanticHits.map((e) => e.toJson()).toList(),
+    'hybridHits': hybridHits.map((e) => e.toJson()).toList(),
+    'evidenceAnchors': evidenceAnchors,
+    'citations': citations,
+    'queryVectorFingerprint': queryVectorFingerprint,
+  };
 
   factory RetrievalTrace.fromJson(Map<String, dynamic> json) => RetrievalTrace(
-        traceId: json['traceId'] as String,
-        sessionId: json['sessionId'] as String,
-        query: json['query'] as String,
-        mode: json['mode'] as String,
-        startedAt: DateTime.parse(json['startedAt'] as String),
-        completedAt: DateTime.parse(json['completedAt'] as String),
-        scopeDocumentIds: (json['scopeDocumentIds'] as List<dynamic>? ?? const [])
-            .whereType<String>()
-            .toSet(),
-        timings: TraceStageTiming.fromJson(
-          (json['timings'] as Map<dynamic, dynamic>).cast<String, dynamic>(),
-        ),
-        lexicalHits: _hits(json['lexicalHits']),
-        semanticHits: _hits(json['semanticHits']),
-        hybridHits: _hits(json['hybridHits']),
-        evidenceAnchors: (json['evidenceAnchors'] as List<dynamic>? ?? const [])
-            .whereType<String>()
-            .toList(),
-        citations: (json['citations'] as List<dynamic>? ?? const [])
-            .whereType<String>()
-            .toList(),
-        queryVectorFingerprint: json['queryVectorFingerprint'] as String?,
-      );
+    traceId: json['traceId'] as String,
+    sessionId: json['sessionId'] as String,
+    query: json['query'] as String,
+    mode: json['mode'] as String,
+    startedAt: DateTime.parse(json['startedAt'] as String),
+    completedAt: DateTime.parse(json['completedAt'] as String),
+    scopeDocumentIds: (json['scopeDocumentIds'] as List<dynamic>? ?? const [])
+        .whereType<String>()
+        .toSet(),
+    timings: TraceStageTiming.fromJson(
+      (json['timings'] as Map<dynamic, dynamic>).cast<String, dynamic>(),
+    ),
+    lexicalHits: _hits(json['lexicalHits']),
+    semanticHits: _hits(json['semanticHits']),
+    hybridHits: _hits(json['hybridHits']),
+    evidenceAnchors: (json['evidenceAnchors'] as List<dynamic>? ?? const [])
+        .whereType<String>()
+        .toList(),
+    citations: (json['citations'] as List<dynamic>? ?? const [])
+        .whereType<String>()
+        .toList(),
+    queryVectorFingerprint: json['queryVectorFingerprint'] as String?,
+  );
 
   static List<TraceHit> _hits(Object? raw) =>
       (raw as List<dynamic>? ?? const [])

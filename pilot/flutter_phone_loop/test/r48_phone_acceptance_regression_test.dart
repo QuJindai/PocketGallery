@@ -5,112 +5,155 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pocketgallery_phone_pilot/chat/chat_models.dart';
+import 'package:pocketgallery_phone_pilot/chat/chat_session_store.dart';
 import 'package:pocketgallery_phone_pilot/core/models.dart';
 import 'package:pocketgallery_phone_pilot/services/golden_gate_executor.dart';
 import 'package:pocketgallery_phone_pilot/services/golden_test_report_store.dart';
 import 'package:pocketgallery_phone_pilot/services/golden_test_runner.dart';
 import 'package:pocketgallery_phone_pilot/services/golden_test_state.dart';
+import 'package:pocketgallery_phone_pilot/services/knowledge_engine.dart';
+import 'package:pocketgallery_phone_pilot/services/model_setup_service.dart';
 import 'package:pocketgallery_phone_pilot/ui/model_settings_page.dart';
+import 'package:sqlite3/sqlite3.dart';
 
 void main() {
   group('R4.8 bounded phone acceptance', () {
-    test('two passing gates emit the fixed monotonic progress sequence',
-        () async {
-      final seen = <GoldenTestSnapshot>[];
+    test(
+      'two passing gates emit the fixed monotonic progress sequence',
+      () async {
+        final seen = <GoldenTestSnapshot>[];
+
+        final result = await GoldenGateExecutor().execute(
+          runId: 'r48-order',
+          gates: [
+            GoldenGateSpec(
+              name: 'F1_IMPORT_CHUNK',
+              label: 'Import and chunk fixture',
+              timeout: const Duration(seconds: 1),
+              run: () async =>
+                  const GateResult('F1_IMPORT_CHUNK', true, 'chunks=3'),
+            ),
+            GoldenGateSpec(
+              name: 'F2_FTS5',
+              label: 'FTS5 exact recall',
+              timeout: const Duration(seconds: 1),
+              run: () async =>
+                  const GateResult('F2_FTS5', true, 'top1=fixture'),
+            ),
+          ],
+          onProgress: seen.add,
+        );
+
+        expect(
+          seen.map((snapshot) => snapshot.percent).toList(),
+          orderedEquals([0, 0, 0, 45, 45, 90, 95, 100]),
+        );
+        expect(result.phase, GoldenRunPhase.completed);
+        expect(result.completedCount, 2);
+        expect(result.passed, isTrue);
+      },
+    );
+
+    test(
+      'a gate timeout is terminal, calls timeout cleanup, and cannot pass',
+      () async {
+        var timeoutCleanupCalls = 0;
+
+        final result = await GoldenGateExecutor().execute(
+          runId: 'r48-timeout',
+          gates: [
+            GoldenGateSpec(
+              name: 'F6_GEMMA_CITATION',
+              label: 'Real Gemma citation',
+              timeout: const Duration(milliseconds: 5),
+              run: () => Completer<GateResult>().future,
+            ),
+          ],
+          onGateTimeout: (_) async {
+            timeoutCleanupCalls += 1;
+          },
+        );
+
+        expect(result.gates.single.status, GoldenGateStatus.timedOut);
+        expect(result.gates.single.detail, contains('5ms'));
+        expect(timeoutCleanupCalls, 1);
+        expect(result.passed, isFalse);
+      },
+    );
+
+    test('a timed-out gate records an unresolved native operation', () async {
+      final operation = Completer<GateResult>();
 
       final result = await GoldenGateExecutor().execute(
-        runId: 'r48-order',
-        gates: [
-          GoldenGateSpec(
-            name: 'F1_IMPORT_CHUNK',
-            label: 'Import and chunk fixture',
-            timeout: const Duration(seconds: 1),
-            run: () async =>
-                const GateResult('F1_IMPORT_CHUNK', true, 'chunks=3'),
-          ),
-          GoldenGateSpec(
-            name: 'F2_FTS5',
-            label: 'FTS5 exact recall',
-            timeout: const Duration(seconds: 1),
-            run: () async => const GateResult('F2_FTS5', true, 'top1=fixture'),
-          ),
-        ],
-        onProgress: seen.add,
-      );
-
-      expect(
-        seen.map((snapshot) => snapshot.percent).toList(),
-        orderedEquals([0, 0, 0, 45, 45, 90, 95, 100]),
-      );
-      expect(result.phase, GoldenRunPhase.completed);
-      expect(result.completedCount, 2);
-      expect(result.passed, isTrue);
-    });
-
-    test('a gate timeout is terminal, calls timeout cleanup, and cannot pass',
-        () async {
-      var timeoutCleanupCalls = 0;
-
-      final result = await GoldenGateExecutor().execute(
-        runId: 'r48-timeout',
-        gates: [
+        runId: 'r50-unresolved-operation',
+        gates: <GoldenGateSpec>[
           GoldenGateSpec(
             name: 'F6_GEMMA_CITATION',
             label: 'Real Gemma citation',
             timeout: const Duration(milliseconds: 5),
-            run: () => Completer<GateResult>().future,
+            run: () => operation.future,
           ),
         ],
-        onGateTimeout: (_) async {
-          timeoutCleanupCalls += 1;
-        },
       );
 
       expect(result.gates.single.status, GoldenGateStatus.timedOut);
-      expect(result.gates.single.detail, contains('5ms'));
-      expect(timeoutCleanupCalls, 1);
-      expect(result.passed, isFalse);
-    });
-
-    test('a failed dependency blocks its consumer without invoking it',
-        () async {
-      var dependentCalls = 0;
-
-      final result = await GoldenGateExecutor().execute(
-        runId: 'r48-blocked',
-        gates: [
-          GoldenGateSpec(
-            name: 'F6_GEMMA_CITATION',
-            label: 'Real Gemma citation',
-            timeout: const Duration(seconds: 1),
-            run: () async =>
-                const GateResult('F6_GEMMA_CITATION', false, 'bad citation'),
-          ),
-          GoldenGateSpec(
-            name: 'F7_CHAT_REALWORLD',
-            label: 'Heavy second turn',
-            timeout: const Duration(seconds: 1),
-            blockedWhen: (snapshot) =>
-                snapshot.gate('F6_GEMMA_CITATION')?.status !=
-                GoldenGateStatus.passed,
-            blockedReason: 'F6 did not pass',
-            run: () async {
-              dependentCalls += 1;
-              return const GateResult('F7_CHAT_REALWORLD', true, 'unexpected');
-            },
-          ),
-        ],
+      expect(
+        result.cleanupError,
+        contains('GATE_OPERATION_STILL_ACTIVE:F6_GEMMA_CITATION'),
       );
 
-      expect(dependentCalls, 0);
-      expect(result.gate('F7_CHAT_REALWORLD')!.status,
-          GoldenGateStatus.blocked);
-      expect(result.gate('F7_CHAT_REALWORLD')!.detail, 'F6 did not pass');
-      expect(result.passed, isFalse);
+      operation.complete(
+        const GateResult('F6_GEMMA_CITATION', true, 'late completion'),
+      );
+      await Future<void>.delayed(Duration.zero);
     });
 
-    test('cleanup failure is recorded and forces an overall failure',
-        () async {
+    test(
+      'a failed dependency blocks its consumer without invoking it',
+      () async {
+        var dependentCalls = 0;
+
+        final result = await GoldenGateExecutor().execute(
+          runId: 'r48-blocked',
+          gates: [
+            GoldenGateSpec(
+              name: 'F6_GEMMA_CITATION',
+              label: 'Real Gemma citation',
+              timeout: const Duration(seconds: 1),
+              run: () async =>
+                  const GateResult('F6_GEMMA_CITATION', false, 'bad citation'),
+            ),
+            GoldenGateSpec(
+              name: 'F7_CHAT_REALWORLD',
+              label: 'Heavy second turn',
+              timeout: const Duration(seconds: 1),
+              blockedWhen: (snapshot) =>
+                  snapshot.gate('F6_GEMMA_CITATION')?.status !=
+                  GoldenGateStatus.passed,
+              blockedReason: 'F6 did not pass',
+              run: () async {
+                dependentCalls += 1;
+                return const GateResult(
+                  'F7_CHAT_REALWORLD',
+                  true,
+                  'unexpected',
+                );
+              },
+            ),
+          ],
+        );
+
+        expect(dependentCalls, 0);
+        expect(
+          result.gate('F7_CHAT_REALWORLD')!.status,
+          GoldenGateStatus.blocked,
+        );
+        expect(result.gate('F7_CHAT_REALWORLD')!.detail, 'F6 did not pass');
+        expect(result.passed, isFalse);
+      },
+    );
+
+    test('cleanup failure is recorded and forces an overall failure', () async {
       final result = await GoldenGateExecutor().execute(
         runId: 'r48-cleanup',
         gates: [
@@ -129,6 +172,85 @@ void main() {
       expect(result.percent, 100);
       expect(result.cleanupError, contains('fixture cleanup failed'));
       expect(result.passed, isFalse);
+    });
+
+    test('a hung gate-timeout cleanup has a terminal boundary', () async {
+      final gateOperation = Completer<GateResult>();
+      final timeoutCleanup = Completer<void>();
+      final execution = _compressTimer(
+        const Duration(seconds: 12),
+        () => GoldenGateExecutor().execute(
+          runId: 'r50-timeout-cleanup-boundary',
+          gates: <GoldenGateSpec>[
+            GoldenGateSpec(
+              name: 'F1_IMPORT_CHUNK',
+              label: 'Import and chunk fixture',
+              timeout: const Duration(milliseconds: 5),
+              run: () => gateOperation.future,
+            ),
+          ],
+          onGateTimeout: (_) => timeoutCleanup.future,
+        ),
+      );
+
+      final outcome = await Future.any<Object>(<Future<Object>>[
+        execution,
+        Future<Object>.delayed(
+          const Duration(milliseconds: 250),
+          () => 'WATCHDOG_EXPIRED',
+        ),
+      ]);
+      if (!timeoutCleanup.isCompleted) timeoutCleanup.complete();
+      if (!gateOperation.isCompleted) {
+        gateOperation.complete(
+          const GateResult('F1_IMPORT_CHUNK', true, 'late completion'),
+        );
+      }
+      await execution;
+
+      expect(outcome, isA<GoldenTestSnapshot>());
+      final snapshot = outcome as GoldenTestSnapshot;
+      expect(snapshot.phase, GoldenRunPhase.completed);
+      expect(
+        snapshot.gates.single.detail,
+        contains('GOLDEN_GATE_TIMEOUT_CLEANUP_TIMEOUT'),
+      );
+    });
+
+    test('a hung final cleanup has a terminal evidence boundary', () async {
+      final finalCleanup = Completer<void>();
+      final execution = _compressTimer(
+        const Duration(seconds: 12),
+        () => GoldenGateExecutor().execute(
+          runId: 'r50-final-cleanup-boundary',
+          gates: <GoldenGateSpec>[
+            GoldenGateSpec(
+              name: 'F1_IMPORT_CHUNK',
+              label: 'Import and chunk fixture',
+              timeout: const Duration(seconds: 1),
+              run: () async =>
+                  const GateResult('F1_IMPORT_CHUNK', true, 'pass'),
+            ),
+          ],
+          cleanup: () => finalCleanup.future,
+        ),
+      );
+
+      final outcome = await Future.any<Object>(<Future<Object>>[
+        execution,
+        Future<Object>.delayed(
+          const Duration(milliseconds: 250),
+          () => 'WATCHDOG_EXPIRED',
+        ),
+      ]);
+      if (!finalCleanup.isCompleted) finalCleanup.complete();
+      await execution;
+
+      expect(outcome, isA<GoldenTestSnapshot>());
+      final snapshot = outcome as GoldenTestSnapshot;
+      expect(snapshot.phase, GoldenRunPhase.completed);
+      expect(snapshot.cleanupError, contains('GOLDEN_CLEANUP_TIMEOUT'));
+      expect(snapshot.passed, isFalse);
     });
 
     test('snapshot JSON round-trip preserves terminal gate evidence', () {
@@ -162,39 +284,41 @@ void main() {
       expect(restored.passed, isTrue);
     });
 
-    test('a checkpoint is durable before its progress becomes visible',
-        () async {
-      final events = <String>[];
+    test(
+      'a checkpoint is durable before its progress becomes visible',
+      () async {
+        final events = <String>[];
 
-      await GoldenGateExecutor().execute(
-        runId: 'r48-checkpoint-order',
-        gates: [
-          GoldenGateSpec(
-            name: 'F1_IMPORT_CHUNK',
-            label: 'Import and chunk fixture',
-            timeout: const Duration(seconds: 1),
-            run: () async =>
-                const GateResult('F1_IMPORT_CHUNK', true, 'chunks=3'),
-          ),
-        ],
-        onCheckpoint: (snapshot) async {
-          events.add('saved:${snapshot.phase.name}:${snapshot.percent}');
-        },
-        onProgress: (snapshot) {
-          events.add('shown:${snapshot.phase.name}:${snapshot.percent}');
-        },
-      );
-
-      expect(events.first, 'saved:preparing:0');
-      for (var index = 0; index < events.length; index += 2) {
-        expect(events[index], startsWith('saved:'));
-        expect(events[index + 1], startsWith('shown:'));
-        expect(
-          events[index].substring('saved:'.length),
-          events[index + 1].substring('shown:'.length),
+        await GoldenGateExecutor().execute(
+          runId: 'r48-checkpoint-order',
+          gates: [
+            GoldenGateSpec(
+              name: 'F1_IMPORT_CHUNK',
+              label: 'Import and chunk fixture',
+              timeout: const Duration(seconds: 1),
+              run: () async =>
+                  const GateResult('F1_IMPORT_CHUNK', true, 'chunks=3'),
+            ),
+          ],
+          onCheckpoint: (snapshot) async {
+            events.add('saved:${snapshot.phase.name}:${snapshot.percent}');
+          },
+          onProgress: (snapshot) {
+            events.add('shown:${snapshot.phase.name}:${snapshot.percent}');
+          },
         );
-      }
-    });
+
+        expect(events.first, 'saved:preparing:0');
+        for (var index = 0; index < events.length; index += 2) {
+          expect(events[index], startsWith('saved:'));
+          expect(events[index + 1], startsWith('shown:'));
+          expect(
+            events[index].substring('saved:'.length),
+            events[index + 1].substring('shown:'.length),
+          );
+        }
+      },
+    );
   });
 
   group('R4.8 recoverable checkpoints', () {
@@ -207,43 +331,52 @@ void main() {
 
       final file = await store.save(_checkpointSnapshot('r48-save'));
 
-      expect(jsonDecode(await file.readAsString()), isA<Map<String, dynamic>>());
+      expect(
+        jsonDecode(await file.readAsString()),
+        isA<Map<String, dynamic>>(),
+      );
       expect(File('${file.path}.tmp').existsSync(), isFalse);
       expect((await store.readLast())!.runId, 'r48-save');
     });
 
-    test('readLast falls back to a valid backup after an interrupted swap',
-        () async {
-      final directory = await Directory.systemTemp.createTemp('pg-r48-bak-');
-      addTearDown(() => directory.delete(recursive: true));
-      final store = GoldenTestReportStore(
-        directoryProvider: () async => directory,
-      );
-      final file = await store.save(_checkpointSnapshot('previous-valid'));
-      await file.rename('${file.path}.bak');
-      await file.writeAsString('{incomplete');
+    test(
+      'readLast falls back to a valid backup after an interrupted swap',
+      () async {
+        final directory = await Directory.systemTemp.createTemp('pg-r48-bak-');
+        addTearDown(() => directory.delete(recursive: true));
+        final store = GoldenTestReportStore(
+          directoryProvider: () async => directory,
+        );
+        final file = await store.save(_checkpointSnapshot('previous-valid'));
+        await file.rename('${file.path}.bak');
+        await file.writeAsString('{incomplete');
 
-      final restored = await store.readLast();
+        final restored = await store.readLast();
 
-      expect(restored, isNotNull);
-      expect(restored!.runId, 'previous-valid');
-      expect(restored.gates.single.detail, 'line 1\nline 2: StateError');
-    });
+        expect(restored, isNotNull);
+        expect(restored!.runId, 'previous-valid');
+        expect(restored.gates.single.detail, 'line 1\nline 2: StateError');
+      },
+    );
 
-    test('readLast returns null when primary and backup are both malformed',
-        () async {
-      final directory = await Directory.systemTemp.createTemp('pg-r48-bad-');
-      addTearDown(() => directory.delete(recursive: true));
-      final store = GoldenTestReportStore(
-        directoryProvider: () async => directory,
-      );
-      await File('${directory.path}/PG_GOLDEN_LAST.json')
-          .writeAsString('{bad-primary');
-      await File('${directory.path}/PG_GOLDEN_LAST.json.bak')
-          .writeAsString('bad-backup');
+    test(
+      'readLast returns null when primary and backup are both malformed',
+      () async {
+        final directory = await Directory.systemTemp.createTemp('pg-r48-bad-');
+        addTearDown(() => directory.delete(recursive: true));
+        final store = GoldenTestReportStore(
+          directoryProvider: () async => directory,
+        );
+        await File(
+          '${directory.path}/PG_GOLDEN_LAST.json',
+        ).writeAsString('{bad-primary');
+        await File(
+          '${directory.path}/PG_GOLDEN_LAST.json.bak',
+        ).writeAsString('bad-backup');
 
-      expect(await store.readLast(), isNull);
-    });
+        expect(await store.readLast(), isNull);
+      },
+    );
   });
 
   group('R4.8 strict F7 assertion', () {
@@ -296,29 +429,60 @@ void main() {
       expect(result.detail, contains('knowledgeMode=false'));
     });
 
-    test('passes only the final sentinel with a valid E6 knowledge citation',
-        () {
-      final reply = ChatMessage.assistant(
-        id: 'a4',
-        sessionId: 's1',
-        text: '最后标记是 PG_EVIDENCE_LAST_6 [E6]',
-        retrievalMode: 'knowledge:hybrid',
-        citedAnchorsJson: ChatMessage.encodeAnchors(['E6']),
-      );
+    test(
+      'passes only the final sentinel with a valid E6 knowledge citation',
+      () {
+        final reply = ChatMessage.assistant(
+          id: 'a4',
+          sessionId: 's1',
+          text: '最后标记是 PG_EVIDENCE_LAST_6 [E6]',
+          retrievalMode: 'knowledge:hybrid',
+          citedAnchorsJson: ChatMessage.encodeAnchors(['E6']),
+        );
 
-      final result = GoldenF7Assertion.evaluate(reply, validAnchors);
+        final result = GoldenF7Assertion.evaluate(reply, validAnchors);
 
-      expect(result.passed, isTrue);
-      expect(result.detail, contains('sentinel=true'));
-      expect(result.detail, contains('citesE6=true'));
-      expect(result.detail, contains('validCitations=true'));
-      expect(result.detail, contains('knowledgeMode=true'));
-    });
+        expect(result.passed, isTrue);
+        expect(result.detail, contains('sentinel=true'));
+        expect(result.detail, contains('citesE6=true'));
+        expect(result.detail, contains('validCitations=true'));
+        expect(result.detail, contains('knowledgeMode=true'));
+      },
+    );
   });
 
   group('R4.8 live phone progress UI', () {
-    testWidgets('renders determinate live progress and checkpoint state',
-        (tester) async {
+    testWidgets(
+      'focused Phone Golden Test remains under Advanced diagnostics',
+      (tester) async {
+        final database = sqlite3.openInMemory();
+        addTearDown(database.close);
+        await tester.pumpWidget(
+          MaterialApp(
+            home: ModelSettingsPage(
+              engine: KnowledgeEngine(),
+              store: ChatSessionStore(database: database),
+              setupService: _R48QuietModelSetupService(),
+              acceptanceSnapshotLoader: () async => null,
+              acceptancePageBuilder: (context) => const SizedBox.shrink(),
+            ),
+          ),
+        );
+        await tester.pump();
+        await tester.pump();
+
+        await tester.ensureVisible(find.text('高级 / 诊断'));
+        await tester.tap(find.text('高级 / 诊断'));
+        await tester.pump();
+
+        expect(find.text('Run Phone Golden Test'), findsOneWidget);
+        expect(find.text('诊断未运行'), findsOneWidget);
+      },
+    );
+
+    testWidgets('renders determinate live progress and checkpoint state', (
+      tester,
+    ) async {
       final now = DateTime.utc(2026, 8, 29, 14, 0, 12);
       final snapshot = GoldenTestSnapshot(
         runId: 'r48-ui-running',
@@ -333,11 +497,13 @@ void main() {
         ],
       );
 
-      await tester.pumpWidget(MaterialApp(
-        home: Scaffold(
-          body: GoldenTestProgressPanel(snapshot: snapshot, now: now),
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: GoldenTestProgressPanel(snapshot: snapshot, now: now),
+          ),
         ),
-      ));
+      );
 
       final progress = tester.widget<LinearProgressIndicator>(
         find.byType(LinearProgressIndicator),
@@ -351,8 +517,9 @@ void main() {
       expect(find.textContaining('F6/F7 需在实体手机'), findsOneWidget);
     });
 
-    testWidgets('renders all six gate statuses with distinct icons',
-        (tester) async {
+    testWidgets('renders all six gate statuses with distinct icons', (
+      tester,
+    ) async {
       final now = DateTime.utc(2026, 8, 29, 14, 1);
       final statuses = GoldenGateStatus.values;
       final snapshot = GoldenTestSnapshot(
@@ -366,13 +533,15 @@ void main() {
         ],
       );
 
-      await tester.pumpWidget(MaterialApp(
-        home: Scaffold(
-          body: SingleChildScrollView(
-            child: GoldenTestProgressPanel(snapshot: snapshot, now: now),
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: GoldenTestProgressPanel(snapshot: snapshot, now: now),
+            ),
           ),
         ),
-      ));
+      );
 
       for (final label in ['等待', '运行中', '通过', '失败', '超时', '已阻断']) {
         expect(find.text(label), findsOneWidget);
@@ -389,8 +558,9 @@ void main() {
       }
     });
 
-    testWidgets('renders the final PASS verdict after completed cleanup',
-        (tester) async {
+    testWidgets('renders the final PASS verdict after completed cleanup', (
+      tester,
+    ) async {
       final now = DateTime.utc(2026, 8, 29, 14, 2);
       final snapshot = GoldenTestSnapshot(
         runId: 'r48-ui-pass',
@@ -403,13 +573,15 @@ void main() {
         ],
       );
 
-      await tester.pumpWidget(MaterialApp(
-        home: Scaffold(
-          body: SingleChildScrollView(
-            child: GoldenTestProgressPanel(snapshot: snapshot, now: now),
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: GoldenTestProgressPanel(snapshot: snapshot, now: now),
+            ),
           ),
         ),
-      ));
+      );
 
       expect(find.text('PHONE_FUNCTION_LOOP = PASS'), findsOneWidget);
       expect(find.text('100%'), findsOneWidget);
@@ -420,14 +592,46 @@ void main() {
     test('build number advances beyond the R4.7 APK', () async {
       final pubspec = await File('pubspec.yaml').readAsString();
       final match = RegExp(
-        r'^version:\s*0\.4\.17\+(\d+)\s*$',
+        r'^version:\s*[0-9]+\.[0-9]+\.[0-9]+\+(\d+)\s*$',
         multiLine: true,
       ).firstMatch(pubspec);
 
-      expect(match, isNotNull, reason: 'R4.8 must use version 0.4.17');
+      expect(match, isNotNull, reason: 'release version must include a build');
       expect(int.parse(match!.group(1)!), greaterThanOrEqualTo(18));
     });
   });
+}
+
+Future<T> _compressTimer<T>(Duration target, Future<T> Function() action) {
+  return runZoned(
+    action,
+    zoneSpecification: ZoneSpecification(
+      createTimer: (self, parent, zone, duration, callback) {
+        return parent.createTimer(
+          zone,
+          duration == target ? Duration.zero : duration,
+          callback,
+        );
+      },
+    ),
+  );
+}
+
+final class _R48QuietModelSetupService extends ModelSetupService {
+  @override
+  Future<bool> hasPendingAuthorization() async => false;
+
+  @override
+  Future<ModelSetupSnapshot> prepareAutomatically({
+    void Function(ModelSetupSnapshot state)? onProgress,
+  }) async {
+    const result = ModelSetupSnapshot(
+      phase: ModelSetupPhase.authorizationRequired,
+      message: 'R4.8 regression fixture',
+    );
+    onProgress?.call(result);
+    return result;
+  }
 }
 
 GoldenTestSnapshot _checkpointSnapshot(String runId) {
