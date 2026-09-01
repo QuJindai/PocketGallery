@@ -24,12 +24,28 @@ class HfDeviceAuthorization {
   final int expiresInSeconds;
 }
 
+enum HfTokenExpiryState { missing, valid, expired, malformed }
+
+class HfOAuthCredentialState {
+  const HfOAuthCredentialState({
+    required this.accessPresent,
+    required this.refreshPresent,
+    required this.expiry,
+  });
+
+  final bool accessPresent;
+  final bool refreshPresent;
+  final HfTokenExpiryState expiry;
+}
+
 class HfOAuthDeviceService {
   HfOAuthDeviceService({
     http.Client? client,
     FlutterSecureStorage? storage,
+    DateTime Function()? now,
   })  : _client = client ?? http.Client(),
-        _storage = storage ?? const FlutterSecureStorage();
+        _storage = storage ?? const FlutterSecureStorage(),
+        _now = now ?? DateTime.now;
 
   static const endpoint = 'https://huggingface.co';
   static const deviceClientId = '26be6b09-91c5-47da-9861-d2d2bb7a7e36';
@@ -53,6 +69,33 @@ class HfOAuthDeviceService {
 
   final http.Client _client;
   final FlutterSecureStorage _storage;
+  final DateTime Function() _now;
+
+  Future<HfOAuthCredentialState> inspectCredentialState() async {
+    final accessToken = await _storage.read(key: _accessKey);
+    final refreshToken = await _storage.read(key: _refreshKey);
+    final expiryText = await _storage.read(key: _expiryKey);
+
+    final HfTokenExpiryState expiry;
+    if (expiryText == null) {
+      expiry = HfTokenExpiryState.missing;
+    } else {
+      final expiryEpochMs = int.tryParse(expiryText);
+      if (expiryEpochMs == null) {
+        expiry = HfTokenExpiryState.malformed;
+      } else if (expiryEpochMs <= _now().millisecondsSinceEpoch) {
+        expiry = HfTokenExpiryState.expired;
+      } else {
+        expiry = HfTokenExpiryState.valid;
+      }
+    }
+
+    return HfOAuthCredentialState(
+      accessPresent: accessToken?.isNotEmpty == true,
+      refreshPresent: refreshToken?.isNotEmpty == true,
+      expiry: expiry,
+    );
+  }
 
   Future<String?> getValidAccessToken() async {
     final accessToken = await _storage.read(key: _accessKey);

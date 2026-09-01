@@ -108,6 +108,11 @@ void main() {
     final candidate = await probe.capture(_identity(versionCode: 2023));
 
     expect(
+      PreservationSnapshot.fromJson(baseline.toJson()).toJson(),
+      baseline.toJson(),
+    );
+
+    expect(
       PreservationComparison.compare(
         baseline: baseline,
         current: candidate,
@@ -160,18 +165,19 @@ void main() {
     expect(summary['knowledgeCount'], 1);
     expect(summary['chatSessionCount'], 1);
     expect(summary['chatMessageCount'], 2);
-    expect(summary['vectorCount'], 1);
+    expect(summary['embeddingObservationCount'], 1);
     expect(summary['lineageTraceCount'], 1);
     for (final key in <String>[
       'knowledgeDigest',
       'chatDigest',
-      'vectorDigest',
+      'embeddingObservationDigest',
       'lineageDigest',
     ]) {
       expect(summary[key], isA<String>());
       expect(summary[key], hasLength(64));
     }
     final publicJson = jsonEncode(summary);
+    expect(publicJson.toLowerCase(), isNot(contains('vector')));
     for (final prohibited in <String>[
       document.documentId,
       document.sourceName,

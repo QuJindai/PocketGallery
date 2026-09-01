@@ -806,6 +806,14 @@ class LineageStore {
         .toList(growable: false);
   }
 
+  Future<List<String>> traceIds() async {
+    await initialize();
+    return _db!
+        .select('SELECT trace_id FROM pg_traces ORDER BY trace_id ASC')
+        .map((row) => row['trace_id'] as String)
+        .toList(growable: false);
+  }
+
   Future<void> appendEvent(TraceEventRecord event) async {
     await initialize();
     _db!.execute('''

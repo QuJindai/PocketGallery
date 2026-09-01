@@ -25,6 +25,22 @@ class VectorObservation {
   final DateTime updatedAt;
 }
 
+class VectorObservationIdentity {
+  const VectorObservationIdentity({
+    required this.chunkId,
+    required this.documentId,
+    required this.dimension,
+    required this.norm,
+    required this.modelIdentity,
+  });
+
+  final String chunkId;
+  final String documentId;
+  final int dimension;
+  final double norm;
+  final String modelIdentity;
+}
+
 class VectorObservationStore {
   VectorObservationStore({Database? database})
       : _db = database,
@@ -128,6 +144,26 @@ class VectorObservationStore {
       args.add(limit.clamp(1, 10000));
     }
     return _db!.select(sql.toString(), args).map(_row).toList(growable: false);
+  }
+
+  Future<List<VectorObservationIdentity>> listIdentities() async {
+    await initialize();
+    final rows = _db!.select('''
+      SELECT chunk_id, document_id, dimension, norm, model_identity
+      FROM pg_vector_observations
+      ORDER BY document_id, chunk_id
+    ''');
+    return rows
+        .map(
+          (row) => VectorObservationIdentity(
+            chunkId: row['chunk_id'] as String,
+            documentId: row['document_id'] as String,
+            dimension: (row['dimension'] as num).toInt(),
+            norm: (row['norm'] as num).toDouble(),
+            modelIdentity: row['model_identity'] as String,
+          ),
+        )
+        .toList(growable: false);
   }
 
   Future<int> count() async {
