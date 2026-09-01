@@ -118,7 +118,7 @@ class GoldenRunControl {
     _closeFuture = future;
     future.then<void>(
       (_) => _clearCloseFuture(future),
-      onError: (Object _, StackTrace __) => _clearCloseFuture(future),
+      onError: (Object _, StackTrace _) => _clearCloseFuture(future),
     );
     return future;
   }

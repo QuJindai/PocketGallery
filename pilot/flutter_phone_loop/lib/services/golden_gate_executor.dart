@@ -153,7 +153,7 @@ class GoldenGateExecutor {
         .toList(growable: false);
     if (unresolvedOperations.isNotEmpty) {
       cleanupError = <String>[
-        if (cleanupError != null) cleanupError,
+        ?cleanupError,
         ...unresolvedOperations,
       ].join('; ');
     }
