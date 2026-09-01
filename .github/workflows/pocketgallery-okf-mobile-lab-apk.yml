@@ -11,6 +11,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: okf-mobile-lab-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   okf-mobile-lab:
     runs-on: ubuntu-latest
