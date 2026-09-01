@@ -144,17 +144,19 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
     final semantics = tester.ensureSemantics();
-    addTearDown(semantics.dispose);
+    try {
+      await pumpPlot(tester);
 
-    await pumpPlot(tester);
-
-    expect(
-      find.bySemanticsLabel('三维向量图：单指旋转，双指缩放，点按查看证据'),
-      findsOneWidget,
-    );
-    expect(find.textContaining('单指旋转'), findsOneWidget);
-    expect(find.text('Query'), findsOneWidget);
-    expect(find.text('Evidence'), findsOneWidget);
-    expect(tester.takeException(), isNull);
+      expect(
+        find.bySemanticsLabel('三维向量图：单指旋转，双指缩放，点按查看证据'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('单指旋转'), findsOneWidget);
+      expect(find.text('Query'), findsOneWidget);
+      expect(find.text('Evidence'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    } finally {
+      semantics.dispose();
+    }
   });
 }
