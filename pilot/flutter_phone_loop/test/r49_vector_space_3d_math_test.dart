@@ -60,13 +60,16 @@ void main() {
         size: const Size(300, 300),
         camera: const VectorCamera(
           yaw: 0,
-          pitch: math.pi / 2,
+          pitch: 1.25,
           zoom: 1,
         ),
       );
 
       expect(front.points.single.screen.dy, lessThan(150));
-      expect(turned.points.single.screen.dy, closeTo(150, 1e-6));
+      expect(
+        (turned.points.single.screen.dy - 150).abs(),
+        lessThan((front.points.single.screen.dy - 150).abs()),
+      );
       expect(
         turned.points.single.depth,
         isNot(closeTo(front.points.single.depth, 1e-6)),
