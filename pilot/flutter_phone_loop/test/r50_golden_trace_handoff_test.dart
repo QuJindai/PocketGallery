@@ -145,6 +145,45 @@ void main() {
   );
 
   test(
+    'hanging model shutdown is bounded and recorded as cleanup evidence',
+    () async {
+      final nativeClose = Completer<void>();
+      final control = GoldenRunControl(
+        closeActiveModel: () => nativeClose.future,
+      );
+      final execution = GoldenGateExecutor().execute(
+        runId: 'golden-close-timeout',
+        gates: <GoldenGateSpec>[
+          GoldenGateSpec(
+            name: 'F1_IMPORT_CHUNK',
+            label: 'fixture',
+            timeout: const Duration(seconds: 1),
+            run: () async =>
+                const GateResult('F1_IMPORT_CHUNK', true, 'pass'),
+          ),
+        ],
+        cleanup: () => control.interrupt('USER_CANCELLED'),
+      );
+
+      final outcome = await Future.any<Object>(<Future<Object>>[
+        execution,
+        Future<Object>.delayed(
+          const Duration(seconds: 6),
+          () => 'WATCHDOG_EXPIRED',
+        ),
+      ]);
+      if (!nativeClose.isCompleted) nativeClose.complete();
+      await execution;
+
+      expect(outcome, isA<GoldenTestSnapshot>());
+      final snapshot = outcome as GoldenTestSnapshot;
+      expect(snapshot.phase, GoldenRunPhase.completed);
+      expect(snapshot.cleanupError, contains('GOLDEN_MODEL_CLOSE_TIMEOUT'));
+      expect(control.reasonCode, 'USER_CANCELLED');
+    },
+  );
+
+  test(
     'late interruption preserves terminal failure and cleanup evidence',
     () async {
       final startedAt = DateTime.utc(2026, 9, 1);

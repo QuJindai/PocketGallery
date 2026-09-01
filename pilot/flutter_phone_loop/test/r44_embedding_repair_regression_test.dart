@@ -46,7 +46,10 @@ void main() {
     expect(syncEnd, greaterThan(syncStart));
     final syncBody = engine.substring(syncStart, syncEnd);
     expect(syncBody, isNot(contains('semanticStore.clear()')));
-    expect(syncBody, contains('semanticStore.addChunks(pendingChunks'));
+    expect(
+      syncBody,
+      matches(RegExp(r'semanticStore\.addChunks\(\s*pendingChunks,')),
+    );
   });
 
   test(

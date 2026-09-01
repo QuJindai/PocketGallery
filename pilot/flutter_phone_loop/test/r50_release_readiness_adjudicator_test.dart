@@ -93,7 +93,9 @@ void main() {
               mutate: (device, automated) {
                 final nested = device['nestedGolden'] as Map<String, dynamic>;
                 nested['passed'] = false;
-                (nested['gates'] as List<dynamic>)[5]['status'] = 'FAILED';
+                (nested['gates'] as List<dynamic>)[5]
+                  ..['status'] = 'FAILED'
+                  ..['reasonCode'] = 'GATE_FAILED';
               },
               sidecar: _apkSha256,
             ),
@@ -147,7 +149,9 @@ void main() {
         ..['MERGE_CANDIDATE'] = false;
       final nested = device['nestedGolden'] as Map<String, dynamic>;
       nested['passed'] = false;
-      (nested['gates'] as List<dynamic>)[5]['status'] = 'FAILED';
+      (nested['gates'] as List<dynamic>)[5]
+        ..['status'] = 'FAILED'
+        ..['reasonCode'] = 'GATE_FAILED';
 
       final decision = _adjudicate(
         device: device,
@@ -292,6 +296,76 @@ void main() {
         throwsFormatException,
       );
     });
+
+    test('rejects missing malformed or empty nested Golden reason codes', () {
+      final missing = _deviceJson();
+      final missingNested = missing['nestedGolden'] as Map<String, dynamic>;
+      (missingNested['gates'] as List<dynamic>).first.remove('reasonCode');
+
+      final malformed = _deviceJson();
+      final malformedNested =
+          malformed['nestedGolden'] as Map<String, dynamic>;
+      (malformedNested['gates'] as List<dynamic>).first['reasonCode'] = 7;
+
+      final emptyFailure = _deviceJson();
+      final emptyFailureNested =
+          emptyFailure['nestedGolden'] as Map<String, dynamic>;
+      emptyFailureNested['passed'] = false;
+      (emptyFailureNested['gates'] as List<dynamic>).first
+        ..['status'] = 'FAILED'
+        ..['reasonCode'] = null;
+
+      for (final value in <Map<String, dynamic>>[
+        missing,
+        malformed,
+        emptyFailure,
+      ]) {
+        expect(
+          () => DeviceAcceptanceEvidence.fromJson(value),
+          throwsFormatException,
+        );
+      }
+    });
+
+    test('rejects nested Golden reason codes inconsistent with status', () {
+      final passedWithFailure = _deviceJson();
+      final passedNested =
+          passedWithFailure['nestedGolden'] as Map<String, dynamic>;
+      (passedNested['gates'] as List<dynamic>).first['reasonCode'] =
+          'GATE_FAILED';
+
+      final timeoutWithFailure = _deviceJson();
+      final timeoutNested =
+          timeoutWithFailure['nestedGolden'] as Map<String, dynamic>;
+      timeoutNested['passed'] = false;
+      (timeoutNested['gates'] as List<dynamic>).first
+        ..['status'] = 'TIMEDOUT'
+        ..['reasonCode'] = 'GATE_FAILED';
+
+      for (final value in <Map<String, dynamic>>[
+        passedWithFailure,
+        timeoutWithFailure,
+      ]) {
+        expect(
+          () => DeviceAcceptanceEvidence.fromJson(value),
+          throwsFormatException,
+        );
+      }
+    });
+
+    test('accepts status-consistent nested Golden reason codes', () {
+      final device = _deviceJson();
+      final nested = device['nestedGolden'] as Map<String, dynamic>;
+      nested['passed'] = false;
+      (nested['gates'] as List<dynamic>).first
+        ..['status'] = 'TIMEDOUT'
+        ..['reasonCode'] = 'GATE_TIMEOUT';
+
+      expect(
+        DeviceAcceptanceEvidence.fromJson(device).nestedGoldenPassed,
+        isFalse,
+      );
+    });
   });
 
   group('R5.0 adjudicator CLI', () {
@@ -388,7 +462,11 @@ Map<String, dynamic> _deviceJson() => <String, dynamic>{
     'cleanupError': null,
     'gates': <Map<String, dynamic>>[
       for (final name in _goldenGateNames)
-        <String, dynamic>{'name': name, 'status': 'PASSED'},
+        <String, dynamic>{
+          'name': name,
+          'status': 'PASSED',
+          'reasonCode': null,
+        },
     ],
   },
 };

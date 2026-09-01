@@ -9,6 +9,8 @@ source_files() {
     ! -path './android/*' \
     ! -path './build/*' \
     ! -path './.dart_tool/*' \
+    ! -name '.flutter-plugins' \
+    ! -name '.flutter-plugins-dependencies' \
     ! -name 'pubspec.lock' \
     ! -name '.metadata' \
     -print0 | sort -z | xargs -0 sha256sum | sed 's#  \./#  #'
@@ -32,6 +34,8 @@ case "$MODE" in
       ! -path 'pilot/flutter_phone_loop/android/*' \
       ! -path 'pilot/flutter_phone_loop/build/*' \
       ! -path 'pilot/flutter_phone_loop/.dart_tool/*' \
+      ! -name '.flutter-plugins' \
+      ! -name '.flutter-plugins-dependencies' \
       ! -name 'pubspec.lock' \
       ! -name '.metadata' \
       -print0 | sort -z | xargs -0 sha256sum
