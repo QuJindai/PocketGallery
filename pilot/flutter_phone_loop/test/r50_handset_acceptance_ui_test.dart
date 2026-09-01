@@ -123,9 +123,9 @@ void main() {
         240,
         scrollable: find.byType(Scrollable).first,
       );
-      await tester.pumpAndSettle();
+      await tester.pump();
       await tester.tap(find.text('Phone Golden Test · F1–F10'));
-      await tester.pumpAndSettle();
+      await tester.pump();
       expect(find.text('F1 · Golden gate 1'), findsOneWidget);
       expect(find.text('F10 · Golden gate 10'), findsOneWidget);
 
