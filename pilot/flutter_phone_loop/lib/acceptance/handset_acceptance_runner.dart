@@ -192,8 +192,11 @@ final class HandsetAcceptanceRunner implements HandsetAcceptanceController {
   bool _recoveryStopsNewRun = false;
   bool _runActive = false;
   bool _goldenActive = false;
+  bool _cleanupBoundaryClosed = false;
   String? _interruptReason;
   Future<void>? _interruptFuture;
+  Future<void>? _runtimeCleanupFuture;
+  String? _runtimeCleanupError;
   int _runSequence = 0;
 
   DeviceIdentitySnapshot? _identity;
@@ -214,6 +217,9 @@ final class HandsetAcceptanceRunner implements HandsetAcceptanceController {
 
   @override
   Future<void> interrupt(String reasonCode) {
+    if (!_runActive || _cleanupBoundaryClosed) {
+      return Future<void>.value();
+    }
     final normalized = reasonCode.trim().isEmpty
         ? 'INTERRUPTED'
         : reasonCode.trim();
@@ -258,14 +264,11 @@ final class HandsetAcceptanceRunner implements HandsetAcceptanceController {
         await _runH7(onProgress);
         await _runH9(onProgress);
         await _runH8(onProgress);
+        await _finalizeRuntimeCleanup();
         await _writeBaselineIfEligible();
         return await _runH10(onProgress);
       } finally {
-        try {
-          await resources.stopIfRunning();
-        } finally {
-          await diagnostics.setKeepScreenOn(false);
-        }
+        await _finalizeRuntimeCleanup();
       }
     } finally {
       _goldenActive = false;
@@ -320,6 +323,9 @@ final class HandsetAcceptanceRunner implements HandsetAcceptanceController {
   void _resetRunState() {
     _interruptReason = null;
     _interruptFuture = null;
+    _runtimeCleanupFuture = null;
+    _runtimeCleanupError = null;
+    _cleanupBoundaryClosed = false;
     interruption.value = null;
     _identity = null;
     _baseline = null;
@@ -885,6 +891,16 @@ final class HandsetAcceptanceRunner implements HandsetAcceptanceController {
       );
       return;
     }
+    final lateInterruptionCode = _interruptReason;
+    if (lateInterruptionCode != null) {
+      await _finishGate(
+        name,
+        HandsetGateStatus.blocked,
+        lateInterruptionCode,
+        onProgress,
+      );
+      return;
+    }
     final after = _preservationAfter!;
     final reasons = <String>{
       ...PreservationComparison.compare(
@@ -934,6 +950,7 @@ final class HandsetAcceptanceRunner implements HandsetAcceptanceController {
       );
       return;
     }
+    final interruptionCode = _interruptReason;
     final unavailable = summary.reasonCodes.contains(
       'REQUIRED_EVIDENCE_UNAVAILABLE',
     );
@@ -942,15 +959,20 @@ final class HandsetAcceptanceRunner implements HandsetAcceptanceController {
           reason == 'MEMORY_PRESSURE' ||
           reason == 'THERMAL_LIMIT_EXCEEDED',
     );
-    final status = failed
-        ? HandsetGateStatus.failed
-        : unavailable
-            ? HandsetGateStatus.blocked
-            : HandsetGateStatus.passed;
+    final status = interruptionCode != null
+        ? HandsetGateStatus.blocked
+        : failed
+            ? HandsetGateStatus.failed
+            : unavailable
+                ? HandsetGateStatus.blocked
+                : HandsetGateStatus.passed;
     await _finishGate(
       name,
       status,
-      summary.passed ? 'MEMORY_THERMAL_PASSED' : summary.reasonCodes.join('|'),
+      interruptionCode ??
+          (summary.passed
+              ? 'MEMORY_THERMAL_PASSED'
+              : summary.reasonCodes.join('|')),
       onProgress,
       evidence: <AcceptanceEvidence>[
         _evidence(
@@ -1002,6 +1024,9 @@ final class HandsetAcceptanceRunner implements HandsetAcceptanceController {
     if (_baseline != null ||
         _identity?.versionCode != 2022 ||
         _interruptReason != null ||
+        !_cleanupBoundaryClosed ||
+        _runtimeCleanupError != null ||
+        _current?.cleanupError != null ||
         _preservationAfter == null ||
         _goldenReport?.snapshot?.cleanupError != null) {
       return;
@@ -1022,6 +1047,9 @@ final class HandsetAcceptanceRunner implements HandsetAcceptanceController {
       return;
     }
     await persistence.saveBaseline(_preservationAfter!);
+    _replaceCurrent(
+      baselineVersionCode: _preservationAfter!.versionCode,
+    );
   }
 
   Future<HandsetAcceptanceSnapshot> _runH10(
@@ -1031,12 +1059,17 @@ final class HandsetAcceptanceRunner implements HandsetAcceptanceController {
     _replaceCurrent(phase: HandsetRunPhase.cleaningUp);
     await _beginGate(name, onProgress);
     final now = _clock();
-    final mergeCandidate = _isMergeCandidateEligible();
+    final interruptionCode = _interruptReason;
+    final status = interruptionCode == null
+        ? HandsetGateStatus.passed
+        : HandsetGateStatus.blocked;
+    final mergeCandidate = status == HandsetGateStatus.passed &&
+        _isMergeCandidateEligible();
     final prospective = _snapshotWithGate(
       _current!,
       name,
-      HandsetGateStatus.passed,
-      'REPORT_INTEGRITY_PASSED',
+      status,
+      interruptionCode ?? 'REPORT_INTEGRITY_PASSED',
       finishedAt: now,
       phase: HandsetRunPhase.completed,
       updatedAt: now,
@@ -1078,7 +1111,14 @@ final class HandsetAcceptanceRunner implements HandsetAcceptanceController {
   bool _isMergeCandidateEligible() {
     final identity = _identity;
     final baseline = _baseline;
-    if (identity == null || baseline == null) return false;
+    if (identity == null ||
+        baseline == null ||
+        !_cleanupBoundaryClosed ||
+        _interruptReason != null ||
+        _runtimeCleanupError != null ||
+        _current?.cleanupError != null) {
+      return false;
+    }
     return _gateLabels.keys
             .where((name) => name != 'H10_REPORT_INTEGRITY')
             .every((name) => _gateStatus(name) == HandsetGateStatus.passed) &&
@@ -1093,6 +1133,31 @@ final class HandsetAcceptanceRunner implements HandsetAcceptanceController {
         baseline.versionCode! < 2023 &&
         baseline.packageName == identity.packageName &&
         baseline.signerSha256 == identity.signerSha256;
+  }
+
+  Future<void> _finalizeRuntimeCleanup() {
+    return _runtimeCleanupFuture ??= _performRuntimeCleanup();
+  }
+
+  Future<void> _performRuntimeCleanup() async {
+    var failed = false;
+    try {
+      await resources.stopIfRunning();
+    } catch (_) {
+      failed = true;
+    }
+    try {
+      await diagnostics.setKeepScreenOn(false);
+    } catch (_) {
+      failed = true;
+    }
+    if (failed) {
+      _runtimeCleanupError = 'RUNTIME_CLEANUP_FAILED';
+      if (_current != null) {
+        _replaceCurrent(cleanupError: _runtimeCleanupError);
+      }
+    }
+    _cleanupBoundaryClosed = true;
   }
 
   String? _dependencyBlockReason() {

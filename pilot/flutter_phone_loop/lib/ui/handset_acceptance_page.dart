@@ -48,6 +48,7 @@ class _HandsetAcceptancePageState extends State<HandsetAcceptancePage>
   bool _active = false;
   bool _showEvidence = false;
   bool _exporting = false;
+  bool _cancelling = false;
   bool _initializationFailed = false;
   bool _runFailed = false;
   String? _exportStatus;
@@ -89,16 +90,35 @@ class _HandsetAcceptancePageState extends State<HandsetAcceptancePage>
     if (state == AppLifecycleState.resumed || !_active) return;
     final controller = _controller;
     if (controller == null) return;
-    unawaited(_interruptSafely(controller));
+    unawaited(
+      _interruptSafely(controller, 'APP_BACKGROUND_INTERRUPTION'),
+    );
   }
 
   Future<void> _interruptSafely(
     HandsetAcceptanceController controller,
+    String reasonCode,
   ) async {
     try {
-      await controller.interrupt('APP_BACKGROUND_INTERRUPTION');
+      await controller.interrupt(reasonCode);
     } catch (_) {
       // The runner owns interruption evidence; lifecycle callbacks never leak.
+    }
+  }
+
+  Future<void> _cancelRun() async {
+    final controller = _controller;
+    if (!_active ||
+        _cancelling ||
+        controller == null ||
+        controller.interruption.value != null) {
+      return;
+    }
+    setState(() => _cancelling = true);
+    try {
+      await _interruptSafely(controller, 'USER_CANCELLED');
+    } finally {
+      if (mounted) setState(() => _cancelling = false);
     }
   }
 
@@ -182,12 +202,17 @@ class _HandsetAcceptancePageState extends State<HandsetAcceptancePage>
   Widget build(BuildContext context) {
     final snapshot = _snapshot;
     final terminal = snapshot?.phase == HandsetRunPhase.completed && !_active;
-    return Scaffold(
-      appBar: AppBar(title: const Text('手机一键验收')),
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.all(14),
-          children: <Widget>[
+    return PopScope<Object?>(
+      canPop: !_active,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop && _active) unawaited(_cancelRun());
+      },
+      child: Scaffold(
+        appBar: AppBar(title: const Text('手机一键验收')),
+        body: SafeArea(
+          child: ListView(
+            padding: const EdgeInsets.all(14),
+            children: <Widget>[
             if (_initializing)
               const Card(
                 child: Padding(
@@ -237,6 +262,33 @@ class _HandsetAcceptancePageState extends State<HandsetAcceptancePage>
                   ),
                 ),
                 const SizedBox(height: 10),
+                if (_active) ...<Widget>[
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      key: const ValueKey<String>(
+                        'handset-acceptance-cancel',
+                      ),
+                      onPressed: _cancelling ||
+                              _controller?.interruption.value != null
+                          ? null
+                          : _cancelRun,
+                      icon: _cancelling
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : const Icon(Icons.stop_circle_outlined),
+                      label: Text(
+                        _cancelling ? '正在取消并清理…' : '取消并清理',
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                ],
               ],
               if (_active && snapshot == null)
                 const Card(
@@ -302,7 +354,8 @@ class _HandsetAcceptancePageState extends State<HandsetAcceptancePage>
                 ],
               ],
             ],
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -320,6 +373,12 @@ class _HandsetAcceptancePageState extends State<HandsetAcceptancePage>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    final controller = _controller;
+    if (_active &&
+        controller != null &&
+        controller.interruption.value == null) {
+      unawaited(_interruptSafely(controller, 'USER_CANCELLED'));
+    }
     super.dispose();
   }
 }
