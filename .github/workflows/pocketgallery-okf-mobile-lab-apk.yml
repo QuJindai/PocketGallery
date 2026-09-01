@@ -19,6 +19,30 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Resolve dependencies
+        working-directory: pilot/flutter_phone_loop
+        run: flutter pub get
+
+      - name: Analyze
+        working-directory: pilot/flutter_phone_loop
+        run: flutter analyze
+
+      - name: OKF focused tests
+        working-directory: pilot/flutter_phone_loop
+        run: |
+          flutter test \
+            test/okf_parser_test.dart \
+            test/okf_retriever_test.dart
+
+      - name: Full Flutter regression suite
+        working-directory: pilot/flutter_phone_loop
+        run: flutter test
+
       - name: Restore persistent R3 signing identity
         uses: actions/cache@v5
         with:
@@ -55,30 +79,6 @@ jobs:
             echo "POCKETGALLERY_SIGNING_KEY_PASSWORD=$PASS"
             echo "POCKETGALLERY_SIGNING_KEY_ALIAS=$ALIAS"
           } >> "$GITHUB_ENV"
-
-      - uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-          cache: true
-
-      - name: Resolve dependencies
-        working-directory: pilot/flutter_phone_loop
-        run: flutter pub get
-
-      - name: Analyze
-        working-directory: pilot/flutter_phone_loop
-        run: flutter analyze
-
-      - name: OKF focused tests
-        working-directory: pilot/flutter_phone_loop
-        run: |
-          flutter test \
-            test/okf_parser_test.dart \
-            test/okf_retriever_test.dart
-
-      - name: Full Flutter regression suite
-        working-directory: pilot/flutter_phone_loop
-        run: flutter test
 
       - name: Bootstrap Android scaffold
         working-directory: pilot/flutter_phone_loop
