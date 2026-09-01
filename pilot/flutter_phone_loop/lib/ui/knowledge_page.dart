@@ -5,6 +5,7 @@ import '../chat/chat_orchestrator.dart';
 import '../core/models.dart';
 import '../services/knowledge_engine.dart';
 import 'microscope/chunk_explorer_page.dart';
+import 'microscope/okf_mobile_lab_page.dart';
 import 'microscope/rag_lineage_dashboard_page.dart';
 import 'microscope/retrieval_benchmark_page.dart';
 import 'microscope/retrieval_experiment_center_page.dart';
@@ -151,6 +152,12 @@ class _KnowledgePageState extends State<KnowledgePage> {
     ));
   }
 
+  Future<void> _openOkfLab() async {
+    await Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => OkfMobileLabPage(engine: widget.engine),
+    ));
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -246,6 +253,13 @@ class _KnowledgePageState extends State<KnowledgePage> {
                             onPressed: busy ? null : _openExperiments,
                             icon: const Icon(Icons.science_outlined),
                             label: const Text('Experiment Center'),
+                          ),
+                          const SizedBox(height: 8),
+                          FilledButton.icon(
+                            key: const ValueKey<String>('open-okf-mobile-lab'),
+                            onPressed: busy ? null : _openOkfLab,
+                            icon: const Icon(Icons.hub_outlined),
+                            label: const Text('OKF Mobile Lab · A–F 对照'),
                           ),
                         ],
                       ),
