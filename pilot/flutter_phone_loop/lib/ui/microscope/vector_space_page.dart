@@ -59,9 +59,14 @@ class _VectorSpacePageState extends State<VectorSpacePage> {
 }
 
 class TraceVectorSpaceView extends StatefulWidget {
-  const TraceVectorSpaceView({super.key, required this.data});
+  const TraceVectorSpaceView({
+    super.key,
+    required this.data,
+    this.onInteraction,
+  });
 
   final TraceVectorSpaceSnapshot data;
+  final ValueChanged<VectorInteractionEvent>? onInteraction;
 
   @override
   State<TraceVectorSpaceView> createState() => _TraceVectorSpaceViewState();
@@ -187,6 +192,7 @@ class _TraceVectorSpaceViewState extends State<TraceVectorSpaceView> {
                 explainedVarianceRatios: data.explainedVarianceRatios,
                 initialSelectedId: selected?.embeddingId,
                 onPointSelected: (id) => setState(() => selectedId = id),
+                onInteraction: widget.onInteraction,
               ),
               const SizedBox(height: 8),
               Text(

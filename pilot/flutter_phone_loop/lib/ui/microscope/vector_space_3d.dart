@@ -2,6 +2,11 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../acceptance/vector_interaction_evidence.dart';
+
+export '../../acceptance/vector_interaction_evidence.dart'
+    show VectorCamera, VectorInteractionEvent, VectorInteractionType;
+
 enum VectorPlotKind { query, evidence, candidate, context }
 
 class VectorPlotPoint {
@@ -20,50 +25,6 @@ class VectorPlotPoint {
   final double z;
   final VectorPlotKind kind;
   final String? label;
-}
-
-class VectorCamera {
-  const VectorCamera({
-    this.yaw = -0.58,
-    this.pitch = 0.34,
-    this.zoom = 1,
-  });
-
-  static const double minPitch = -1.25;
-  static const double maxPitch = 1.25;
-  static const double minZoom = 0.62;
-  static const double maxZoom = 2.2;
-
-  final double yaw;
-  final double pitch;
-  final double zoom;
-
-  VectorCamera clamped() => VectorCamera(
-        yaw: yaw.isFinite ? yaw : -0.58,
-        pitch: (pitch.isFinite ? pitch : 0.34)
-            .clamp(minPitch, maxPitch)
-            .toDouble(),
-        zoom: (zoom.isFinite ? zoom : 1)
-            .clamp(minZoom, maxZoom)
-            .toDouble(),
-      );
-
-  VectorCamera copyWith({double? yaw, double? pitch, double? zoom}) =>
-      VectorCamera(
-        yaw: yaw ?? this.yaw,
-        pitch: pitch ?? this.pitch,
-        zoom: zoom ?? this.zoom,
-      ).clamped();
-
-  @override
-  bool operator ==(Object other) =>
-      other is VectorCamera &&
-      other.yaw == yaw &&
-      other.pitch == pitch &&
-      other.zoom == zoom;
-
-  @override
-  int get hashCode => Object.hash(yaw, pitch, zoom);
 }
 
 class ProjectedVectorPoint {
@@ -243,12 +204,14 @@ class InteractiveVectorPlot extends StatefulWidget {
     required this.explainedVarianceRatios,
     this.initialSelectedId,
     this.onPointSelected,
+    this.onInteraction,
   });
 
   final List<VectorPlotPoint> points;
   final List<double> explainedVarianceRatios;
   final String? initialSelectedId;
   final ValueChanged<String>? onPointSelected;
+  final ValueChanged<VectorInteractionEvent>? onInteraction;
 
   @override
   State<InteractiveVectorPlot> createState() =>
@@ -261,6 +224,7 @@ class _InteractiveVectorPlotState extends State<InteractiveVectorPlot> {
   VectorCamera camera = _defaultCamera;
   VectorCamera gestureStartCamera = _defaultCamera;
   Offset gestureStartFocalPoint = Offset.zero;
+  bool twoPointersObserved = false;
   String? selectedId;
 
   @override
@@ -329,6 +293,7 @@ class _InteractiveVectorPlotState extends State<InteractiveVectorPlot> {
                   behavior: HitTestBehavior.opaque,
                   onScaleStart: _handleScaleStart,
                   onScaleUpdate: _handleScaleUpdate,
+                  onScaleEnd: _handleScaleEnd,
                   onTapUp: (details) => _handleTap(details.localPosition, size),
                   child: CustomPaint(
                     key: const ValueKey<String>('vector-3d-canvas'),
@@ -392,10 +357,12 @@ class _InteractiveVectorPlotState extends State<InteractiveVectorPlot> {
   void _handleScaleStart(ScaleStartDetails details) {
     gestureStartCamera = camera;
     gestureStartFocalPoint = details.focalPoint;
+    twoPointersObserved = details.pointerCount >= 2;
   }
 
   void _handleScaleUpdate(ScaleUpdateDetails details) {
     if (details.pointerCount >= 2) {
+      twoPointersObserved = true;
       setState(
         () => camera = gestureStartCamera.copyWith(
           zoom: gestureStartCamera.zoom * details.scale,
@@ -410,6 +377,34 @@ class _InteractiveVectorPlotState extends State<InteractiveVectorPlot> {
         pitch: gestureStartCamera.pitch + delta.dy * 0.01,
       ),
     );
+  }
+
+  void _handleScaleEnd(ScaleEndDetails details) {
+    final before = gestureStartCamera;
+    final after = camera;
+    if (twoPointersObserved) {
+      if (before.zoom != after.zoom) {
+        widget.onInteraction?.call(
+          VectorInteractionEvent(
+            type: VectorInteractionType.zoom,
+            cameraBefore: before,
+            cameraAfter: after,
+            pointId: null,
+          ),
+        );
+      }
+      return;
+    }
+    if (before.yaw != after.yaw || before.pitch != after.pitch) {
+      widget.onInteraction?.call(
+        VectorInteractionEvent(
+          type: VectorInteractionType.rotation,
+          cameraBefore: before,
+          cameraAfter: after,
+          pointId: null,
+        ),
+      );
+    }
   }
 
   void _handleTap(Offset localPosition, Size size) {
@@ -430,6 +425,14 @@ class _InteractiveVectorPlotState extends State<InteractiveVectorPlot> {
     if (closest == null) return;
     setState(() => selectedId = closest!.point.id);
     widget.onPointSelected?.call(closest.point.id);
+    widget.onInteraction?.call(
+      VectorInteractionEvent(
+        type: VectorInteractionType.selection,
+        cameraBefore: camera,
+        cameraAfter: camera,
+        pointId: closest.point.id,
+      ),
+    );
   }
 }
 
