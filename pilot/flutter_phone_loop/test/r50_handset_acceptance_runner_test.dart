@@ -329,6 +329,61 @@ void main() {
     );
   });
 
+  test('a hung resource stop times out into a terminal cleanup failure',
+      () async {
+    final stopEntered = Completer<void>();
+    final stopBarrier = Completer<void>();
+    final resources = _FakeResourceSampler(
+      _passingResourceSummary(),
+      stopEntered: stopEntered,
+      stopBarrier: stopBarrier,
+    );
+    final harness = _Harness(
+      resourceSampler: resources,
+      runtimeCleanupTimeout: const Duration(milliseconds: 5),
+    );
+
+    final run = harness.runner.run(
+      runInteraction: harness.runPassingInteraction,
+    );
+    await stopEntered.future;
+    final result = await run.timeout(const Duration(seconds: 1));
+
+    expect(result.cleanupError, 'RUNTIME_CLEANUP_FAILED');
+    expect(result.verdict, AcceptanceVerdict.fail);
+    expect(result.mergeCandidate, isFalse);
+    expect(harness.diagnostics.keepScreenOnValues.last, isFalse);
+    expect(harness.persistence.finalReports, hasLength(1));
+
+    stopBarrier.complete();
+    await Future<void>.delayed(Duration.zero);
+  });
+
+  test('a hung screen release times out into a terminal cleanup failure',
+      () async {
+    final screenOffBarrier = Completer<void>();
+    final diagnostics = _FakeDiagnostics(
+      identity: _identity(),
+      screenOffBarrier: screenOffBarrier,
+    );
+    final harness = _Harness(
+      diagnostics: diagnostics,
+      runtimeCleanupTimeout: const Duration(milliseconds: 5),
+    );
+
+    final result = await harness.runner
+        .run(runInteraction: harness.runPassingInteraction)
+        .timeout(const Duration(seconds: 1));
+
+    expect(result.cleanupError, 'RUNTIME_CLEANUP_FAILED');
+    expect(result.verdict, AcceptanceVerdict.fail);
+    expect(result.mergeCandidate, isFalse);
+    expect(harness.persistence.finalReports, hasLength(1));
+
+    screenOffBarrier.complete();
+    await Future<void>.delayed(Duration.zero);
+  });
+
   test('nested Golden progress maps monotonically into the H4 55 percent window',
       () async {
     final progress = <int>[];
@@ -445,6 +500,7 @@ final class _Harness {
     KnownFixtureCleanup? knownFixtureCleanup,
     DateTime Function()? clock,
     String Function()? runIdFactory,
+    Duration runtimeCleanupTimeout = const Duration(seconds: 12),
     List<String>? events,
   })  : events = events ?? <String>[],
         diagnostics =
@@ -511,6 +567,7 @@ final class _Harness {
               'MODEL_PREREQUISITE_MISSING',
             ),
       resources: resources,
+      runtimeCleanupTimeout: runtimeCleanupTimeout,
       clock: clock ?? _AdvancingClock().call,
       runIdFactory: runIdFactory,
     );
@@ -542,12 +599,14 @@ final class _FakeDiagnostics implements DeviceDiagnosticsGateway {
     required this.identity,
     this.throwWhenEnablingScreen = false,
     this.throwWhenDisablingScreen = false,
+    this.screenOffBarrier,
     List<String>? events,
   }) : events = events ?? <String>[];
 
   final DeviceIdentitySnapshot identity;
   final bool throwWhenEnablingScreen;
   final bool throwWhenDisablingScreen;
+  final Completer<void>? screenOffBarrier;
   final List<String> events;
   final List<bool> keepScreenOnValues = <bool>[];
   int identityReads = 0;
@@ -567,6 +626,7 @@ final class _FakeDiagnostics implements DeviceDiagnosticsGateway {
   Future<void> setKeepScreenOn(bool enabled) async {
     keepScreenOnValues.add(enabled);
     events.add(enabled ? 'screen:on' : 'screen:off');
+    if (!enabled) await screenOffBarrier?.future;
     if (enabled && throwWhenEnablingScreen) {
       throw StateError('keep screen on unavailable');
     }

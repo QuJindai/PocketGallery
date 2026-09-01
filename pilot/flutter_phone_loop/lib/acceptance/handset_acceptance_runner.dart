@@ -168,6 +168,7 @@ final class HandsetAcceptanceRunner implements HandsetAcceptanceController {
     required this.verifyVectorTruth,
     required this.probeModelReadiness,
     required this.resources,
+    this.runtimeCleanupTimeout = const Duration(seconds: 12),
     DateTime Function()? clock,
     this.runIdFactory,
   }) : _clock = clock ?? DateTime.now;
@@ -182,6 +183,7 @@ final class HandsetAcceptanceRunner implements HandsetAcceptanceController {
   final VectorTruthEvaluation verifyVectorTruth;
   final ModelReadinessProbe probeModelReadiness;
   final DeviceResourceSampling resources;
+  final Duration runtimeCleanupTimeout;
   final DateTime Function() _clock;
   final String Function()? runIdFactory;
   @override
@@ -1142,12 +1144,14 @@ final class HandsetAcceptanceRunner implements HandsetAcceptanceController {
   Future<void> _performRuntimeCleanup() async {
     var failed = false;
     try {
-      await resources.stopIfRunning();
+      await resources.stopIfRunning().timeout(runtimeCleanupTimeout);
     } catch (_) {
       failed = true;
     }
     try {
-      await diagnostics.setKeepScreenOn(false);
+      await diagnostics
+          .setKeepScreenOn(false)
+          .timeout(runtimeCleanupTimeout);
     } catch (_) {
       failed = true;
     }
