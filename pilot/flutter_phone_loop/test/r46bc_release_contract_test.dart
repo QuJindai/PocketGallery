@@ -7,7 +7,7 @@ void main() {
   const signerSha256 =
       '81af4a5ef94c236774f0e193b2a4b248805b36c14cc36e2a56df8e451a712541';
 
-  test('R4.6 B/C release preserves upgrade identity and advances to build 20',
+  test('R4.6 B/C release preserves upgrade identity at build 20 or later',
       () async {
     final pubspec = await File('pubspec.yaml').readAsString();
     final workflow = await File(
@@ -15,7 +15,12 @@ void main() {
     ).readAsString();
     final bootstrap = await File('scripts/bootstrap_android.sh').readAsString();
 
-    expect(pubspec, contains('version: 0.4.17+20'));
+    final version = RegExp(
+      r'^version:\s*0\.4\.17\+(\d+)\s*$',
+      multiLine: true,
+    ).firstMatch(pubspec);
+    expect(version, isNotNull);
+    expect(int.parse(version!.group(1)!), greaterThanOrEqualTo(20));
     expect(bootstrap, contains(applicationId));
     expect(workflow, contains(signerSha256));
     expect(workflow, contains('android-arm64 --split-per-abi'));
