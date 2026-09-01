@@ -14,10 +14,13 @@ void main() {
 
     expect(find.byKey(const ValueKey<String>('okf-mobile-lab-page')), findsOneWidget);
     expect(find.byKey(const ValueKey<String>('okf-run-all')), findsOneWidget);
-    for (final code in <String>['A', 'B', 'C', 'D', 'E', 'F']) {
-      expect(find.byKey(ValueKey<String>('okf-run-$code')), findsOneWidget);
-    }
     expect(find.textContaining('单变量验证'), findsOneWidget);
+
+    for (final code in <String>['A', 'B', 'C', 'D', 'E', 'F']) {
+      final finder = find.byKey(ValueKey<String>('okf-run-$code'));
+      await tester.scrollUntilVisible(finder, 280);
+      expect(finder, findsOneWidget);
+    }
     expect(find.textContaining('FULL OKF'), findsOneWidget);
   });
 }
