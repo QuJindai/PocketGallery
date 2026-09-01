@@ -132,8 +132,19 @@ void main() {
     }
   });
 
-  test('cache miss can use only the four approved secrets under RUNNER_TEMP',
+  test('canonical signing is isolated from pull requests and Actions cache',
       () {
+    expect(canonicalWorkflow, isNot(contains('\n  pull_request:')));
+    expect(canonicalWorkflow, isNot(contains('actions/cache')));
+    expect(
+      canonicalWorkflow,
+      isNot(contains('pocketgallery-r3-signing-v1')),
+    );
+    expect(
+      canonicalWorkflow,
+      isNot(contains('feature/phone-pilot-')),
+    );
+
     final secretNames = RegExp(r'secrets\.([A-Z0-9_]+)')
         .allMatches(canonicalWorkflow)
         .map((match) => match.group(1)!)
@@ -150,8 +161,6 @@ void main() {
         r'SECRET_KEYSTORE="$RUNNER_TEMP/pocketgallery-r3-signing/r3.keystore"',
       ),
     );
-    expect(canonicalWorkflow, contains('Restore persistent R3 signing identity'));
-    expect(canonicalWorkflow, contains('pocketgallery-r3-signing-v1'));
     expect(
       canonicalWorkflow,
       isNot(
