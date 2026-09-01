@@ -27,6 +27,36 @@ void main() {
     expect((result.stdout as String).trim(), '2023');
   });
 
+  test('committed manifests exactly match generated source snapshots',
+      () async {
+    for (final expectation in <String, String>{
+      'inner': 'MANIFEST.sha256',
+      'outer': '../../DROPIN_MANIFEST.sha256',
+    }.entries) {
+      final generated = await Process.run(
+        'bash',
+        <String>['scripts/generate_manifests.sh', expectation.key],
+      );
+
+      expect(generated.exitCode, 0, reason: '${generated.stderr}');
+      expect(
+        generated.stdout,
+        await File(expectation.value).readAsString(),
+        reason: '${expectation.key} manifest drifted',
+      );
+    }
+  });
+
+  test('both workflows reject Dart formatting and manifest drift', () {
+    const formatCommand =
+        'dart format --output=none --set-exit-if-changed lib test tool';
+    for (final workflow in <String>[tddWorkflow, canonicalWorkflow]) {
+      expect(workflow, contains(formatCommand));
+      expect(workflow, contains('diff -u MANIFEST.sha256'));
+      expect(workflow, contains('diff -u ../../DROPIN_MANIFEST.sha256'));
+    }
+  });
+
   test('both workflows compile the checked-out source commit into every APK',
       () {
     for (final workflow in <String>[tddWorkflow, canonicalWorkflow]) {
