@@ -37,7 +37,8 @@ jobs:
         run: |
           flutter test \
             test/okf_parser_test.dart \
-            test/okf_retriever_test.dart
+            test/okf_retriever_test.dart \
+            test/okf_mobile_lab_page_test.dart
 
       - name: Full Flutter regression suite
         working-directory: pilot/flutter_phone_loop
