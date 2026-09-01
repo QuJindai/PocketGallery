@@ -145,8 +145,7 @@ class VectorProjection3d {
             perspective: projected.perspective,
           );
         })(),
-    ]
-      ..sort((left, right) => right.depth.compareTo(left.depth));
+    ]..sort((left, right) => right.depth.compareTo(left.depth));
 
     final origin = projectCoordinates(0, 0, 0);
     final axisLength = radius * 0.92;
@@ -168,13 +167,12 @@ class VectorProjection3d {
     String label,
     _ProjectedCoordinates start,
     _ProjectedCoordinates end,
-  ) =>
-      ProjectedVectorAxis(
-        label: label,
-        start: start.screen,
-        end: end.screen,
-        depth: end.depth,
-      );
+  ) => ProjectedVectorAxis(
+    label: label,
+    start: start.screen,
+    end: end.screen,
+    depth: end.depth,
+  );
 
   _CameraCoordinates _rotate(
     double x,
@@ -215,8 +213,7 @@ class InteractiveVectorPlot extends StatefulWidget {
   final ValueChanged<VectorInteractionEvent>? onInteraction;
 
   @override
-  State<InteractiveVectorPlot> createState() =>
-      _InteractiveVectorPlotState();
+  State<InteractiveVectorPlot> createState() => _InteractiveVectorPlotState();
 }
 
 class _InteractiveVectorPlotState extends State<InteractiveVectorPlot> {
@@ -298,22 +295,19 @@ class _InteractiveVectorPlotState extends State<InteractiveVectorPlot> {
                   gestures: <Type, GestureRecognizerFactory>{
                     _EagerScaleGestureRecognizer:
                         GestureRecognizerFactoryWithHandlers<
-                            _EagerScaleGestureRecognizer>(
-                      _EagerScaleGestureRecognizer.new,
-                      (recognizer) {
-                        recognizer
-                          ..onStart = _handleScaleStart
-                          ..onUpdate = _handleScaleUpdate
-                          ..onEnd = _handleScaleEnd;
-                      },
-                    ),
+                          _EagerScaleGestureRecognizer
+                        >(_EagerScaleGestureRecognizer.new, (recognizer) {
+                          recognizer
+                            ..onStart = _handleScaleStart
+                            ..onUpdate = _handleScaleUpdate
+                            ..onEnd = _handleScaleEnd;
+                        }),
                   },
                   child: CustomPaint(
                     key: const ValueKey<String>('vector-3d-canvas'),
                     painter: VectorSpace3dPainter(
                       points: widget.points,
-                      explainedVarianceRatios:
-                          widget.explainedVarianceRatios,
+                      explainedVarianceRatios: widget.explainedVarianceRatios,
                       camera: camera,
                       selectedId: selectedId,
                       queryColor: colors.error,
@@ -614,16 +608,16 @@ class _VectorLegendItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Row(
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          CustomPaint(
-            size: const Size.square(13),
-            painter: _LegendPainter(color: color, shape: shape),
-          ),
-          const SizedBox(width: 5),
-          Text(label, style: Theme.of(context).textTheme.bodySmall),
-        ],
-      );
+    mainAxisSize: MainAxisSize.min,
+    children: <Widget>[
+      CustomPaint(
+        size: const Size.square(13),
+        painter: _LegendPainter(color: color, shape: shape),
+      ),
+      const SizedBox(width: 5),
+      Text(label, style: Theme.of(context).textTheme.bodySmall),
+    ],
+  );
 }
 
 class _LegendPainter extends CustomPainter {
@@ -685,11 +679,7 @@ class _VectorCoordinates {
 }
 
 class _CameraCoordinates {
-  const _CameraCoordinates({
-    required this.x,
-    required this.y,
-    required this.z,
-  });
+  const _CameraCoordinates({required this.x, required this.y, required this.z});
 
   final double x;
   final double y;

@@ -44,7 +44,11 @@ class RouterDecisionPage extends StatelessWidget {
                 2: FlexColumnWidth(1),
               },
               children: [
-                _row('FTS hit count', '${router.ftsHitCount}', router.lexicalGatePass),
+                _row(
+                  'FTS hit count',
+                  '${router.ftsHitCount}',
+                  router.lexicalGatePass,
+                ),
                 _row(
                   'Top1 cosine',
                   formatNumber(router.top1Cosine),
@@ -55,7 +59,11 @@ class RouterDecisionPage extends StatelessWidget {
                   formatNumber(router.top1Top2Gap),
                   router.semanticGapGatePass,
                 ),
-                _row('dual-channel', '${router.dualChannel}', router.dualChannel),
+                _row(
+                  'dual-channel',
+                  '${router.dualChannel}',
+                  router.dualChannel,
+                ),
               ],
             ),
           ),
@@ -71,13 +79,13 @@ class RouterDecisionPage extends StatelessWidget {
   }
 
   TableRow _row(String name, String value, bool pass) => TableRow(
-        children: [
-          Padding(padding: const EdgeInsets.all(6), child: Text(name)),
-          Padding(padding: const EdgeInsets.all(6), child: Text(value)),
-          Padding(
-            padding: const EdgeInsets.all(6),
-            child: Text(pass ? 'PASS' : 'FAIL'),
-          ),
-        ],
-      );
+    children: [
+      Padding(padding: const EdgeInsets.all(6), child: Text(name)),
+      Padding(padding: const EdgeInsets.all(6), child: Text(value)),
+      Padding(
+        padding: const EdgeInsets.all(6),
+        child: Text(pass ? 'PASS' : 'FAIL'),
+      ),
+    ],
+  );
 }

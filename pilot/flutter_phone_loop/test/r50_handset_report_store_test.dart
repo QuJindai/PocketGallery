@@ -10,74 +10,77 @@ import 'package:pocketgallery_phone_pilot/acceptance/preservation_probe.dart';
 import 'package:pocketgallery_phone_pilot/services/hf_oauth_device_service.dart';
 
 void main() {
-  test('checkpoint and private baseline survive interrupted atomic swaps', () async {
-    final directory = await Directory.systemTemp.createTemp(
-      'pocketgallery-r50-report-store-',
-    );
-    addTearDown(() => directory.delete(recursive: true));
-    final store = HandsetAcceptanceStore(
-      directoryProvider: () async => directory,
-    );
+  test(
+    'checkpoint and private baseline survive interrupted atomic swaps',
+    () async {
+      final directory = await Directory.systemTemp.createTemp(
+        'pocketgallery-r50-report-store-',
+      );
+      addTearDown(() => directory.delete(recursive: true));
+      final store = HandsetAcceptanceStore(
+        directoryProvider: () async => directory,
+      );
 
-    final generations = <HandsetAcceptanceSnapshot>[
-      _checkpoint(
-        phase: HandsetRunPhase.preparing,
-        gateStatus: HandsetGateStatus.pending,
-      ),
-      _checkpoint(
-        phase: HandsetRunPhase.runningAutomated,
-        gateStatus: HandsetGateStatus.running,
-      ),
-      _checkpoint(
-        phase: HandsetRunPhase.completed,
-        gateStatus: HandsetGateStatus.passed,
-      ),
-    ];
+      final generations = <HandsetAcceptanceSnapshot>[
+        _checkpoint(
+          phase: HandsetRunPhase.preparing,
+          gateStatus: HandsetGateStatus.pending,
+        ),
+        _checkpoint(
+          phase: HandsetRunPhase.runningAutomated,
+          gateStatus: HandsetGateStatus.running,
+        ),
+        _checkpoint(
+          phase: HandsetRunPhase.completed,
+          gateStatus: HandsetGateStatus.passed,
+        ),
+      ];
 
-    File? checkpointFile;
-    for (final generation in generations) {
-      final saved = await store.saveCheckpoint(generation);
-      checkpointFile = saved;
-      final decoded = jsonDecode(await saved.readAsString()) as Map;
-      expect(decoded['runId'], generation.runId);
-      expect(decoded['phase'], generation.phase.name);
-      expect((await store.readLast())!.phase, generation.phase);
-      expect(File('${saved.path}.tmp').existsSync(), isFalse);
-    }
-    final lastCheckpointFile = checkpointFile!;
-    expect(
-      p.basename(lastCheckpointFile.path),
-      'PG_HANDSET_ACCEPTANCE_LAST.json',
-    );
-    await lastCheckpointFile.copy('${lastCheckpointFile.path}.bak');
-    await lastCheckpointFile.writeAsString('{corrupt-primary');
-    expect((await store.readLast())!.phase, HandsetRunPhase.completed);
+      File? checkpointFile;
+      for (final generation in generations) {
+        final saved = await store.saveCheckpoint(generation);
+        checkpointFile = saved;
+        final decoded = jsonDecode(await saved.readAsString()) as Map;
+        expect(decoded['runId'], generation.runId);
+        expect(decoded['phase'], generation.phase.name);
+        expect((await store.readLast())!.phase, generation.phase);
+        expect(File('${saved.path}.tmp').existsSync(), isFalse);
+      }
+      final lastCheckpointFile = checkpointFile!;
+      expect(
+        p.basename(lastCheckpointFile.path),
+        'PG_HANDSET_ACCEPTANCE_LAST.json',
+      );
+      await lastCheckpointFile.copy('${lastCheckpointFile.path}.bak');
+      await lastCheckpointFile.writeAsString('{corrupt-primary');
+      expect((await store.readLast())!.phase, HandsetRunPhase.completed);
 
-    final baseline = _baseline();
-    final baselineFile = await store.saveBaseline(baseline);
-    expect(p.basename(baselineFile.path), 'PG_HANDSET_BASELINE.json');
-    expect((await store.readBaseline())!.toJson(), baseline.toJson());
-    await baselineFile.copy('${baselineFile.path}.bak');
-    await baselineFile.writeAsString('{corrupt-primary');
-    expect((await store.readBaseline())!.toJson(), baseline.toJson());
+      final baseline = _baseline();
+      final baselineFile = await store.saveBaseline(baseline);
+      expect(p.basename(baselineFile.path), 'PG_HANDSET_BASELINE.json');
+      expect((await store.readBaseline())!.toJson(), baseline.toJson());
+      await baselineFile.copy('${baselineFile.path}.bak');
+      await baselineFile.writeAsString('{corrupt-primary');
+      expect((await store.readBaseline())!.toJson(), baseline.toJson());
 
-    final reportBytes = Uint8List.fromList(
-      utf8.encode(
-        '{"schema":"pocketgallery.r50.handset-acceptance.v1",'
-        '"schemaVersion":1}',
-      ),
-    );
-    final reportFile = await store.saveFinalReport(
-      reportBytes,
-      'r50 unsafe/id',
-    );
-    expect(
-      p.basename(reportFile.path),
-      'PG_HANDSET_ACCEPTANCE_r50_unsafe_id.json',
-    );
-    expect(await reportFile.readAsBytes(), reportBytes);
-    expect(File('${reportFile.path}.tmp').existsSync(), isFalse);
-  });
+      final reportBytes = Uint8List.fromList(
+        utf8.encode(
+          '{"schema":"pocketgallery.r50.handset-acceptance.v1",'
+          '"schemaVersion":1}',
+        ),
+      );
+      final reportFile = await store.saveFinalReport(
+        reportBytes,
+        'r50 unsafe/id',
+      );
+      expect(
+        p.basename(reportFile.path),
+        'PG_HANDSET_ACCEPTANCE_r50_unsafe_id.json',
+      );
+      expect(await reportFile.readAsBytes(), reportBytes);
+      expect(File('${reportFile.path}.tmp').existsSync(), isFalse);
+    },
+  );
 }
 
 HandsetAcceptanceSnapshot _checkpoint({

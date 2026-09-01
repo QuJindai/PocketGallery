@@ -7,77 +7,80 @@ import 'package:pocketgallery_phone_pilot/ui/microscope/vector_space_3d.dart';
 import 'package:pocketgallery_phone_pilot/ui/microscope/vector_space_page.dart';
 
 void main() {
-  test('accumulator applies rotation, zoom, point, and viewport thresholds', () {
-    final accumulator = VectorInteractionAccumulator(
-      knownPointIds: const <String>{'query', 'chunk-1'},
-    );
-    const initial = VectorCamera(yaw: 0, pitch: 0, zoom: 1);
+  test(
+    'accumulator applies rotation, zoom, point, and viewport thresholds',
+    () {
+      final accumulator = VectorInteractionAccumulator(
+        knownPointIds: const <String>{'query', 'chunk-1'},
+      );
+      const initial = VectorCamera(yaw: 0, pitch: 0, zoom: 1);
 
-    accumulator.record(
-      const VectorInteractionEvent(
-        type: VectorInteractionType.rotation,
-        cameraBefore: initial,
-        cameraAfter: VectorCamera(yaw: 0.249, pitch: 0.149, zoom: 1),
-        pointId: null,
-      ),
-    );
-    expect(accumulator.rotationComplete, isFalse);
-    accumulator.record(
-      const VectorInteractionEvent(
-        type: VectorInteractionType.rotation,
-        cameraBefore: initial,
-        cameraAfter: VectorCamera(yaw: 0.25, pitch: 0, zoom: 1),
-        pointId: null,
-      ),
-    );
-    expect(accumulator.rotationComplete, isTrue);
+      accumulator.record(
+        const VectorInteractionEvent(
+          type: VectorInteractionType.rotation,
+          cameraBefore: initial,
+          cameraAfter: VectorCamera(yaw: 0.249, pitch: 0.149, zoom: 1),
+          pointId: null,
+        ),
+      );
+      expect(accumulator.rotationComplete, isFalse);
+      accumulator.record(
+        const VectorInteractionEvent(
+          type: VectorInteractionType.rotation,
+          cameraBefore: initial,
+          cameraAfter: VectorCamera(yaw: 0.25, pitch: 0, zoom: 1),
+          pointId: null,
+        ),
+      );
+      expect(accumulator.rotationComplete, isTrue);
 
-    accumulator.record(
-      const VectorInteractionEvent(
-        type: VectorInteractionType.zoom,
-        cameraBefore: initial,
-        cameraAfter: VectorCamera(yaw: 0, pitch: 0, zoom: 1.119),
-        pointId: null,
-      ),
-    );
-    expect(accumulator.zoomComplete, isFalse);
-    accumulator.record(
-      const VectorInteractionEvent(
-        type: VectorInteractionType.zoom,
-        cameraBefore: VectorCamera(yaw: 0, pitch: 0, zoom: 1.119),
-        cameraAfter: VectorCamera(yaw: 0, pitch: 0, zoom: 1.12),
-        pointId: null,
-      ),
-    );
-    expect(accumulator.zoomComplete, isTrue);
+      accumulator.record(
+        const VectorInteractionEvent(
+          type: VectorInteractionType.zoom,
+          cameraBefore: initial,
+          cameraAfter: VectorCamera(yaw: 0, pitch: 0, zoom: 1.119),
+          pointId: null,
+        ),
+      );
+      expect(accumulator.zoomComplete, isFalse);
+      accumulator.record(
+        const VectorInteractionEvent(
+          type: VectorInteractionType.zoom,
+          cameraBefore: VectorCamera(yaw: 0, pitch: 0, zoom: 1.119),
+          cameraAfter: VectorCamera(yaw: 0, pitch: 0, zoom: 1.12),
+          pointId: null,
+        ),
+      );
+      expect(accumulator.zoomComplete, isTrue);
 
-    accumulator.record(
-      const VectorInteractionEvent(
-        type: VectorInteractionType.selection,
-        cameraBefore: initial,
-        cameraAfter: initial,
-        pointId: 'synthetic-point',
-      ),
-    );
-    expect(accumulator.selectionComplete, isFalse);
-    accumulator.record(
-      const VectorInteractionEvent(
-        type: VectorInteractionType.selection,
-        cameraBefore: initial,
-        cameraAfter: initial,
-        pointId: 'query',
-      ),
-    );
-    expect(accumulator.selectionComplete, isTrue);
-    expect(accumulator.selectedPointId, 'query');
-    expect(accumulator.viewportConfirmed, isFalse);
-    expect(accumulator.complete, isFalse);
+      accumulator.record(
+        const VectorInteractionEvent(
+          type: VectorInteractionType.selection,
+          cameraBefore: initial,
+          cameraAfter: initial,
+          pointId: 'synthetic-point',
+        ),
+      );
+      expect(accumulator.selectionComplete, isFalse);
+      accumulator.record(
+        const VectorInteractionEvent(
+          type: VectorInteractionType.selection,
+          cameraBefore: initial,
+          cameraAfter: initial,
+          pointId: 'query',
+        ),
+      );
+      expect(accumulator.selectionComplete, isTrue);
+      expect(accumulator.selectedPointId, 'query');
+      expect(accumulator.viewportConfirmed, isFalse);
+      expect(accumulator.complete, isFalse);
 
-    accumulator.confirmViewport();
+      accumulator.confirmViewport();
 
-    expect(accumulator.viewportConfirmed, isTrue);
-    expect(accumulator.complete, isTrue);
-  });
+      expect(accumulator.viewportConfirmed, isTrue);
+      expect(accumulator.complete, isTrue);
+    },
+  );
 
   test('pitch alone can satisfy the rotation threshold', () {
     final accumulator = VectorInteractionAccumulator(
@@ -95,19 +98,24 @@ void main() {
     expect(accumulator.rotationComplete, isTrue);
   });
 
-  testWidgets('production plot emits one real event per completed gesture',
-      (tester) async {
+  testWidgets('production plot emits one real event per completed gesture', (
+    tester,
+  ) async {
     final events = <VectorInteractionEvent>[];
     await _pumpPlot(tester, onInteraction: events.add);
-    final surface =
-        find.byKey(const ValueKey<String>('vector-3d-gesture-surface'));
+    final surface = find.byKey(
+      const ValueKey<String>('vector-3d-gesture-surface'),
+    );
 
     await tester.drag(surface, const Offset(72, 34));
     await tester.pump();
 
     expect(events, hasLength(1));
     expect(events.single.type, VectorInteractionType.rotation);
-    expect(events.single.cameraAfter.yaw, isNot(events.single.cameraBefore.yaw));
+    expect(
+      events.single.cameraAfter.yaw,
+      isNot(events.single.cameraBefore.yaw),
+    );
 
     final center = tester.getCenter(surface);
     final first = await tester.startGesture(
@@ -141,8 +149,9 @@ void main() {
     expect(events.last.pointId, 'query');
   });
 
-  testWidgets('Trace vector view forwards production interaction events',
-      (tester) async {
+  testWidgets('Trace vector view forwards production interaction events', (
+    tester,
+  ) async {
     final events = <VectorInteractionEvent>[];
     await tester.pumpWidget(
       MaterialApp(
@@ -158,13 +167,15 @@ void main() {
     );
     await tester.pump();
 
-    final surface =
-        find.byKey(const ValueKey<String>('vector-3d-gesture-surface'));
+    final surface = find.byKey(
+      const ValueKey<String>('vector-3d-gesture-surface'),
+    );
     await tester.ensureVisible(surface);
     await tester.pumpAndSettle();
     expect(surface.hitTestable(), findsOneWidget);
     expect(
-      tester.widget<InteractiveVectorPlot>(find.byType(InteractiveVectorPlot))
+      tester
+          .widget<InteractiveVectorPlot>(find.byType(InteractiveVectorPlot))
           .onInteraction,
       isNotNull,
     );
@@ -219,10 +230,11 @@ Future<void> _pumpPlot(
 
 VectorSpace3dPainter _painter(WidgetTester tester) {
   return tester
-      .widget<CustomPaint>(
-        find.byKey(const ValueKey<String>('vector-3d-canvas')),
-      )
-      .painter! as VectorSpace3dPainter;
+          .widget<CustomPaint>(
+            find.byKey(const ValueKey<String>('vector-3d-canvas')),
+          )
+          .painter!
+      as VectorSpace3dPainter;
 }
 
 const _traceData = TraceVectorSpaceSnapshot(

@@ -25,11 +25,7 @@ void main() {
       final turned = projector.project(
         points: const <VectorPlotPoint>[point],
         size: const Size(300, 300),
-        camera: const VectorCamera(
-          yaw: math.pi / 2,
-          pitch: 0,
-          zoom: 1,
-        ),
+        camera: const VectorCamera(yaw: math.pi / 2, pitch: 0, zoom: 1),
       );
 
       expect(front.points.single.screen.dx, greaterThan(150));
@@ -58,11 +54,7 @@ void main() {
       final turned = projector.project(
         points: const <VectorPlotPoint>[point],
         size: const Size(300, 300),
-        camera: const VectorCamera(
-          yaw: 0,
-          pitch: 1.25,
-          zoom: 1,
-        ),
+        camera: const VectorCamera(yaw: 0, pitch: 1.25, zoom: 1),
       );
 
       expect(front.points.single.screen.dy, lessThan(150));
@@ -132,62 +124,60 @@ void main() {
       expect(zoomedDistance, closeTo(normalDistance * 2, 1e-6));
     });
 
-    test('degenerate and non-finite values produce finite screen coordinates',
-        () {
-      const projector = VectorProjection3d();
-      final frame = projector.project(
-        points: const <VectorPlotPoint>[
-          VectorPlotPoint(
-            id: 'origin',
-            x: 0,
-            y: 0,
-            z: 0,
-            kind: VectorPlotKind.context,
+    test(
+      'degenerate and non-finite values produce finite screen coordinates',
+      () {
+        const projector = VectorProjection3d();
+        final frame = projector.project(
+          points: const <VectorPlotPoint>[
+            VectorPlotPoint(
+              id: 'origin',
+              x: 0,
+              y: 0,
+              z: 0,
+              kind: VectorPlotKind.context,
+            ),
+            VectorPlotPoint(
+              id: 'invalid',
+              x: double.nan,
+              y: double.negativeInfinity,
+              z: double.infinity,
+              kind: VectorPlotKind.context,
+            ),
+          ],
+          size: const Size(320, 240),
+          camera: const VectorCamera(
+            yaw: double.nan,
+            pitch: double.infinity,
+            zoom: double.negativeInfinity,
           ),
-          VectorPlotPoint(
-            id: 'invalid',
-            x: double.nan,
-            y: double.negativeInfinity,
-            z: double.infinity,
-            kind: VectorPlotKind.context,
-          ),
-        ],
-        size: const Size(320, 240),
-        camera: const VectorCamera(
-          yaw: double.nan,
-          pitch: double.infinity,
-          zoom: double.negativeInfinity,
-        ),
-      );
+        );
 
-      expect(frame.points, hasLength(2));
-      expect(
-        frame.points.every(
-          (point) =>
-              point.screen.dx.isFinite &&
-              point.screen.dy.isFinite &&
-              point.depth.isFinite,
-        ),
-        isTrue,
-      );
-      expect(
-        frame.axes.every(
-          (axis) =>
-              axis.start.dx.isFinite &&
-              axis.start.dy.isFinite &&
-              axis.end.dx.isFinite &&
-              axis.end.dy.isFinite,
-        ),
-        isTrue,
-      );
-    });
+        expect(frame.points, hasLength(2));
+        expect(
+          frame.points.every(
+            (point) =>
+                point.screen.dx.isFinite &&
+                point.screen.dy.isFinite &&
+                point.depth.isFinite,
+          ),
+          isTrue,
+        );
+        expect(
+          frame.axes.every(
+            (axis) =>
+                axis.start.dx.isFinite &&
+                axis.start.dy.isFinite &&
+                axis.end.dx.isFinite &&
+                axis.end.dy.isFinite,
+          ),
+          isTrue,
+        );
+      },
+    );
 
     test('camera bounds protect the phone interaction envelope', () {
-      const camera = VectorCamera(
-        yaw: double.nan,
-        pitch: 99,
-        zoom: -4,
-      );
+      const camera = VectorCamera(yaw: double.nan, pitch: 99, zoom: -4);
 
       expect(
         camera.clamped(),

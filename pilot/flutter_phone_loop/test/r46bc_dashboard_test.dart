@@ -12,93 +12,102 @@ import 'package:pocketgallery_phone_pilot/ui/microscope/rag_stage.dart';
 Future<LineageStore> _store(Database db) async {
   final store = LineageStore(database: db);
   await store.initialize();
-  await store.putTrace(LineageTrace(
-    traceId: 'tr-dashboard',
-    sessionId: 's-dashboard',
-    turnId: 't-dashboard',
-    queryText: '检查完整运行链路',
-    requestedMode: 'auto',
-    finalMode: 'knowledge',
-    scopeJson: '{"type":"all"}',
-    activeStrategyId: 'active.r45-body-hybrid',
-    startedAt: DateTime.utc(2026, 8, 31, 8),
-    completedAt: DateTime.utc(2026, 8, 31, 8, 0, 2),
-    status: TraceStatus.complete,
-    failureStage: null,
-    failureCode: null,
-  ));
-  await store.appendEvent(const TraceEventRecord(
-    eventId: 'evt-fts',
-    traceId: 'tr-dashboard',
-    seq: 1,
-    stage: 'fts',
-    kind: 'fts.search_completed',
-    truthKind: TruthKind.real,
-    lane: RetrievalLane.active,
-    strategyId: 'active.r45-body-hybrid',
-    timestampUs: 1,
-    durationUs: 2500,
-    payloadJson: '{"hitCount":2}',
-  ));
-  await store.appendEvent(const TraceEventRecord(
-    eventId: 'evt-router',
-    traceId: 'tr-dashboard',
-    seq: 2,
-    stage: 'router',
-    kind: 'router.evaluated',
-    truthKind: TruthKind.real,
-    lane: RetrievalLane.active,
-    strategyId: 'active.r45-body-hybrid',
-    timestampUs: 2,
-    durationUs: null,
-    payloadJson: '{"reason":"lexical_hit"}',
-  ));
+  await store.putTrace(
+    LineageTrace(
+      traceId: 'tr-dashboard',
+      sessionId: 's-dashboard',
+      turnId: 't-dashboard',
+      queryText: '检查完整运行链路',
+      requestedMode: 'auto',
+      finalMode: 'knowledge',
+      scopeJson: '{"type":"all"}',
+      activeStrategyId: 'active.r45-body-hybrid',
+      startedAt: DateTime.utc(2026, 8, 31, 8),
+      completedAt: DateTime.utc(2026, 8, 31, 8, 0, 2),
+      status: TraceStatus.complete,
+      failureStage: null,
+      failureCode: null,
+    ),
+  );
+  await store.appendEvent(
+    const TraceEventRecord(
+      eventId: 'evt-fts',
+      traceId: 'tr-dashboard',
+      seq: 1,
+      stage: 'fts',
+      kind: 'fts.search_completed',
+      truthKind: TruthKind.real,
+      lane: RetrievalLane.active,
+      strategyId: 'active.r45-body-hybrid',
+      timestampUs: 1,
+      durationUs: 2500,
+      payloadJson: '{"hitCount":2}',
+    ),
+  );
+  await store.appendEvent(
+    const TraceEventRecord(
+      eventId: 'evt-router',
+      traceId: 'tr-dashboard',
+      seq: 2,
+      stage: 'router',
+      kind: 'router.evaluated',
+      truthKind: TruthKind.real,
+      lane: RetrievalLane.active,
+      strategyId: 'active.r45-body-hybrid',
+      timestampUs: 2,
+      durationUs: null,
+      payloadJson: '{"reason":"lexical_hit"}',
+    ),
+  );
   return store;
 }
 
 void main() {
-  test('waterfall preserves unknown duration instead of manufacturing zero',
-      () {
-    const events = <TraceEventRecord>[
-      TraceEventRecord(
-        eventId: 'e1',
-        traceId: 'tr',
-        seq: 1,
-        stage: 'fts',
-        kind: 'fts.search_completed',
-        truthKind: TruthKind.real,
-        lane: RetrievalLane.active,
-        strategyId: 'active',
-        timestampUs: 1,
-        durationUs: 2500,
-        payloadJson: '{}',
-      ),
-      TraceEventRecord(
-        eventId: 'e2',
-        traceId: 'tr',
-        seq: 2,
-        stage: 'router',
-        kind: 'router.evaluated',
-        truthKind: TruthKind.real,
-        lane: RetrievalLane.active,
-        strategyId: 'active',
-        timestampUs: 2,
-        durationUs: null,
-        payloadJson: '{}',
-      ),
-    ];
+  test(
+    'waterfall preserves unknown duration instead of manufacturing zero',
+    () {
+      const events = <TraceEventRecord>[
+        TraceEventRecord(
+          eventId: 'e1',
+          traceId: 'tr',
+          seq: 1,
+          stage: 'fts',
+          kind: 'fts.search_completed',
+          truthKind: TruthKind.real,
+          lane: RetrievalLane.active,
+          strategyId: 'active',
+          timestampUs: 1,
+          durationUs: 2500,
+          payloadJson: '{}',
+        ),
+        TraceEventRecord(
+          eventId: 'e2',
+          traceId: 'tr',
+          seq: 2,
+          stage: 'router',
+          kind: 'router.evaluated',
+          truthKind: TruthKind.real,
+          lane: RetrievalLane.active,
+          strategyId: 'active',
+          timestampUs: 2,
+          durationUs: null,
+          payloadJson: '{}',
+        ),
+      ];
 
-    final waterfall = TraceWaterfallModel.fromEvents(events);
+      final waterfall = TraceWaterfallModel.fromEvents(events);
 
-    expect(waterfall.totalKnownDurationUs, 2500);
-    expect(waterfall.entries.first.durationLabel, '2.5 ms');
-    expect(waterfall.entries.last.durationUs, isNull);
-    expect(waterfall.entries.last.durationLabel, '未捕获');
-    expect(waterfall.entries.last.fractionOfKnownDuration, isNull);
-  });
+      expect(waterfall.totalKnownDurationUs, 2500);
+      expect(waterfall.entries.first.durationLabel, '2.5 ms');
+      expect(waterfall.entries.last.durationUs, isNull);
+      expect(waterfall.entries.last.durationLabel, '未捕获');
+      expect(waterfall.entries.last.fractionOfKnownDuration, isNull);
+    },
+  );
 
-  testWidgets('phone dashboard exposes a horizontal ten-stage strip',
-      (tester) async {
+  testWidgets('phone dashboard exposes a horizontal ten-stage strip', (
+    tester,
+  ) async {
     tester.view.physicalSize = const Size(360, 800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -108,13 +117,15 @@ void main() {
     final store = await _store(db);
     final engine = KnowledgeEngine(lineageStore: store);
 
-    await tester.pumpWidget(MaterialApp(
-      home: RagLineageDashboardPage(
-        engine: engine,
-        lineageStore: store,
-        traceId: 'tr-dashboard',
+    await tester.pumpWidget(
+      MaterialApp(
+        home: RagLineageDashboardPage(
+          engine: engine,
+          lineageStore: store,
+          traceId: 'tr-dashboard',
+        ),
       ),
-    ));
+    );
     await tester.pumpAndSettle();
 
     final strip = find.byKey(const ValueKey<String>('rag-stage-strip'));

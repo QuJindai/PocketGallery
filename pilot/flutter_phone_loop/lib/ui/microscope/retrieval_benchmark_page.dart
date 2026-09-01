@@ -153,16 +153,18 @@ class _RetrievalBenchmarkPageState extends State<RetrievalBenchmarkPage> {
         if (snapshot.chunksById[chunkId] != null)
           snapshot.chunksById[chunkId]!.documentId,
     };
-    await widget.engine.localBenchmarkStore.putCase(LocalBenchmarkCase(
-      id: 'local-${now.microsecondsSinceEpoch}',
-      question: selectedTrace.queryText,
-      expectedDocumentIds: expectedDocuments,
-      expectedChunkIds: selectedChunks,
-      tags: const <String>{'local-real', 'trace-labeled'},
-      sourceTraceId: selectedTrace.traceId,
-      createdAt: now,
-      updatedAt: now,
-    ));
+    await widget.engine.localBenchmarkStore.putCase(
+      LocalBenchmarkCase(
+        id: 'local-${now.microsecondsSinceEpoch}',
+        question: selectedTrace.queryText,
+        expectedDocumentIds: expectedDocuments,
+        expectedChunkIds: selectedChunks,
+        tags: const <String>{'local-real', 'trace-labeled'},
+        sourceTraceId: selectedTrace.traceId,
+        createdAt: now,
+        updatedAt: now,
+      ),
+    );
     final updated = await widget.engine.localBenchmarkStore.listCases();
     if (!mounted) return;
     setState(() {
@@ -274,15 +276,17 @@ class _RetrievalBenchmarkPageState extends State<RetrievalBenchmarkPage> {
                 onSelectionChanged: running
                     ? null
                     : (values) => setState(() {
-                          datasetKind = values.single;
-                          metrics.clear();
-                          results.clear();
-                          status = '未运行';
-                        }),
+                        datasetKind = values.single;
+                        metrics.clear();
+                        results.clear();
+                        status = '未运行';
+                      }),
               ),
               const SizedBox(height: 8),
-              Text(selectedDataset?.name ?? '数据集不可用',
-                  style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                selectedDataset?.name ?? '数据集不可用',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               const SizedBox(height: 4),
               Text(
                 datasetKind == _BenchmarkDatasetKind.golden
@@ -297,8 +301,10 @@ class _RetrievalBenchmarkPageState extends State<RetrievalBenchmarkPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Alternate Hybrid 参数',
-                        style: TextStyle(fontWeight: FontWeight.w600)),
+                    const Text(
+                      'Alternate Hybrid 参数',
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
                     _slider(
                       'Lexical weight',
                       alternateLexicalWeight,
@@ -321,7 +327,8 @@ class _RetrievalBenchmarkPageState extends State<RetrievalBenchmarkPage> {
                       (v) => setState(() => alternateDualBonus = v),
                     ),
                     FilledButton.icon(
-                      onPressed: selectedDataset == null ||
+                      onPressed:
+                          selectedDataset == null ||
                               selectedDataset.cases.isEmpty ||
                               running
                           ? null
@@ -349,8 +356,10 @@ class _RetrievalBenchmarkPageState extends State<RetrievalBenchmarkPage> {
                 ),
               ),
             const SizedBox(height: 8),
-            Text('评估结果 · $status',
-                style: Theme.of(context).textTheme.titleMedium),
+            Text(
+              '评估结果 · $status',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
             const SizedBox(height: 6),
             for (final strategy in RetrievalStrategy.values)
               _metricsCard(strategy, metrics[strategy]),
@@ -371,21 +380,20 @@ class _RetrievalBenchmarkPageState extends State<RetrievalBenchmarkPage> {
     double min,
     double max,
     ValueChanged<double> onChanged,
-  ) =>
-      Row(
-        children: [
-          SizedBox(width: 120, child: Text(label)),
-          Expanded(
-            child: Slider(
-              value: value,
-              min: min,
-              max: max,
-              onChanged: running ? null : onChanged,
-            ),
-          ),
-          SizedBox(width: 52, child: Text(value.toStringAsFixed(3))),
-        ],
-      );
+  ) => Row(
+    children: [
+      SizedBox(width: 120, child: Text(label)),
+      Expanded(
+        child: Slider(
+          value: value,
+          min: min,
+          max: max,
+          onChanged: running ? null : onChanged,
+        ),
+      ),
+      SizedBox(width: 52, child: Text(value.toStringAsFixed(3))),
+    ],
+  );
 
   Widget _metricsCard(RetrievalStrategy strategy, RetrievalMetrics? value) {
     final comparison = strategy == RetrievalStrategy.alternateHybrid
@@ -399,20 +407,21 @@ class _RetrievalBenchmarkPageState extends State<RetrievalBenchmarkPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(_label(strategy),
-                      style: const TextStyle(fontWeight: FontWeight.w600)),
-                ),
-                Text(value == null ? '未运行' : '${value.caseCount} cases'),
-              ],
-            ),
-            const SizedBox(height: 8),
-            if (value == null)
-              const Text('—')
-            else
-              ...[
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      _label(strategy),
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                  Text(value == null ? '未运行' : '${value.caseCount} cases'),
+                ],
+              ),
+              const SizedBox(height: 8),
+              if (value == null)
+                const Text('—')
+              else ...[
                 if (strategy == RetrievalStrategy.hybrid ||
                     strategy == RetrievalStrategy.alternateHybrid) ...[
                   Text(
@@ -487,53 +496,58 @@ class _RetrievalBenchmarkPageState extends State<RetrievalBenchmarkPage> {
     for (final item in strategyResults) {
       if (item.caseId == selectedId) result = item;
     }
-    for (final item in results[RetrievalStrategy.ftsOnly] ??
-        const <BenchmarkCaseResult>[]) {
+    for (final item
+        in results[RetrievalStrategy.ftsOnly] ??
+            const <BenchmarkCaseResult>[]) {
       if (item.caseId == selectedId) baseline = item;
     }
     if (benchmark == null || result == null || !mounted) return;
-    await Navigator.of(context).push(MaterialPageRoute<void>(
-      builder: (_) => BenchmarkCaseDetailPage(
-        benchmark: benchmark!,
-        result: result!,
-        baseline: strategy == RetrievalStrategy.ftsOnly ? null : baseline,
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => BenchmarkCaseDetailPage(
+          benchmark: benchmark!,
+          result: result!,
+          baseline: strategy == RetrievalStrategy.ftsOnly ? null : baseline,
+        ),
       ),
-    ));
+    );
   }
 
   Widget _metric(String label, double value) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
-        decoration: BoxDecoration(
-          border: Border.all(color: Theme.of(context).dividerColor),
-          borderRadius: BorderRadius.circular(8),
+    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
+    decoration: BoxDecoration(
+      border: Border.all(color: Theme.of(context).dividerColor),
+      borderRadius: BorderRadius.circular(8),
+    ),
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          (value * 100).toStringAsFixed(1),
+          style: const TextStyle(fontWeight: FontWeight.bold),
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text((value * 100).toStringAsFixed(1),
-                style: const TextStyle(fontWeight: FontWeight.bold)),
-            Text(label, style: const TextStyle(fontSize: 10)),
-          ],
-        ),
-      );
+        Text(label, style: const TextStyle(fontSize: 10)),
+      ],
+    ),
+  );
 
   Widget _optionalMetric(String label, double? value) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
-        decoration: BoxDecoration(
-          border: Border.all(color: Theme.of(context).dividerColor),
-          borderRadius: BorderRadius.circular(8),
+    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
+    decoration: BoxDecoration(
+      border: Border.all(color: Theme.of(context).dividerColor),
+      borderRadius: BorderRadius.circular(8),
+    ),
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          value == null ? '不可用' : (value * 100).toStringAsFixed(1),
+          style: const TextStyle(fontWeight: FontWeight.bold),
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              value == null ? '不可用' : (value * 100).toStringAsFixed(1),
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-            Text(label, style: const TextStyle(fontSize: 10)),
-          ],
-        ),
-      );
+        Text(label, style: const TextStyle(fontSize: 10)),
+      ],
+    ),
+  );
 
   RetrievalRankingComparison? _alternateComparison() {
     final current = results[RetrievalStrategy.hybrid];
@@ -554,9 +568,9 @@ class _RetrievalBenchmarkPageState extends State<RetrievalBenchmarkPage> {
   }
 
   String _label(RetrievalStrategy strategy) => switch (strategy) {
-        RetrievalStrategy.ftsOnly => 'A · FTS5 only',
-        RetrievalStrategy.embeddingOnly => 'B · Embedding only',
-        RetrievalStrategy.hybrid => 'C · Current Hybrid',
-        RetrievalStrategy.alternateHybrid => 'D · Alternate Hybrid',
-      };
+    RetrievalStrategy.ftsOnly => 'A · FTS5 only',
+    RetrievalStrategy.embeddingOnly => 'B · Embedding only',
+    RetrievalStrategy.hybrid => 'C · Current Hybrid',
+    RetrievalStrategy.alternateHybrid => 'D · Alternate Hybrid',
+  };
 }

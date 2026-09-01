@@ -10,8 +10,7 @@ abstract interface class DeviceDiagnosticsGateway {
   Future<void> setKeepScreenOn(bool enabled);
 }
 
-final class MethodChannelDeviceDiagnostics
-    implements DeviceDiagnosticsGateway {
+final class MethodChannelDeviceDiagnostics implements DeviceDiagnosticsGateway {
   const MethodChannelDeviceDiagnostics();
 
   static const MethodChannel channel = MethodChannel(
@@ -21,17 +20,13 @@ final class MethodChannelDeviceDiagnostics
   @override
   Future<DeviceIdentitySnapshot> readIdentity() async {
     final value = await channel.invokeMapMethod<String, Object?>('identity');
-    return DeviceIdentitySnapshot.fromMap(
-      value ?? const <String, Object?>{},
-    );
+    return DeviceIdentitySnapshot.fromMap(value ?? const <String, Object?>{});
   }
 
   @override
   Future<DeviceResourceSample> readResources() async {
     final value = await channel.invokeMapMethod<String, Object?>('resources');
-    return DeviceResourceSample.fromMap(
-      value ?? const <String, Object?>{},
-    );
+    return DeviceResourceSample.fromMap(value ?? const <String, Object?>{});
   }
 
   @override
@@ -147,9 +142,7 @@ final class DeviceResourceSample {
       value['lowMemoryThresholdBytes'],
     );
     final thermalStatus = _intOrNull(value['thermalStatus']);
-    final batteryTemperatureC = _doubleOrNull(
-      value['batteryTemperatureC'],
-    );
+    final batteryTemperatureC = _doubleOrNull(value['batteryTemperatureC']);
 
     _recordMissing(reasons, capturedAt, 'CAPTURED_AT_UNAVAILABLE');
     _recordMissing(reasons, processPssKiB, 'PROCESS_PSS_UNAVAILABLE');
@@ -241,10 +234,7 @@ DateTime? _dateTimeOrNull(Object? value) {
   final epochMilliseconds = _intOrNull(value);
   if (epochMilliseconds == null) return null;
   try {
-    return DateTime.fromMillisecondsSinceEpoch(
-      epochMilliseconds,
-      isUtc: true,
-    );
+    return DateTime.fromMillisecondsSinceEpoch(epochMilliseconds, isUtc: true);
   } on ArgumentError {
     return null;
   }

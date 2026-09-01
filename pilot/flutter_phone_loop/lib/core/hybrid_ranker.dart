@@ -26,7 +26,8 @@ class HybridRanker {
       final a = byId.putIfAbsent(hit.chunk.id, () => _Accumulator(hit.chunk));
       a.lexicalRank = i + 1;
       a.channels.add('fts5');
-      final contribution = lexicalWeight / (rrfK + i + 1) +
+      final contribution =
+          lexicalWeight / (rrfK + i + 1) +
           0.018 * hit.score.clamp(0.0, 1.0).toDouble();
       a.lexicalContribution += contribution;
       a.score += contribution;
@@ -36,7 +37,8 @@ class HybridRanker {
       final a = byId.putIfAbsent(hit.chunk.id, () => _Accumulator(hit.chunk));
       a.semanticRank = i + 1;
       a.channels.add('embedding');
-      final contribution = semanticWeight / (rrfK + i + 1) +
+      final contribution =
+          semanticWeight / (rrfK + i + 1) +
           0.026 * hit.score.clamp(0.0, 1.0).toDouble();
       a.semanticContribution += contribution;
       a.score += contribution;
@@ -68,17 +70,19 @@ class HybridRanker {
 
     return list
         .take(limit)
-        .map((a) => HybridHit(
-              chunk: a.chunk,
-              score: a.score,
-              channels: Set.unmodifiable(a.channels),
-              lexicalRank: a.lexicalRank,
-              semanticRank: a.semanticRank,
-              lexicalContribution: a.lexicalContribution,
-              semanticContribution: a.semanticContribution,
-              dualChannelContribution: a.dualChannelContribution,
-              exactTermContribution: a.exactTermContribution,
-            ))
+        .map(
+          (a) => HybridHit(
+            chunk: a.chunk,
+            score: a.score,
+            channels: Set.unmodifiable(a.channels),
+            lexicalRank: a.lexicalRank,
+            semanticRank: a.semanticRank,
+            lexicalContribution: a.lexicalContribution,
+            semanticContribution: a.semanticContribution,
+            dualChannelContribution: a.dualChannelContribution,
+            exactTermContribution: a.exactTermContribution,
+          ),
+        )
         .toList();
   }
 
@@ -89,10 +93,10 @@ class HybridRanker {
         .where((e) => e.trim().length >= 2)
         .toSet()
         .toList();
-    final identifiers = RegExp(r'[a-z0-9][a-z0-9_.:/+-]{2,}', caseSensitive: false)
-        .allMatches(normalized)
-        .map((m) => m.group(0)!)
-        .toSet();
+    final identifiers = RegExp(
+      r'[a-z0-9][a-z0-9_.:/+-]{2,}',
+      caseSensitive: false,
+    ).allMatches(normalized).map((m) => m.group(0)!).toSet();
     return {...raw, ...identifiers}.take(16).toList();
   }
 }

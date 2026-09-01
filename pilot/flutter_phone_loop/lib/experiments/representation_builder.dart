@@ -90,7 +90,8 @@ class RepresentationBuilder {
         }
       }
       if (mismatchedTarget != null && mismatchedEmbedding != null) {
-        final detail = 'model identity mismatch for '
+        final detail =
+            'model identity mismatch for '
             '${mismatchedTarget.embeddingId}: persisted='
             '${mismatchedEmbedding.modelIdentity}, requested=$modelIdentity';
         await _putJob(
@@ -127,21 +128,23 @@ class RepresentationBuilder {
           final watch = Stopwatch()..start();
           final vector = await generator.generateDocument(target.text);
           watch.stop();
-          await store.putEmbedding(LineageEmbedding.fromVector(
-            embeddingId: target.embeddingId,
-            sourceKind: target.sourceKind,
-            sourceId: target.sourceId,
-            documentId: target.documentId,
-            chunkId: target.chunkId,
-            representation: target.representation,
-            spanStart: target.spanStart,
-            spanEnd: target.spanEnd,
-            vector: vector,
-            modelIdentity: modelIdentity,
-            taskMode: 'retrieval_document',
-            generationMs: watch.elapsedMilliseconds,
-            generatedAt: DateTime.now().toUtc(),
-          ));
+          await store.putEmbedding(
+            LineageEmbedding.fromVector(
+              embeddingId: target.embeddingId,
+              sourceKind: target.sourceKind,
+              sourceId: target.sourceId,
+              documentId: target.documentId,
+              chunkId: target.chunkId,
+              representation: target.representation,
+              spanStart: target.spanStart,
+              spanEnd: target.spanEnd,
+              vector: vector,
+              modelIdentity: modelIdentity,
+              taskMode: 'retrieval_document',
+              generationMs: watch.elapsedMilliseconds,
+              generatedAt: DateTime.now().toUtc(),
+            ),
+          );
           completedIds.add(target.embeddingId);
           generated++;
           completed++;
@@ -258,20 +261,24 @@ class RepresentationBuilder {
       if (!_meaningful(trimmed)) continue;
       final leading = raw.length - raw.trimLeft().length;
       final trailing = raw.length - raw.trimRight().length;
-      spans.add(RepresentationSpan(
-        start: match.start + leading,
-        end: match.end - trailing,
-        text: trimmed,
-      ));
+      spans.add(
+        RepresentationSpan(
+          start: match.start + leading,
+          end: match.end - trailing,
+          text: trimmed,
+        ),
+      );
     }
     if (spans.isEmpty && _meaningful(text.trim())) {
       final leading = text.length - text.trimLeft().length;
       final trailing = text.length - text.trimRight().length;
-      spans.add(RepresentationSpan(
-        start: leading,
-        end: text.length - trailing,
-        text: text.trim(),
-      ));
+      spans.add(
+        RepresentationSpan(
+          start: leading,
+          end: text.length - trailing,
+          text: text.trim(),
+        ),
+      );
     }
     return spans;
   }
@@ -294,26 +301,28 @@ class RepresentationBuilder {
     String? failureCode,
     String? failureDetail,
   }) async {
-    await store.putBuildJob(BuildJobRecord(
-      jobId: jobId,
-      jobType: strategy.representations
-              .contains(EmbeddingRepresentation.sentence)
-          ? 'sentence-build'
-          : 'heading-build',
-      strategyId: strategy.id,
-      documentId: documentId,
-      status: status,
-      totalItems: total,
-      completedItems: completed,
-      checkpointJson: jsonEncode(<String, Object>{
-        'completedEmbeddingIds': completedIds,
-      }),
-      currentSource: currentSource,
-      failureCode: failureCode,
-      failureDetail: failureDetail,
-      createdAt: createdAt,
-      updatedAt: DateTime.now().toUtc(),
-    ));
+    await store.putBuildJob(
+      BuildJobRecord(
+        jobId: jobId,
+        jobType:
+            strategy.representations.contains(EmbeddingRepresentation.sentence)
+            ? 'sentence-build'
+            : 'heading-build',
+        strategyId: strategy.id,
+        documentId: documentId,
+        status: status,
+        totalItems: total,
+        completedItems: completed,
+        checkpointJson: jsonEncode(<String, Object>{
+          'completedEmbeddingIds': completedIds,
+        }),
+        currentSource: currentSource,
+        failureCode: failureCode,
+        failureDetail: failureDetail,
+        createdAt: createdAt,
+        updatedAt: DateTime.now().toUtc(),
+      ),
+    );
   }
 }
 

@@ -4,10 +4,8 @@ import 'package:pocketgallery_phone_pilot/acceptance/frame_timing_sampler.dart';
 void main() {
   test('summary excludes ten warm-up frames and computes nearest-rank P95', () {
     final samples = <Duration>[
-      for (var index = 0; index < 10; index++)
-        const Duration(milliseconds: 90),
-      for (var index = 0; index < 179; index++)
-        const Duration(milliseconds: 8),
+      for (var index = 0; index < 10; index++) const Duration(milliseconds: 90),
+      for (var index = 0; index < 179; index++) const Duration(milliseconds: 8),
       const Duration(milliseconds: 16),
     ];
 
@@ -27,10 +25,7 @@ void main() {
 
   test('empty post-warm-up sample is unavailable rather than a zero P95', () {
     final result = FrameTimingSummary.fromDurations(
-      List<Duration>.filled(
-        10,
-        const Duration(milliseconds: 8),
-      ),
+      List<Duration>.filled(10, const Duration(milliseconds: 8)),
       sampleDuration: const Duration(seconds: 1),
     );
 
@@ -40,39 +35,42 @@ void main() {
     expect(result.passesReleaseThreshold, isFalse);
   });
 
-  test('render gate enforces duration, frames, P95, and severe-jank limits', () {
-    const passing = FrameTimingSummary(
-      available: true,
-      sampleDuration: Duration(seconds: 15),
-      rawFrameCount: 190,
-      warmUpFrameCount: 10,
-      eligibleFrameCount: 180,
-      p95: Duration(microseconds: 16600),
-      framesOver16Point7Count: 0,
-      framesOver16Point7Ratio: 0,
-      framesOver32Count: 2,
-      framesOver32Ratio: 0.01,
-    );
+  test(
+    'render gate enforces duration, frames, P95, and severe-jank limits',
+    () {
+      const passing = FrameTimingSummary(
+        available: true,
+        sampleDuration: Duration(seconds: 15),
+        rawFrameCount: 190,
+        warmUpFrameCount: 10,
+        eligibleFrameCount: 180,
+        p95: Duration(microseconds: 16600),
+        framesOver16Point7Count: 0,
+        framesOver16Point7Ratio: 0,
+        framesOver32Count: 2,
+        framesOver32Ratio: 0.01,
+      );
 
-    expect(passing.passesReleaseThreshold, isTrue);
-    expect(
-      _summary(
-        sampleDuration: const Duration(milliseconds: 14999),
-      ).passesReleaseThreshold,
-      isFalse,
-    );
-    expect(_summary(eligibleFrameCount: 179).passesReleaseThreshold, isFalse);
-    expect(
-      _summary(
-        p95: const Duration(microseconds: 16701),
-      ).passesReleaseThreshold,
-      isFalse,
-    );
-    expect(
-      _summary(framesOver32Ratio: 0.01001).passesReleaseThreshold,
-      isFalse,
-    );
-  });
+      expect(passing.passesReleaseThreshold, isTrue);
+      expect(
+        _summary(
+          sampleDuration: const Duration(milliseconds: 14999),
+        ).passesReleaseThreshold,
+        isFalse,
+      );
+      expect(_summary(eligibleFrameCount: 179).passesReleaseThreshold, isFalse);
+      expect(
+        _summary(
+          p95: const Duration(microseconds: 16701),
+        ).passesReleaseThreshold,
+        isFalse,
+      );
+      expect(
+        _summary(framesOver32Ratio: 0.01001).passesReleaseThreshold,
+        isFalse,
+      );
+    },
+  );
 
   test('sampler registers once and unregisters exactly once', () {
     Object? registeredCallback;

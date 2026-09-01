@@ -41,16 +41,21 @@ void main() {
     expect(vector, contains('t-SNE · 未启用'));
   });
 
-  test('production microscope UI does not hard-code prototype quality scores', () async {
-    final dir = Directory('lib/ui/microscope');
-    final files = await dir
-        .list(recursive: true)
-        .where((e) => e is File && e.path.endsWith('.dart'))
-        .cast<File>()
-        .toList();
-    final source = (await Future.wait(files.map((e) => e.readAsString()))).join('\n');
-    for (final forbidden in ['86.7%', '93.3%', '0.625', '8.42']) {
-      expect(source, isNot(contains(forbidden)), reason: forbidden);
-    }
-  });
+  test(
+    'production microscope UI does not hard-code prototype quality scores',
+    () async {
+      final dir = Directory('lib/ui/microscope');
+      final files = await dir
+          .list(recursive: true)
+          .where((e) => e is File && e.path.endsWith('.dart'))
+          .cast<File>()
+          .toList();
+      final source = (await Future.wait(
+        files.map((e) => e.readAsString()),
+      )).join('\n');
+      for (final forbidden in ['86.7%', '93.3%', '0.625', '8.42']) {
+        expect(source, isNot(contains(forbidden)), reason: forbidden);
+      }
+    },
+  );
 }

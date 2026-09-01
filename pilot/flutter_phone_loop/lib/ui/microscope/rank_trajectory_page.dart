@@ -49,8 +49,9 @@ class RankTrajectoryPage extends StatelessWidget {
               ? const EmptyFact('没有候选排名可绘制。')
               : Column(
                   children: [
-                    if (candidates
-                        .every((candidate) => candidate.rerankRank == null))
+                    if (candidates.every(
+                      (candidate) => candidate.rerankRank == null,
+                    ))
                       const Align(
                         alignment: Alignment.centerLeft,
                         child: Text('重排未运行'),
@@ -64,7 +65,9 @@ class RankTrajectoryPage extends StatelessWidget {
                             children: [
                               Text(
                                 candidate.chunkId,
-                                style: const TextStyle(fontWeight: FontWeight.w600),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                               const SizedBox(height: 6),
                               Text(

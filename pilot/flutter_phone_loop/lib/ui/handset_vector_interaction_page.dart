@@ -53,12 +53,10 @@ class _HandsetVectorInteractionPageState
         (point) => point.embeddingId,
       ),
     );
-    animation = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 1),
-    )
-      ..addListener(_handleAnimationFrame)
-      ..repeat();
+    animation =
+        AnimationController(vsync: this, duration: const Duration(seconds: 1))
+          ..addListener(_handleAnimationFrame)
+          ..repeat();
     widget.interruption.addListener(_handleInterruption);
     final timeout = widget.timeout.isNegative ? Duration.zero : widget.timeout;
     timeoutTimer = Timer(
@@ -77,7 +75,8 @@ class _HandsetVectorInteractionPageState
   @override
   Widget build(BuildContext context) {
     final summary = frameSummary;
-    final canConfirm = !finishing &&
+    final canConfirm =
+        !finishing &&
         interactions.rotationComplete &&
         interactions.zoomComplete &&
         interactions.selectionComplete &&
@@ -85,10 +84,7 @@ class _HandsetVectorInteractionPageState
         elapsed >= minimumDuration;
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          '高维关系 · 物理交互验收',
-          overflow: TextOverflow.ellipsis,
-        ),
+        title: const Text('高维关系 · 物理交互验收', overflow: TextOverflow.ellipsis),
       ),
       body: SafeArea(
         child: Column(
@@ -185,8 +181,7 @@ class _HandsetVectorInteractionPageState
         zoomComplete: interactions.zoomComplete,
         selectionComplete: interactions.selectionComplete,
         viewportConfirmed: false,
-        frameTiming:
-            summary ?? VectorInteractionResult.unavailableFrameTiming,
+        frameTiming: summary ?? VectorInteractionResult.unavailableFrameTiming,
         reasonCode: reasonCode,
       ),
     );
@@ -284,8 +279,7 @@ class _InteractionStatusPanel extends StatelessWidget {
               children: <Widget>[
                 _StatusMetric(
                   label: '采样',
-                  value:
-                      '${_seconds(elapsed)}/${_seconds(minimumDuration)} 秒',
+                  value: '${_seconds(elapsed)}/${_seconds(minimumDuration)} 秒',
                 ),
                 _StatusMetric(
                   label: '有效帧',
@@ -293,10 +287,7 @@ class _InteractionStatusPanel extends StatelessWidget {
                       ? '采样中'
                       : '${frameSummary!.eligibleFrameCount}',
                 ),
-                _StatusMetric(
-                  label: 'P95',
-                  value: _p95(frameSummary?.p95),
-                ),
+                _StatusMetric(label: 'P95', value: _p95(frameSummary?.p95)),
               ],
             ),
           ],
@@ -337,10 +328,8 @@ class _StatusMetric extends StatelessWidget {
   final String value;
 
   @override
-  Widget build(BuildContext context) => Text(
-        '$label $value',
-        style: Theme.of(context).textTheme.bodySmall,
-      );
+  Widget build(BuildContext context) =>
+      Text('$label $value', style: Theme.of(context).textTheme.bodySmall);
 }
 
 int _seconds(Duration value) => (value.inMilliseconds / 1000).ceil();

@@ -41,10 +41,7 @@ class _MainShellState extends State<MainShell> {
             engine: widget.engine,
             orchestrator: widget.orchestrator,
           ),
-          ModelSettingsPage(
-            engine: widget.engine,
-            store: widget.store,
-          ),
+          ModelSettingsPage(engine: widget.engine, store: widget.store),
         ],
       ),
       bottomNavigationBar: NavigationBar(

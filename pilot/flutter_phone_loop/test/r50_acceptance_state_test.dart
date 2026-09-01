@@ -160,8 +160,7 @@ GoldenTestSnapshot _goldenAtFiftyPercent() {
         name: 'F${index + 1}',
         label: 'F${index + 1}',
         timeout: const Duration(seconds: 30),
-        status:
-            index < 5 ? GoldenGateStatus.passed : GoldenGateStatus.pending,
+        status: index < 5 ? GoldenGateStatus.passed : GoldenGateStatus.pending,
         detail: '',
       ),
     ),

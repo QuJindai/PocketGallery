@@ -6,8 +6,8 @@ class EvidenceSelection {
   EvidenceSelection({
     required List<EvidenceItem> evidence,
     required Map<String, String> dropReasons,
-  })  : evidence = List<EvidenceItem>.unmodifiable(evidence),
-        dropReasons = UnmodifiableMapView<String, String>(dropReasons);
+  }) : evidence = List<EvidenceItem>.unmodifiable(evidence),
+       dropReasons = UnmodifiableMapView<String, String>(dropReasons);
 
   final List<EvidenceItem> evidence;
   final Map<String, String> dropReasons;
@@ -16,10 +16,7 @@ class EvidenceSelection {
 }
 
 class EvidencePolicy {
-  const EvidencePolicy({
-    this.maxEvidence = 5,
-    this.minRelativeScore = 0.72,
-  });
+  const EvidencePolicy({this.maxEvidence = 5, this.minRelativeScore = 0.72});
 
   /// R4.7 raised ordinary evidence coverage to five. This remains independent
   /// from candidate retention, which is capped separately by lineage storage.
@@ -58,11 +55,13 @@ class EvidencePolicy {
         drops[hit.chunk.id] = 'token_budget';
         continue;
       }
-      evidence.add(EvidenceItem(
-        anchor: 'E${evidence.length + 1}',
-        chunk: hit.chunk,
-        score: hit.score,
-      ));
+      evidence.add(
+        EvidenceItem(
+          anchor: 'E${evidence.length + 1}',
+          chunk: hit.chunk,
+          score: hit.score,
+        ),
+      );
       consumedChars += nextChars;
     }
 

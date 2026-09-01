@@ -97,10 +97,7 @@ Future<String> _readSidecarDigest(String path) async {
   return contents.split(RegExp(r'\s+')).first;
 }
 
-Future<void> _writeAtomicJson(
-  String path,
-  Map<String, Object?> value,
-) async {
+Future<void> _writeAtomicJson(String path, Map<String, Object?> value) async {
   final destination = File(path);
   await destination.parent.create(recursive: true);
   final temporary = File('$path.tmp');

@@ -71,11 +71,12 @@ class _ModelSettingsPageState extends State<ModelSettingsPage>
     await Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
         fullscreenDialog: true,
-        builder: customBuilder ??
+        builder:
+            customBuilder ??
             (context) => HandsetAcceptancePage(
-                  engine: widget.engine,
-                  store: widget.store,
-                ),
+              engine: widget.engine,
+              store: widget.store,
+            ),
       ),
     );
     if (!mounted) return;
@@ -162,9 +163,9 @@ class _ModelSettingsPageState extends State<ModelSettingsPage>
       await setup.openEmbeddingLicensePage();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('无法打开官方许可页：$e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('无法打开官方许可页：$e')));
     }
   }
 
@@ -255,7 +256,9 @@ class _ModelSettingsPageState extends State<ModelSettingsPage>
                     Text(modelState.message),
                     if (modelState.progress != null) ...[
                       const SizedBox(height: 10),
-                      LinearProgressIndicator(value: modelState.progress! / 100),
+                      LinearProgressIndicator(
+                        value: modelState.progress! / 100,
+                      ),
                     ],
                     if (modelBusy) ...[
                       const SizedBox(height: 10),
@@ -308,8 +311,9 @@ class _ModelSettingsPageState extends State<ModelSettingsPage>
                       ),
                       const SizedBox(height: 10),
                       FilledButton.icon(
-                        onPressed:
-                            modelBusy ? null : () => _prepare(authorize: true),
+                        onPressed: modelBusy
+                            ? null
+                            : () => _prepare(authorize: true),
                         icon: const Icon(Icons.verified_user),
                         label: const Text('使用 Hugging Face 官方授权'),
                       ),
@@ -418,45 +422,41 @@ class _ModelSettingsPageState extends State<ModelSettingsPage>
   }
 
   Widget _statusRow(String title, String state, bool ready) => Row(
-        children: [
-          Icon(ready ? Icons.check_circle : Icons.hourglass_top, size: 20),
-          const SizedBox(width: 8),
-          Expanded(flex: 4, child: Text(title)),
-          const SizedBox(width: 8),
-          Flexible(
-            flex: 5,
-            child: Text(
-              state,
-              textAlign: TextAlign.end,
-              style: const TextStyle(fontWeight: FontWeight.w600),
-            ),
-          ),
-        ],
-      );
+    children: [
+      Icon(ready ? Icons.check_circle : Icons.hourglass_top, size: 20),
+      const SizedBox(width: 8),
+      Expanded(flex: 4, child: Text(title)),
+      const SizedBox(width: 8),
+      Flexible(
+        flex: 5,
+        child: Text(
+          state,
+          textAlign: TextAlign.end,
+          style: const TextStyle(fontWeight: FontWeight.w600),
+        ),
+      ),
+    ],
+  );
 
   String _gemmaPhaseLabel() => switch (modelState.phase) {
-        ModelSetupPhase.downloadingGemma => '下载中',
-        ModelSetupPhase.failed => 'ERROR',
-        _ => '准备中',
-      };
+    ModelSetupPhase.downloadingGemma => '下载中',
+    ModelSetupPhase.failed => 'ERROR',
+    _ => '准备中',
+  };
 
   String _embeddingPhaseLabel() => switch (modelState.phase) {
-        ModelSetupPhase.authorizationRequired => '需要 OAuth',
-        ModelSetupPhase.licenseRequired => '需要许可',
-        ModelSetupPhase.authorizing => '授权中',
-        ModelSetupPhase.downloadingEmbedding => '下载中',
-        ModelSetupPhase.downloadingTokenizer => 'Tokenizer 下载中',
-        ModelSetupPhase.failed => 'ERROR',
-        _ => '准备中',
+    ModelSetupPhase.authorizationRequired => '需要 OAuth',
+    ModelSetupPhase.licenseRequired => '需要许可',
+    ModelSetupPhase.authorizing => '授权中',
+    ModelSetupPhase.downloadingEmbedding => '下载中',
+    ModelSetupPhase.downloadingTokenizer => 'Tokenizer 下载中',
+    ModelSetupPhase.failed => 'ERROR',
+    _ => '准备中',
   };
 }
 
 class GoldenTestProgressPanel extends StatefulWidget {
-  const GoldenTestProgressPanel({
-    super.key,
-    required this.snapshot,
-    this.now,
-  });
+  const GoldenTestProgressPanel({super.key, required this.snapshot, this.now});
 
   final GoldenTestSnapshot snapshot;
 
@@ -618,35 +618,35 @@ class _GoldenTestProgressPanelState extends State<GoldenTestProgressPanel> {
 _GoldenGatePresentation _gatePresentation(GoldenGateStatus status) {
   return switch (status) {
     GoldenGateStatus.pending => const _GoldenGatePresentation(
-        Icons.schedule_outlined,
-        '等待',
-        Colors.grey,
-      ),
+      Icons.schedule_outlined,
+      '等待',
+      Colors.grey,
+    ),
     GoldenGateStatus.running => const _GoldenGatePresentation(
-        Icons.sync,
-        '运行中',
-        Colors.blue,
-      ),
+      Icons.sync,
+      '运行中',
+      Colors.blue,
+    ),
     GoldenGateStatus.passed => const _GoldenGatePresentation(
-        Icons.check_circle,
-        '通过',
-        Colors.green,
-      ),
+      Icons.check_circle,
+      '通过',
+      Colors.green,
+    ),
     GoldenGateStatus.failed => const _GoldenGatePresentation(
-        Icons.cancel,
-        '失败',
-        Colors.red,
-      ),
+      Icons.cancel,
+      '失败',
+      Colors.red,
+    ),
     GoldenGateStatus.timedOut => const _GoldenGatePresentation(
-        Icons.timer_off,
-        '超时',
-        Colors.orange,
-      ),
+      Icons.timer_off,
+      '超时',
+      Colors.orange,
+    ),
     GoldenGateStatus.blocked => const _GoldenGatePresentation(
-        Icons.block,
-        '已阻断',
-        Colors.deepOrange,
-      ),
+      Icons.block,
+      '已阻断',
+      Colors.deepOrange,
+    ),
   };
 }
 

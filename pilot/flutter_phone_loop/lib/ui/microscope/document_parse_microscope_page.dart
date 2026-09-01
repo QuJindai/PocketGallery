@@ -5,10 +5,7 @@ import '../../lineage/trace_snapshot.dart';
 import 'lineage_stage_widgets.dart';
 
 class DocumentParseMicroscopePage extends StatelessWidget {
-  const DocumentParseMicroscopePage({
-    super.key,
-    required this.snapshot,
-  });
+  const DocumentParseMicroscopePage({super.key, required this.snapshot});
 
   final TraceSnapshot snapshot;
 
@@ -24,9 +21,7 @@ class DocumentParseMicroscopePage extends StatelessWidget {
         LineageSectionCard(
           title: '文档身份与解析覆盖',
           child: documents.isEmpty
-              ? const EmptyFact(
-                  '当前 Trace 未关联可解析的文档记录；不会推断文件类型、页数或解析耗时。',
-                )
+              ? const EmptyFact('当前 Trace 未关联可解析的文档记录；不会推断文件类型、页数或解析耗时。')
               : Column(
                   children: [
                     for (final document in documents)

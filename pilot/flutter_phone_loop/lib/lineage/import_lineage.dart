@@ -6,20 +6,20 @@ enum ParseStatus { parsed, empty, parseFailed, legacy }
 
 extension ParseStatusStorage on ParseStatus {
   String get dbValue => switch (this) {
-        ParseStatus.parsed => 'parsed',
-        ParseStatus.empty => 'empty',
-        ParseStatus.parseFailed => 'parse_failed',
-        ParseStatus.legacy => 'legacy-existing',
-      };
+    ParseStatus.parsed => 'parsed',
+    ParseStatus.empty => 'empty',
+    ParseStatus.parseFailed => 'parse_failed',
+    ParseStatus.legacy => 'legacy-existing',
+  };
 }
 
 ParseStatus parseStatusFromDb(String value) => switch (value) {
-      'parsed' => ParseStatus.parsed,
-      'empty' => ParseStatus.empty,
-      'parse_failed' => ParseStatus.parseFailed,
-      'legacy-existing' => ParseStatus.legacy,
-      _ => throw StateError('Unknown parse status: $value'),
-    };
+  'parsed' => ParseStatus.parsed,
+  'empty' => ParseStatus.empty,
+  'parse_failed' => ParseStatus.parseFailed,
+  'legacy-existing' => ParseStatus.legacy,
+  _ => throw StateError('Unknown parse status: $value'),
+};
 
 class LineageDocumentRecord {
   const LineageDocumentRecord({

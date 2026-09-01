@@ -36,26 +36,26 @@ class _VectorSpacePageState extends State<VectorSpacePage> {
 
   @override
   Widget build(BuildContext context) => LineageDetailScaffold(
-        pageKey: 'vector-space-page',
-        title: '向量空间 / Vector Space',
-        snapshot: widget.snapshot,
-        truthKinds: const <TruthKind>{TruthKind.real, TruthKind.derived},
-        children: <Widget>[
-          FutureBuilder<TraceVectorSpaceSnapshot>(
-            future: future,
-            builder: (context, value) {
-              if (value.hasError) {
-                return LineageSectionCard(
-                  title: '真实高维向量 → 三维 PCA',
-                  child: Text('不可用：${value.error}'),
-                );
-              }
-              if (!value.hasData) return const LinearProgressIndicator();
-              return TraceVectorSpaceView(data: value.data!);
-            },
-          ),
-        ],
-      );
+    pageKey: 'vector-space-page',
+    title: '向量空间 / Vector Space',
+    snapshot: widget.snapshot,
+    truthKinds: const <TruthKind>{TruthKind.real, TruthKind.derived},
+    children: <Widget>[
+      FutureBuilder<TraceVectorSpaceSnapshot>(
+        future: future,
+        builder: (context, value) {
+          if (value.hasError) {
+            return LineageSectionCard(
+              title: '真实高维向量 → 三维 PCA',
+              child: Text('不可用：${value.error}'),
+            );
+          }
+          if (!value.hasData) return const LinearProgressIndicator();
+          return TraceVectorSpaceView(data: value.data!);
+        },
+      ),
+    ],
+  );
 }
 
 class TraceVectorSpaceView extends StatefulWidget {
@@ -95,7 +95,8 @@ class _TraceVectorSpaceViewState extends State<TraceVectorSpaceView> {
   @override
   Widget build(BuildContext context) {
     final query = _firstWhereOrNull(data.points, (point) => point.isQuery);
-    final selected = _firstWhereOrNull(
+    final selected =
+        _firstWhereOrNull(
           data.points,
           (point) => point.embeddingId == selectedId,
         ) ??
@@ -116,8 +117,8 @@ class _TraceVectorSpaceViewState extends State<TraceVectorSpaceView> {
           label: point.isQuery
               ? 'Query'
               : point.selectedForEvidence
-                  ? 'Evidence'
-                  : null,
+              ? 'Evidence'
+              : null,
         ),
     ];
     return Column(
@@ -175,9 +176,7 @@ class _TraceVectorSpaceViewState extends State<TraceVectorSpaceView> {
                 style: Theme.of(context).textTheme.titleLarge,
               ),
               const SizedBox(height: 5),
-              Text(
-                '解释方差 · ${_varianceSummary(data.explainedVarianceRatios)}',
-              ),
+              Text('解释方差 · ${_varianceSummary(data.explainedVarianceRatios)}'),
               const SizedBox(height: 3),
               Text('有效主成分 ${data.effectiveComponentCount}/3'),
               if (data.effectiveComponentCount < 3) ...<Widget>[
@@ -201,9 +200,7 @@ class _TraceVectorSpaceViewState extends State<TraceVectorSpaceView> {
                 '优先本轮候选，再按文档分层确定性补齐。',
               ),
               const SizedBox(height: 4),
-              const Text(
-                'PCA 是高维关系的有损投影；真实检索顺序仍以 REAL cosine 和捕获排名为准。',
-              ),
+              const Text('PCA 是高维关系的有损投影；真实检索顺序仍以 REAL cosine 和捕获排名为准。'),
               const SizedBox(height: 8),
               const Wrap(
                 spacing: 8,
@@ -223,9 +220,7 @@ class _TraceVectorSpaceViewState extends State<TraceVectorSpaceView> {
               ? const EmptyFact('本轮没有可显示的持久化邻居。')
               : Column(
                   children: <Widget>[
-                    for (var index = 0;
-                        index < data.neighbors.length;
-                        index++)
+                    for (var index = 0; index < data.neighbors.length; index++)
                       ListTile(
                         contentPadding: EdgeInsets.zero,
                         leading: CircleAvatar(child: Text('${index + 1}')),
@@ -237,12 +232,12 @@ class _TraceVectorSpaceViewState extends State<TraceVectorSpaceView> {
                           overflow: TextOverflow.ellipsis,
                         ),
                         trailing: Text(
-                          data.neighbors[index].cosineToQuery
-                              .toStringAsFixed(4),
+                          data.neighbors[index].cosineToQuery.toStringAsFixed(
+                            4,
+                          ),
                         ),
                         onTap: () => setState(
-                          () => selectedId =
-                              data.neighbors[index].embeddingId,
+                          () => selectedId = data.neighbors[index].embeddingId,
                         ),
                       ),
                   ],
@@ -263,17 +258,17 @@ class _TracePointDetail extends StatelessWidget {
     final role = point.isQuery
         ? '当前查询'
         : point.selectedForEvidence
-            ? '已选 Evidence'
-            : point.candidateId != null
-                ? '检索候选'
-                : '邻域语料';
+        ? '已选 Evidence'
+        : point.candidateId != null
+        ? '检索候选'
+        : '邻域语料';
     final reasonTitle = point.isQuery
         ? '投影角色'
         : point.selectedForEvidence
-            ? '为何入选'
-            : point.candidateId != null
-                ? '为何未入选'
-                : '为何显示';
+        ? '为何入选'
+        : point.candidateId != null
+        ? '为何未入选'
+        : '为何显示';
     return LineageSectionCard(
       title: '点选详情 · $role',
       child: Column(
@@ -342,17 +337,17 @@ class _ProjectionWarning extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.tertiaryContainer,
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Text(
-          effectiveComponentCount == 0
-              ? '当前样本没有可解释方差，散点只表示同一退化位置。'
-              : '当前数据只支撑 $effectiveComponentCount 维有效结构；其余主轴方差为零。',
-        ),
-      );
+    padding: const EdgeInsets.all(10),
+    decoration: BoxDecoration(
+      color: Theme.of(context).colorScheme.tertiaryContainer,
+      borderRadius: BorderRadius.circular(10),
+    ),
+    child: Text(
+      effectiveComponentCount == 0
+          ? '当前样本没有可解释方差，散点只表示同一退化位置。'
+          : '当前数据只支撑 $effectiveComponentCount 维有效结构；其余主轴方差为零。',
+    ),
+  );
 }
 
 VectorPlotKind _plotKind(TraceVectorPoint point) {
@@ -363,8 +358,10 @@ VectorPlotKind _plotKind(TraceVectorPoint point) {
 }
 
 String? _defaultSelectedId(List<TraceVectorPoint> points) =>
-    _firstWhereOrNull(points, (point) => point.selectedForEvidence)
-        ?.embeddingId ??
+    _firstWhereOrNull(
+      points,
+      (point) => point.selectedForEvidence,
+    )?.embeddingId ??
     _firstWhereOrNull(points, (point) => point.isQuery)?.embeddingId ??
     points.firstOrNull?.embeddingId;
 

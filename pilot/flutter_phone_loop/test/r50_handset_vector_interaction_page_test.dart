@@ -8,76 +8,81 @@ import 'package:pocketgallery_phone_pilot/observability/trace_vector_space_servi
 import 'package:pocketgallery_phone_pilot/ui/handset_vector_interaction_page.dart';
 
 void main() {
-  testWidgets('real plot gestures unlock all task chips and viewport confirmation',
-      (tester) async {
-    _setPhoneSize(tester, const Size(412, 915));
-    final timing = _FakeFrameTimingSampler(_passingFrameTiming);
-    final interruption = ValueNotifier<String?>(null);
-    final result = _ResultBox();
-    await _openPage(
-      tester,
-      timing: timing,
-      interruption: interruption,
-      result: result,
-      minimumDuration: const Duration(seconds: 1),
-    );
+  testWidgets(
+    'real plot gestures unlock all task chips and viewport confirmation',
+    (tester) async {
+      _setPhoneSize(tester, const Size(412, 915));
+      final timing = _FakeFrameTimingSampler(_passingFrameTiming);
+      final interruption = ValueNotifier<String?>(null);
+      final result = _ResultBox();
+      await _openPage(
+        tester,
+        timing: timing,
+        interruption: interruption,
+        result: result,
+        minimumDuration: const Duration(seconds: 1),
+      );
 
-    expect(find.text('已旋转'), findsNothing);
-    expect(find.text('已缩放'), findsNothing);
-    expect(find.text('已点选'), findsNothing);
-    final surface =
-        find.byKey(const ValueKey<String>('vector-3d-gesture-surface'));
-    await tester.ensureVisible(surface);
-    await tester.pump();
+      expect(find.text('已旋转'), findsNothing);
+      expect(find.text('已缩放'), findsNothing);
+      expect(find.text('已点选'), findsNothing);
+      final surface = find.byKey(
+        const ValueKey<String>('vector-3d-gesture-surface'),
+      );
+      await tester.ensureVisible(surface);
+      await tester.pump();
 
-    await tester.drag(surface, const Offset(72, 24));
-    await tester.pump();
-    expect(find.text('已旋转'), findsOneWidget);
+      await tester.drag(surface, const Offset(72, 24));
+      await tester.pump();
+      expect(find.text('已旋转'), findsOneWidget);
 
-    final center = tester.getCenter(surface);
-    final first = await tester.startGesture(
-      center - const Offset(28, 0),
-      pointer: 1,
-    );
-    final second = await tester.startGesture(
-      center + const Offset(28, 0),
-      pointer: 2,
-    );
-    await tester.pump();
-    await first.moveTo(center - const Offset(72, 0));
-    await second.moveTo(center + const Offset(72, 0));
-    await tester.pump();
-    await first.up();
-    await second.up();
-    await tester.pump();
-    expect(find.text('已缩放'), findsOneWidget);
+      final center = tester.getCenter(surface);
+      final first = await tester.startGesture(
+        center - const Offset(28, 0),
+        pointer: 1,
+      );
+      final second = await tester.startGesture(
+        center + const Offset(28, 0),
+        pointer: 2,
+      );
+      await tester.pump();
+      await first.moveTo(center - const Offset(72, 0));
+      await second.moveTo(center + const Offset(72, 0));
+      await tester.pump();
+      await first.up();
+      await second.up();
+      await tester.pump();
+      expect(find.text('已缩放'), findsOneWidget);
 
-    await tester.tapAt(tester.getCenter(surface));
-    await tester.pump();
-    expect(find.text('已点选'), findsOneWidget);
+      await tester.tapAt(tester.getCenter(surface));
+      await tester.pump();
+      expect(find.text('已点选'), findsOneWidget);
 
-    final confirm =
-        find.byKey(const ValueKey<String>('handset-vector-confirm'));
-    expect(tester.widget<FilledButton>(confirm).onPressed, isNull);
-    await tester.pump(const Duration(milliseconds: 1100));
-    expect(tester.widget<FilledButton>(confirm).onPressed, isNotNull);
+      final confirm = find.byKey(
+        const ValueKey<String>('handset-vector-confirm'),
+      );
+      expect(tester.widget<FilledButton>(confirm).onPressed, isNull);
+      await tester.pump(const Duration(milliseconds: 1100));
+      expect(tester.widget<FilledButton>(confirm).onPressed, isNotNull);
 
-    await tester.tap(confirm);
-    await tester.pump();
+      await tester.tap(confirm);
+      await tester.pump();
 
-    expect(result.value, isNotNull);
-    expect(result.value!.rotationComplete, isTrue);
-    expect(result.value!.zoomComplete, isTrue);
-    expect(result.value!.selectionComplete, isTrue);
-    expect(result.value!.viewportConfirmed, isTrue);
-    expect(result.value!.reasonCode, isNull);
-    expect(result.value!.frameTiming, same(_passingFrameTiming));
-    expect(timing.startCount, 1);
-    expect(timing.stopCount, 1);
-  });
+      expect(result.value, isNotNull);
+      expect(result.value!.rotationComplete, isTrue);
+      expect(result.value!.zoomComplete, isTrue);
+      expect(result.value!.selectionComplete, isTrue);
+      expect(result.value!.viewportConfirmed, isTrue);
+      expect(result.value!.reasonCode, isNull);
+      expect(result.value!.frameTiming, same(_passingFrameTiming));
+      expect(timing.startCount, 1);
+      expect(timing.stopCount, 1);
+    },
+  );
 
-  testWidgets('ninety-second timeout returns USER_ACTION_INCOMPLETE',
-      (tester) async {
+  testWidgets('ninety-second timeout returns USER_ACTION_INCOMPLETE', (
+    tester,
+  ) async {
     _setPhoneSize(tester, const Size(412, 915));
     final timing = _FakeFrameTimingSampler(_passingFrameTiming);
     final result = _ResultBox();
@@ -98,8 +103,9 @@ void main() {
     expect(timing.stopCount, 1);
   });
 
-  testWidgets('lifecycle interruption returns APP_BACKGROUND_INTERRUPTION',
-      (tester) async {
+  testWidgets('lifecycle interruption returns APP_BACKGROUND_INTERRUPTION', (
+    tester,
+  ) async {
     _setPhoneSize(tester, const Size(412, 915));
     final timing = _FakeFrameTimingSampler(_passingFrameTiming);
     final interruption = ValueNotifier<String?>(null);
@@ -120,19 +126,12 @@ void main() {
     expect(timing.stopCount, 1);
   });
 
-  testWidgets('guided page is overflow-free on both supported phone layouts',
-      (tester) async {
+  testWidgets('guided page is overflow-free on both supported phone layouts', (
+    tester,
+  ) async {
     final variants = <({Size size, Brightness brightness, double scale})>[
-      (
-        size: const Size(360, 800),
-        brightness: Brightness.light,
-        scale: 1.3,
-      ),
-      (
-        size: const Size(412, 915),
-        brightness: Brightness.dark,
-        scale: 1,
-      ),
+      (size: const Size(360, 800), brightness: Brightness.light, scale: 1.3),
+      (size: const Size(412, 915), brightness: Brightness.dark, scale: 1),
     ];
 
     for (final variant in variants) {
@@ -143,9 +142,9 @@ void main() {
         MaterialApp(
           theme: ThemeData(brightness: variant.brightness),
           builder: (context, child) => MediaQuery(
-            data: MediaQuery.of(context).copyWith(
-              textScaler: TextScaler.linear(variant.scale),
-            ),
+            data: MediaQuery.of(
+              context,
+            ).copyWith(textScaler: TextScaler.linear(variant.scale)),
             child: child!,
           ),
           home: HandsetVectorInteractionPage(
@@ -196,16 +195,16 @@ Future<void> _openPage(
               onPressed: () async {
                 result.value = await Navigator.of(context)
                     .push<VectorInteractionResult>(
-                  MaterialPageRoute<VectorInteractionResult>(
-                    builder: (context) => HandsetVectorInteractionPage(
-                      artifact: _artifact,
-                      frameTimingSampler: timing,
-                      minimumDuration: minimumDuration,
-                      timeout: timeout,
-                      interruption: interruption,
-                    ),
-                  ),
-                );
+                      MaterialPageRoute<VectorInteractionResult>(
+                        builder: (context) => HandsetVectorInteractionPage(
+                          artifact: _artifact,
+                          frameTimingSampler: timing,
+                          minimumDuration: minimumDuration,
+                          timeout: timeout,
+                          interruption: interruption,
+                        ),
+                      ),
+                    );
               },
               child: const Text('Open'),
             ),
@@ -227,10 +226,10 @@ final class _ResultBox {
 
 final class _FakeFrameTimingSampler extends FrameTimingSampler {
   _FakeFrameTimingSampler(this.summary)
-      : super(
-          addTimingsCallback: (callback) {},
-          removeTimingsCallback: (callback) {},
-        );
+    : super(
+        addTimingsCallback: (callback) {},
+        removeTimingsCallback: (callback) {},
+      );
 
   final FrameTimingSummary summary;
   bool running = false;
@@ -356,11 +355,7 @@ const TraceVectorSpaceSnapshot _traceData = TraceVectorSpaceSnapshot(
   usedCapturedQuery: true,
   samplePolicy: 'same-run captured query and candidates',
   totalPersistentBodyCount: 2,
-  points: <TraceVectorPoint>[
-    _evidencePoint,
-    _candidatePoint,
-    _queryPoint,
-  ],
+  points: <TraceVectorPoint>[_evidencePoint, _candidatePoint, _queryPoint],
   neighbors: <TraceVectorPoint>[_evidencePoint, _candidatePoint],
   explainedVarianceRatios: <double>[0.56, 0.27, 0.12],
   originalDimension: 768,

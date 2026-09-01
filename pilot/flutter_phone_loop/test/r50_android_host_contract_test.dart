@@ -15,15 +15,18 @@ void main() {
       p.join(sourceRoot.path, 'scripts', 'bootstrap_android.sh'),
       p.join(temporaryRoot.path, 'scripts', 'bootstrap_android.sh'),
     );
-    for (final name in <String>['MainActivity.kt', 'DeviceDiagnosticsHost.kt']) {
+    for (final name in <String>[
+      'MainActivity.kt',
+      'DeviceDiagnosticsHost.kt',
+    ]) {
       await _copyFile(
         p.join(sourceRoot.path, 'android_host', name),
         p.join(temporaryRoot.path, 'android_host', name),
       );
     }
-    await File(p.join(temporaryRoot.path, 'pubspec.yaml')).writeAsString(
-      'name: pocketgallery_phone_pilot\n',
-    );
+    await File(
+      p.join(temporaryRoot.path, 'pubspec.yaml'),
+    ).writeAsString('name: pocketgallery_phone_pilot\n');
 
     final fakeBin = Directory(p.join(temporaryRoot.path, 'fake-bin'));
     await fakeBin.create(recursive: true);
@@ -60,13 +63,14 @@ void main() {
       'qujindai',
       'pocketgallery_phone_pilot',
     );
-    for (final name in <String>['MainActivity.kt', 'DeviceDiagnosticsHost.kt']) {
+    for (final name in <String>[
+      'MainActivity.kt',
+      'DeviceDiagnosticsHost.kt',
+    ]) {
       final template = await File(
         p.join(temporaryRoot.path, 'android_host', name),
       ).readAsBytes();
-      final installed = await File(
-        p.join(kotlinDirectory, name),
-      ).readAsBytes();
+      final installed = await File(p.join(kotlinDirectory, name)).readAsBytes();
       expect(installed, template, reason: '$name must be copied byte-for-byte');
     }
 

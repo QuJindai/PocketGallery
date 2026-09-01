@@ -96,7 +96,8 @@ class TraceVectorSpaceService {
     int maxCorpusPoints = 128,
   }) async {
     final query = snapshot.queryEmbedding;
-    if (query == null || query.representation != EmbeddingRepresentation.query) {
+    if (query == null ||
+        query.representation != EmbeddingRepresentation.query) {
       throw StateError('Trace has no captured query embedding');
     }
     final limit = maxCorpusPoints < 0 ? 0 : maxCorpusPoints;
@@ -104,8 +105,7 @@ class TraceVectorSpaceService {
     final laneByEmbedding = <String, RetrievalLane>{};
     final candidateByEmbedding = <String, CandidateRecord>{};
     final evidenceByCandidate = <String, EvidenceRecord>{
-      for (final evidence in snapshot.evidence)
-        evidence.candidateId: evidence,
+      for (final evidence in snapshot.evidence) evidence.candidateId: evidence,
     };
 
     Future<void> addCandidate(CandidateRecord candidate) async {
@@ -123,21 +123,23 @@ class TraceVectorSpaceService {
       candidateByEmbedding[embeddingId] = candidate;
     }
 
-    final activeCandidates = snapshot.candidates
-        .where(
-          (candidate) =>
-              candidate.lane == RetrievalLane.active &&
-              candidate.strategyId == snapshot.trace.activeStrategyId,
-        )
-        .toList(growable: false)
-      ..sort(_candidateRankCompare);
+    final activeCandidates =
+        snapshot.candidates
+            .where(
+              (candidate) =>
+                  candidate.lane == RetrievalLane.active &&
+                  candidate.strategyId == snapshot.trace.activeStrategyId,
+            )
+            .toList(growable: false)
+          ..sort(_candidateRankCompare);
     for (final candidate in activeCandidates) {
       await addCandidate(candidate);
     }
-    final shadowCandidates = snapshot.candidates
-        .where((candidate) => candidate.lane == RetrievalLane.shadow)
-        .toList(growable: false)
-      ..sort(_candidateRankCompare);
+    final shadowCandidates =
+        snapshot.candidates
+            .where((candidate) => candidate.lane == RetrievalLane.shadow)
+            .toList(growable: false)
+          ..sort(_candidateRankCompare);
     for (final candidate in shadowCandidates) {
       await addCandidate(candidate);
     }
@@ -152,8 +154,9 @@ class TraceVectorSpaceService {
           selected.containsKey(embedding.embeddingId)) {
         continue;
       }
-      (byDocument[embedding.documentId ?? ''] ??= <LineageEmbedding>[])
-          .add(embedding);
+      (byDocument[embedding.documentId ?? ''] ??= <LineageEmbedding>[]).add(
+        embedding,
+      );
     }
     for (final rows in byDocument.values) {
       rows.sort((a, b) => a.embeddingId.compareTo(b.embeddingId));
@@ -193,55 +196,59 @@ class TraceVectorSpaceService {
       final evidence = candidate == null
           ? null
           : evidenceByCandidate[candidate.candidateId];
-      points.add(TraceVectorPoint(
-        embeddingId: embedding.embeddingId,
-        chunkId: embedding.chunkId,
-        documentId: embedding.documentId,
-        sourceName: chunk?.sourceName ?? '来源未捕获',
-        locator: chunk?.locator ?? '',
-        representation: embedding.representation,
-        x: coordinate.x,
-        y: coordinate.y,
-        z: coordinate.z,
-        cosineToQuery: _cosine(query.vector, embedding.vector),
-        isQuery: false,
-        lane: laneByEmbedding[embedding.embeddingId],
-        text: chunk?.text ?? '',
-        candidateId: candidate?.candidateId,
-        sourceChannels: candidate?.sourceChannels,
-        selectedForEvidence:
-            evidence != null || (candidate?.selectedForEvidence ?? false),
-        selectionReason: evidence?.selectionReason,
-        dropReason: candidate?.dropReason,
-        ftsRank: candidate?.ftsRank,
-        vectorRank: candidate?.vectorRank,
-        finalRank: candidate?.finalRank,
-      ));
+      points.add(
+        TraceVectorPoint(
+          embeddingId: embedding.embeddingId,
+          chunkId: embedding.chunkId,
+          documentId: embedding.documentId,
+          sourceName: chunk?.sourceName ?? '来源未捕获',
+          locator: chunk?.locator ?? '',
+          representation: embedding.representation,
+          x: coordinate.x,
+          y: coordinate.y,
+          z: coordinate.z,
+          cosineToQuery: _cosine(query.vector, embedding.vector),
+          isQuery: false,
+          lane: laneByEmbedding[embedding.embeddingId],
+          text: chunk?.text ?? '',
+          candidateId: candidate?.candidateId,
+          sourceChannels: candidate?.sourceChannels,
+          selectedForEvidence:
+              evidence != null || (candidate?.selectedForEvidence ?? false),
+          selectionReason: evidence?.selectionReason,
+          dropReason: candidate?.dropReason,
+          ftsRank: candidate?.ftsRank,
+          vectorRank: candidate?.vectorRank,
+          finalRank: candidate?.finalRank,
+        ),
+      );
     }
     final queryCoordinate = coordinates[query.embeddingId]!;
-    points.add(TraceVectorPoint(
-      embeddingId: query.embeddingId,
-      chunkId: null,
-      documentId: null,
-      sourceName: 'Query',
-      locator: '',
-      representation: EmbeddingRepresentation.query,
-      x: queryCoordinate.x,
-      y: queryCoordinate.y,
-      z: queryCoordinate.z,
-      cosineToQuery: 1,
-      isQuery: true,
-      lane: RetrievalLane.active,
-      text: snapshot.trace.queryText,
-      candidateId: null,
-      sourceChannels: null,
-      selectedForEvidence: false,
-      selectionReason: null,
-      dropReason: null,
-      ftsRank: null,
-      vectorRank: null,
-      finalRank: null,
-    ));
+    points.add(
+      TraceVectorPoint(
+        embeddingId: query.embeddingId,
+        chunkId: null,
+        documentId: null,
+        sourceName: 'Query',
+        locator: '',
+        representation: EmbeddingRepresentation.query,
+        x: queryCoordinate.x,
+        y: queryCoordinate.y,
+        z: queryCoordinate.z,
+        cosineToQuery: 1,
+        isQuery: true,
+        lane: RetrievalLane.active,
+        text: snapshot.trace.queryText,
+        candidateId: null,
+        sourceChannels: null,
+        selectedForEvidence: false,
+        selectionReason: null,
+        dropReason: null,
+        ftsRank: null,
+        vectorRank: null,
+        finalRank: null,
+      ),
+    );
     final neighbors = points.where((point) => !point.isQuery).toList()
       ..sort((a, b) => b.cosineToQuery.compareTo(a.cosineToQuery));
     return TraceVectorSpaceSnapshot(
@@ -262,13 +269,15 @@ class TraceVectorSpaceService {
   }
 
   static int _candidateRankCompare(CandidateRecord a, CandidateRecord b) {
-    final rankA = a.finalRank ??
+    final rankA =
+        a.finalRank ??
         a.rerankRank ??
         a.fusionRank ??
         a.vectorRank ??
         a.ftsRank ??
         1 << 30;
-    final rankB = b.finalRank ??
+    final rankB =
+        b.finalRank ??
         b.rerankRank ??
         b.fusionRank ??
         b.vectorRank ??
@@ -289,8 +298,6 @@ class TraceVectorSpaceService {
       rightNorm += right[index] * right[index];
     }
     if (leftNorm == 0 || rightNorm == 0) return 0;
-    return (dot / math.sqrt(leftNorm * rightNorm))
-        .clamp(-1.0, 1.0)
-        .toDouble();
+    return (dot / math.sqrt(leftNorm * rightNorm)).clamp(-1.0, 1.0).toDouble();
   }
 }

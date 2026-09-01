@@ -121,8 +121,9 @@ void main() {
     effectiveComponentCount: 3,
   );
 
-  testWidgets('Trace vector view is readable, truthful and phone-safe',
-      (tester) async {
+  testWidgets('Trace vector view is readable, truthful and phone-safe', (
+    tester,
+  ) async {
     tester.view.physicalSize = const Size(360, 800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -153,72 +154,74 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('live microscope reuses rotatable 3D without claiming Trace truth',
-      (tester) async {
-    tester.view.physicalSize = const Size(360, 800);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
-    const chunk = PgChunk(
-      id: 'live-chunk',
-      documentId: 'live-document',
-      sourceName: '即时观测.md',
-      locator: 'Chunk 1',
-      ordinal: 0,
-      text: '即时查询生成的最近邻切片。',
-    );
-    const data = VectorMicroscopeSnapshot(
-      query: '即时查询',
-      modelIdentity: 'EmbeddingGemma-test',
-      dimension: 768,
-      queryNorm: 1,
-      queryFingerprint: 'sha256:live-query',
-      points: <VectorMapPoint>[
-        VectorMapPoint(
-          id: '__query__',
-          documentId: '',
-          sourceName: 'Query',
-          locator: '',
-          x: 0,
-          y: 0,
-          z: 0,
-          cosineToQuery: 1,
-          isQuery: true,
-        ),
-        VectorMapPoint(
-          id: 'live-chunk',
-          documentId: 'live-document',
-          sourceName: '即时观测.md',
-          locator: 'Chunk 1',
-          x: 0.4,
-          y: 0.1,
-          z: -0.2,
-          cosineToQuery: 0.8,
-          isQuery: false,
-        ),
-      ],
-      neighbors: <VectorNeighbor>[
-        VectorNeighbor(chunk: chunk, cosine: 0.8, norm: 1),
-      ],
-      explainedVarianceRatios: <double>[0.7, 0.2, 0.1],
-    );
+  testWidgets(
+    'live microscope reuses rotatable 3D without claiming Trace truth',
+    (tester) async {
+      tester.view.physicalSize = const Size(360, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      const chunk = PgChunk(
+        id: 'live-chunk',
+        documentId: 'live-document',
+        sourceName: '即时观测.md',
+        locator: 'Chunk 1',
+        ordinal: 0,
+        text: '即时查询生成的最近邻切片。',
+      );
+      const data = VectorMicroscopeSnapshot(
+        query: '即时查询',
+        modelIdentity: 'EmbeddingGemma-test',
+        dimension: 768,
+        queryNorm: 1,
+        queryFingerprint: 'sha256:live-query',
+        points: <VectorMapPoint>[
+          VectorMapPoint(
+            id: '__query__',
+            documentId: '',
+            sourceName: 'Query',
+            locator: '',
+            x: 0,
+            y: 0,
+            z: 0,
+            cosineToQuery: 1,
+            isQuery: true,
+          ),
+          VectorMapPoint(
+            id: 'live-chunk',
+            documentId: 'live-document',
+            sourceName: '即时观测.md',
+            locator: 'Chunk 1',
+            x: 0.4,
+            y: 0.1,
+            z: -0.2,
+            cosineToQuery: 0.8,
+            isQuery: false,
+          ),
+        ],
+        neighbors: <VectorNeighbor>[
+          VectorNeighbor(chunk: chunk, cosine: 0.8, norm: 1),
+        ],
+        explainedVarianceRatios: <double>[0.7, 0.2, 0.1],
+      );
 
-    await tester.pumpWidget(
-      const MaterialApp(
-        home: Scaffold(
-          body: SingleChildScrollView(
-            padding: EdgeInsets.all(12),
-            child: VectorMicroscopePlotSection(data: data),
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              padding: EdgeInsets.all(12),
+              child: VectorMicroscopePlotSection(data: data),
+            ),
           ),
         ),
-      ),
-    );
-    await tester.pump();
+      );
+      await tester.pump();
 
-    expect(find.byType(InteractiveVectorPlot), findsOneWidget);
-    expect(find.textContaining('即时观测'), findsWidgets);
-    expect(find.textContaining('不是历史 Trace'), findsOneWidget);
-    expect(find.text('2D PCA'), findsNothing);
-    expect(tester.takeException(), isNull);
-  });
+      expect(find.byType(InteractiveVectorPlot), findsOneWidget);
+      expect(find.textContaining('即时观测'), findsWidgets);
+      expect(find.textContaining('不是历史 Trace'), findsOneWidget);
+      expect(find.text('2D PCA'), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
 }

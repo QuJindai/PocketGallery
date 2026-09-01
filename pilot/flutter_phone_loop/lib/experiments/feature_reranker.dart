@@ -93,16 +93,17 @@ class FeatureReranker {
   }
 
   List<FeatureRerankResult> rerank(List<FeatureRerankInput> inputs) {
-    final scored = <({FeatureRerankInput input, RerankFeatureScore score})>[
-      for (final input in inputs) (input: input, score: score(input.features)),
-    ]
-      ..sort((left, right) {
-        final scoreOrder = right.score.score.compareTo(left.score.score);
-        if (scoreOrder != 0) return scoreOrder;
-        final rankOrder = left.input.baseRank.compareTo(right.input.baseRank);
-        if (rankOrder != 0) return rankOrder;
-        return left.input.chunkId.compareTo(right.input.chunkId);
-      });
+    final scored =
+        <({FeatureRerankInput input, RerankFeatureScore score})>[
+          for (final input in inputs)
+            (input: input, score: score(input.features)),
+        ]..sort((left, right) {
+          final scoreOrder = right.score.score.compareTo(left.score.score);
+          if (scoreOrder != 0) return scoreOrder;
+          final rankOrder = left.input.baseRank.compareTo(right.input.baseRank);
+          if (rankOrder != 0) return rankOrder;
+          return left.input.chunkId.compareTo(right.input.chunkId);
+        });
     return <FeatureRerankResult>[
       for (var index = 0; index < scored.length; index++)
         FeatureRerankResult(

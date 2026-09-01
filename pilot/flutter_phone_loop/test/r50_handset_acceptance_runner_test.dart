@@ -36,53 +36,63 @@ void main() {
     expect(harness.resources.stopCount, 1);
   });
 
-  test('missing baseline stays BLOCKED and writes helper baseline after H8',
-      () async {
-    final events = <String>[];
-    final harness = _Harness(
-      identity: _identity(versionCode: 2022),
-      hasBaseline: false,
-      events: events,
-    );
-
-    final result = await harness.runner.run(
-      runInteraction: harness.runPassingInteraction,
-    );
-
-    expect(result.verdict, AcceptanceVerdict.blocked);
-    expect(result.mergeCandidate, isFalse);
-    expect(
-      _gate(result, 'H3_UPGRADE_BASELINE').detail,
-      'UPGRADE_BASELINE_MISSING',
-    );
-    expect(harness.persistence.savedBaselines, hasLength(1));
-    expect(harness.persistence.savedBaselines.single.versionCode, 2022);
-    expect(events.indexOf('preservation:after'), lessThan(events.indexOf('resources:stop')));
-    expect(events.indexOf('resources:stop'), lessThan(events.indexOf('baseline:save')));
-    expect(events, contains('screen:off'));
-    expect(events.indexOf('screen:off'), lessThan(events.indexOf('baseline:save')));
-  });
-
-  test('non-target or non-canonical helper never establishes a baseline',
-      () async {
-    final identities = <DeviceIdentitySnapshot>[
-      _identity(versionCode: 2022, manufacturer: 'Google', model: 'Pixel 9'),
-      _identity(versionCode: 2022, signerSha256: _otherDigest),
-    ];
-
-    for (final identity in identities) {
+  test(
+    'missing baseline stays BLOCKED and writes helper baseline after H8',
+    () async {
+      final events = <String>[];
       final harness = _Harness(
-        identity: identity,
+        identity: _identity(versionCode: 2022),
         hasBaseline: false,
+        events: events,
       );
+
       final result = await harness.runner.run(
         runInteraction: harness.runPassingInteraction,
       );
 
       expect(result.verdict, AcceptanceVerdict.blocked);
-      expect(harness.persistence.savedBaselines, isEmpty);
-    }
-  });
+      expect(result.mergeCandidate, isFalse);
+      expect(
+        _gate(result, 'H3_UPGRADE_BASELINE').detail,
+        'UPGRADE_BASELINE_MISSING',
+      );
+      expect(harness.persistence.savedBaselines, hasLength(1));
+      expect(harness.persistence.savedBaselines.single.versionCode, 2022);
+      expect(
+        events.indexOf('preservation:after'),
+        lessThan(events.indexOf('resources:stop')),
+      );
+      expect(
+        events.indexOf('resources:stop'),
+        lessThan(events.indexOf('baseline:save')),
+      );
+      expect(events, contains('screen:off'));
+      expect(
+        events.indexOf('screen:off'),
+        lessThan(events.indexOf('baseline:save')),
+      );
+    },
+  );
+
+  test(
+    'non-target or non-canonical helper never establishes a baseline',
+    () async {
+      final identities = <DeviceIdentitySnapshot>[
+        _identity(versionCode: 2022, manufacturer: 'Google', model: 'Pixel 9'),
+        _identity(versionCode: 2022, signerSha256: _otherDigest),
+      ];
+
+      for (final identity in identities) {
+        final harness = _Harness(identity: identity, hasBaseline: false);
+        final result = await harness.runner.run(
+          runInteraction: harness.runPassingInteraction,
+        );
+
+        expect(result.verdict, AcceptanceVerdict.blocked);
+        expect(harness.persistence.savedBaselines, isEmpty);
+      }
+    },
+  );
 
   test('H7 render failure outranks an H3 missing-baseline block', () async {
     final harness = _Harness(
@@ -95,73 +105,89 @@ void main() {
       runInteraction: harness.runPassingInteraction,
     );
 
-    expect(_gate(result, 'H3_UPGRADE_BASELINE').status, HandsetGateStatus.blocked);
-    expect(_gate(result, 'H7_RENDER_PERFORMANCE').status, HandsetGateStatus.failed);
+    expect(
+      _gate(result, 'H3_UPGRADE_BASELINE').status,
+      HandsetGateStatus.blocked,
+    );
+    expect(
+      _gate(result, 'H7_RENDER_PERFORMANCE').status,
+      HandsetGateStatus.failed,
+    );
     expect(result.verdict, AcceptanceVerdict.fail);
     expect(harness.persistence.savedBaselines, isEmpty);
   });
 
-  test('missing model blocks dependent gates but still finalizes a report',
-      () async {
-    final harness = _Harness(modelReady: false);
+  test(
+    'missing model blocks dependent gates but still finalizes a report',
+    () async {
+      final harness = _Harness(modelReady: false);
 
-    final result = await harness.runner.run(
-      runInteraction: harness.runPassingInteraction,
-    );
+      final result = await harness.runner.run(
+        runInteraction: harness.runPassingInteraction,
+      );
 
-    for (final name in <String>[
-      'H4_PHONE_FUNCTION_LOOP',
-      'H5_VECTOR_3D_TRUTH',
-      'H6_VECTOR_INTERACTION',
-      'H7_RENDER_PERFORMANCE',
-    ]) {
-      expect(_gate(result, name).status, HandsetGateStatus.blocked);
-      expect(_gate(result, name).detail, 'MODEL_PREREQUISITE_MISSING');
-    }
-    expect(_gate(result, 'H10_REPORT_INTEGRITY').status, HandsetGateStatus.passed);
-    expect(result.verdict, AcceptanceVerdict.blocked);
-    expect(harness.goldenRunCount, 0);
-    expect(harness.persistence.finalReports, hasLength(1));
-  });
+      for (final name in <String>[
+        'H4_PHONE_FUNCTION_LOOP',
+        'H5_VECTOR_3D_TRUTH',
+        'H6_VECTOR_INTERACTION',
+        'H7_RENDER_PERFORMANCE',
+      ]) {
+        expect(_gate(result, name).status, HandsetGateStatus.blocked);
+        expect(_gate(result, name).detail, 'MODEL_PREREQUISITE_MISSING');
+      }
+      expect(
+        _gate(result, 'H10_REPORT_INTEGRITY').status,
+        HandsetGateStatus.passed,
+      );
+      expect(result.verdict, AcceptanceVerdict.blocked);
+      expect(harness.goldenRunCount, 0);
+      expect(harness.persistence.finalReports, hasLength(1));
+    },
+  );
 
-  test('interrupt is cooperative, idempotent, and cleans up the active run',
-      () async {
-    final enteredGolden = Completer<void>();
-    final releaseGolden = Completer<void>();
-    var nestedInterrupts = 0;
-    late _Harness harness;
-    harness = _Harness(
-      goldenRun: ({onProgress, onTraceReady}) async {
-        harness.goldenRunCount += 1;
-        enteredGolden.complete();
-        await releaseGolden.future;
-        return _passingGoldenReport();
-      },
-      goldenInterrupt: (reasonCode) async {
-        nestedInterrupts += 1;
-        expect(reasonCode, 'APP_BACKGROUND_INTERRUPTION');
-        if (!releaseGolden.isCompleted) releaseGolden.complete();
-      },
-    );
+  test(
+    'interrupt is cooperative, idempotent, and cleans up the active run',
+    () async {
+      final enteredGolden = Completer<void>();
+      final releaseGolden = Completer<void>();
+      var nestedInterrupts = 0;
+      late _Harness harness;
+      harness = _Harness(
+        goldenRun: ({onProgress, onTraceReady}) async {
+          harness.goldenRunCount += 1;
+          enteredGolden.complete();
+          await releaseGolden.future;
+          return _passingGoldenReport();
+        },
+        goldenInterrupt: (reasonCode) async {
+          nestedInterrupts += 1;
+          expect(reasonCode, 'APP_BACKGROUND_INTERRUPTION');
+          if (!releaseGolden.isCompleted) releaseGolden.complete();
+        },
+      );
 
-    final run = harness.runner.run(
-      runInteraction: harness.runPassingInteraction,
-    );
-    await enteredGolden.future;
-    await harness.runner.interrupt('APP_BACKGROUND_INTERRUPTION');
-    await harness.runner.interrupt('USER_CANCELLED');
-    final result = await run;
+      final run = harness.runner.run(
+        runInteraction: harness.runPassingInteraction,
+      );
+      await enteredGolden.future;
+      await harness.runner.interrupt('APP_BACKGROUND_INTERRUPTION');
+      await harness.runner.interrupt('USER_CANCELLED');
+      final result = await run;
 
-    expect(nestedInterrupts, 1);
-    expect(_gate(result, 'H4_PHONE_FUNCTION_LOOP').status, HandsetGateStatus.blocked);
-    expect(
-      _gate(result, 'H4_PHONE_FUNCTION_LOOP').detail,
-      'APP_BACKGROUND_INTERRUPTION',
-    );
-    expect(result.verdict, AcceptanceVerdict.blocked);
-    expect(harness.resources.stopCount, 1);
-    expect(harness.diagnostics.keepScreenOnValues.last, isFalse);
-  });
+      expect(nestedInterrupts, 1);
+      expect(
+        _gate(result, 'H4_PHONE_FUNCTION_LOOP').status,
+        HandsetGateStatus.blocked,
+      );
+      expect(
+        _gate(result, 'H4_PHONE_FUNCTION_LOOP').detail,
+        'APP_BACKGROUND_INTERRUPTION',
+      );
+      expect(result.verdict, AcceptanceVerdict.blocked);
+      expect(harness.resources.stopCount, 1);
+      expect(harness.diagnostics.keepScreenOnValues.last, isFalse);
+    },
+  );
 
   test('keepScreenOn false executes even when setup throws', () async {
     final diagnostics = _FakeDiagnostics(
@@ -235,8 +261,10 @@ void main() {
       _gate(result, 'H8_MEMORY_THERMAL').status,
       HandsetGateStatus.blocked,
     );
-    expect(_gate(result, 'H8_MEMORY_THERMAL').detail,
-        'APP_BACKGROUND_INTERRUPTION');
+    expect(
+      _gate(result, 'H8_MEMORY_THERMAL').detail,
+      'APP_BACKGROUND_INTERRUPTION',
+    );
     expect(result.mergeCandidate, isFalse);
     expect(result.verdict, AcceptanceVerdict.blocked);
   });
@@ -245,10 +273,7 @@ void main() {
     final events = <String>[];
     final reportEntered = Completer<void>();
     final releaseReport = Completer<void>();
-    final diagnostics = _FakeDiagnostics(
-      identity: _identity(),
-      events: events,
-    );
+    final diagnostics = _FakeDiagnostics(identity: _identity(), events: events);
     final persistence = _MemoryPersistence(
       baseline: _baseline(),
       events: events,
@@ -266,7 +291,8 @@ void main() {
     );
     await reportEntered.future;
 
-    final screenReleasedBeforeReport = events.contains('screen:off') &&
+    final screenReleasedBeforeReport =
+        events.contains('screen:off') &&
         events.indexOf('screen:off') < events.indexOf('report:save');
     await harness.runner.interrupt('USER_CANCELLED');
     final lateInterruptIgnored = harness.runner.interruption.value == null;
@@ -279,127 +305,137 @@ void main() {
     expect(result.mergeCandidate, isTrue);
   });
 
-  test('screen release failure is terminal FAIL evidence, never a thrown PASS',
-      () async {
-    final diagnostics = _FakeDiagnostics(
-      identity: _identity(),
-      throwWhenDisablingScreen: true,
-    );
-    final harness = _Harness(diagnostics: diagnostics);
+  test(
+    'screen release failure is terminal FAIL evidence, never a thrown PASS',
+    () async {
+      final diagnostics = _FakeDiagnostics(
+        identity: _identity(),
+        throwWhenDisablingScreen: true,
+      );
+      final harness = _Harness(diagnostics: diagnostics);
 
-    final result = await harness.runner.run(
-      runInteraction: harness.runPassingInteraction,
-    );
+      final result = await harness.runner.run(
+        runInteraction: harness.runPassingInteraction,
+      );
 
-    expect(result.cleanupError, 'RUNTIME_CLEANUP_FAILED');
-    expect(result.verdict, AcceptanceVerdict.fail);
-    expect(result.mergeCandidate, isFalse);
-    expect(harness.persistence.finalReports, hasLength(1));
-  });
+      expect(result.cleanupError, 'RUNTIME_CLEANUP_FAILED');
+      expect(result.verdict, AcceptanceVerdict.fail);
+      expect(result.mergeCandidate, isFalse);
+      expect(harness.persistence.finalReports, hasLength(1));
+    },
+  );
 
-  test('resource stop failure is terminal FAIL evidence, never a thrown PASS',
-      () async {
-    final resources = _FakeResourceSampler(
-      _passingResourceSummary(),
-      throwOnStop: true,
-    );
-    final harness = _Harness(resourceSampler: resources);
+  test(
+    'resource stop failure is terminal FAIL evidence, never a thrown PASS',
+    () async {
+      final resources = _FakeResourceSampler(
+        _passingResourceSummary(),
+        throwOnStop: true,
+      );
+      final harness = _Harness(resourceSampler: resources);
 
-    final result = await harness.runner.run(
-      runInteraction: harness.runPassingInteraction,
-    );
+      final result = await harness.runner.run(
+        runInteraction: harness.runPassingInteraction,
+      );
 
-    expect(result.cleanupError, 'RUNTIME_CLEANUP_FAILED');
-    expect(result.verdict, AcceptanceVerdict.fail);
-    expect(result.mergeCandidate, isFalse);
-    expect(harness.persistence.finalReports, hasLength(1));
-  });
+      expect(result.cleanupError, 'RUNTIME_CLEANUP_FAILED');
+      expect(result.verdict, AcceptanceVerdict.fail);
+      expect(result.mergeCandidate, isFalse);
+      expect(harness.persistence.finalReports, hasLength(1));
+    },
+  );
 
-  test('runtime cleanup gives both native shutdown calls a hard timeout',
-      () async {
-    final source =
-        await File('lib/acceptance/handset_acceptance_runner.dart')
-            .readAsString();
+  test(
+    'runtime cleanup gives both native shutdown calls a hard timeout',
+    () async {
+      final source = await File(
+        'lib/acceptance/handset_acceptance_runner.dart',
+      ).readAsString();
 
-    expect(
-      RegExp(r'\.timeout\(runtimeCleanupTimeout\)')
-          .allMatches(source)
-          .length,
-      greaterThanOrEqualTo(2),
-    );
-  });
+      expect(
+        RegExp(r'\.timeout\(runtimeCleanupTimeout\)').allMatches(source).length,
+        greaterThanOrEqualTo(2),
+      );
+    },
+  );
 
-  test('a hung resource stop times out into a terminal cleanup failure',
-      () async {
-    final stopEntered = Completer<void>();
-    final stopBarrier = Completer<void>();
-    final resources = _FakeResourceSampler(
-      _passingResourceSummary(),
-      stopEntered: stopEntered,
-      stopBarrier: stopBarrier,
-    );
-    final harness = _Harness(
-      resourceSampler: resources,
-      runtimeCleanupTimeout: const Duration(milliseconds: 5),
-    );
+  test(
+    'a hung resource stop times out into a terminal cleanup failure',
+    () async {
+      final stopEntered = Completer<void>();
+      final stopBarrier = Completer<void>();
+      final resources = _FakeResourceSampler(
+        _passingResourceSummary(),
+        stopEntered: stopEntered,
+        stopBarrier: stopBarrier,
+      );
+      final harness = _Harness(
+        resourceSampler: resources,
+        runtimeCleanupTimeout: const Duration(milliseconds: 5),
+      );
 
-    final run = harness.runner.run(
-      runInteraction: harness.runPassingInteraction,
-    );
-    await stopEntered.future;
-    final result = await run.timeout(const Duration(seconds: 1));
+      final run = harness.runner.run(
+        runInteraction: harness.runPassingInteraction,
+      );
+      await stopEntered.future;
+      final result = await run.timeout(const Duration(seconds: 1));
 
-    expect(result.cleanupError, 'RUNTIME_CLEANUP_FAILED');
-    expect(result.verdict, AcceptanceVerdict.fail);
-    expect(result.mergeCandidate, isFalse);
-    expect(harness.diagnostics.keepScreenOnValues.last, isFalse);
-    expect(harness.persistence.finalReports, hasLength(1));
+      expect(result.cleanupError, 'RUNTIME_CLEANUP_FAILED');
+      expect(result.verdict, AcceptanceVerdict.fail);
+      expect(result.mergeCandidate, isFalse);
+      expect(harness.diagnostics.keepScreenOnValues.last, isFalse);
+      expect(harness.persistence.finalReports, hasLength(1));
 
-    stopBarrier.complete();
-    await Future<void>.delayed(Duration.zero);
-  });
+      stopBarrier.complete();
+      await Future<void>.delayed(Duration.zero);
+    },
+  );
 
-  test('a hung screen release times out into a terminal cleanup failure',
-      () async {
-    final screenOffBarrier = Completer<void>();
-    final diagnostics = _FakeDiagnostics(
-      identity: _identity(),
-      screenOffBarrier: screenOffBarrier,
-    );
-    final harness = _Harness(
-      diagnostics: diagnostics,
-      runtimeCleanupTimeout: const Duration(milliseconds: 5),
-    );
+  test(
+    'a hung screen release times out into a terminal cleanup failure',
+    () async {
+      final screenOffBarrier = Completer<void>();
+      final diagnostics = _FakeDiagnostics(
+        identity: _identity(),
+        screenOffBarrier: screenOffBarrier,
+      );
+      final harness = _Harness(
+        diagnostics: diagnostics,
+        runtimeCleanupTimeout: const Duration(milliseconds: 5),
+      );
 
-    final result = await harness.runner
-        .run(runInteraction: harness.runPassingInteraction)
-        .timeout(const Duration(seconds: 1));
+      final result = await harness.runner
+          .run(runInteraction: harness.runPassingInteraction)
+          .timeout(const Duration(seconds: 1));
 
-    expect(result.cleanupError, 'RUNTIME_CLEANUP_FAILED');
-    expect(result.verdict, AcceptanceVerdict.fail);
-    expect(result.mergeCandidate, isFalse);
-    expect(harness.persistence.finalReports, hasLength(1));
+      expect(result.cleanupError, 'RUNTIME_CLEANUP_FAILED');
+      expect(result.verdict, AcceptanceVerdict.fail);
+      expect(result.mergeCandidate, isFalse);
+      expect(harness.persistence.finalReports, hasLength(1));
 
-    screenOffBarrier.complete();
-    await Future<void>.delayed(Duration.zero);
-  });
+      screenOffBarrier.complete();
+      await Future<void>.delayed(Duration.zero);
+    },
+  );
 
-  test('nested Golden progress maps monotonically into the H4 55 percent window',
-      () async {
-    final progress = <int>[];
-    final harness = _Harness();
+  test(
+    'nested Golden progress maps monotonically into the H4 55 percent window',
+    () async {
+      final progress = <int>[];
+      final harness = _Harness();
 
-    await harness.runner.run(
-      onProgress: (snapshot) => progress.add(snapshot.percent),
-      runInteraction: harness.runPassingInteraction,
-    );
+      await harness.runner.run(
+        onProgress: (snapshot) => progress.add(snapshot.percent),
+        runInteraction: harness.runPassingInteraction,
+      );
 
-    expect(progress, contains(35));
-    expect(progress.last, 100);
-    for (var index = 1; index < progress.length; index += 1) {
-      expect(progress[index], greaterThanOrEqualTo(progress[index - 1]));
-    }
-  });
+      expect(progress, contains(35));
+      expect(progress.last, 100);
+      for (var index = 1; index < progress.length; index += 1) {
+        expect(progress[index], greaterThanOrEqualTo(progress[index - 1]));
+      }
+    },
+  );
 
   test('H9 detects same-run durable-state mutation', () async {
     final harness = _Harness(
@@ -413,7 +449,10 @@ void main() {
       runInteraction: harness.runPassingInteraction,
     );
 
-    expect(_gate(result, 'H9_DATA_PRESERVATION').status, HandsetGateStatus.failed);
+    expect(
+      _gate(result, 'H9_DATA_PRESERVATION').status,
+      HandsetGateStatus.failed,
+    );
     expect(
       _gate(result, 'H9_DATA_PRESERVATION').detail,
       contains('DOCUMENT_CHANGED'),
@@ -421,28 +460,39 @@ void main() {
     expect(result.verdict, AcceptanceVerdict.fail);
   });
 
-  test('stale checkpoint recovery cleans fixtures once and blocks unfinished gates',
-      () async {
-    final stale = _staleSnapshot();
-    var cleanups = 0;
-    final persistence = _MemoryPersistence(last: stale, baseline: _baseline());
-    final harness = _Harness(
-      persistence: persistence,
-      knownFixtureCleanup: () async {
-        cleanups += 1;
-      },
-    );
+  test(
+    'stale checkpoint recovery cleans fixtures once and blocks unfinished gates',
+    () async {
+      final stale = _staleSnapshot();
+      var cleanups = 0;
+      final persistence = _MemoryPersistence(
+        last: stale,
+        baseline: _baseline(),
+      );
+      final harness = _Harness(
+        persistence: persistence,
+        knownFixtureCleanup: () async {
+          cleanups += 1;
+        },
+      );
 
-    final first = await harness.runner.recoverInterruptedCheckpoint();
-    final second = await harness.runner.recoverInterruptedCheckpoint();
+      final first = await harness.runner.recoverInterruptedCheckpoint();
+      final second = await harness.runner.recoverInterruptedCheckpoint();
 
-    expect(cleanups, 1);
-    expect(second, same(first));
-    expect(first!.phase, HandsetRunPhase.completed);
-    expect(_gate(first, 'H1_TARGET_DEVICE').status, HandsetGateStatus.passed);
-    expect(_gate(first, 'H4_PHONE_FUNCTION_LOOP').status, HandsetGateStatus.blocked);
-    expect(_gate(first, 'H4_PHONE_FUNCTION_LOOP').detail, 'PROCESS_INTERRUPTED');
-  });
+      expect(cleanups, 1);
+      expect(second, same(first));
+      expect(first!.phase, HandsetRunPhase.completed);
+      expect(_gate(first, 'H1_TARGET_DEVICE').status, HandsetGateStatus.passed);
+      expect(
+        _gate(first, 'H4_PHONE_FUNCTION_LOOP').status,
+        HandsetGateStatus.blocked,
+      );
+      expect(
+        _gate(first, 'H4_PHONE_FUNCTION_LOOP').detail,
+        'PROCESS_INTERRUPTED',
+      );
+    },
+  );
 
   test('recovery cleanup failure prevents a new run and forces FAIL', () async {
     final persistence = _MemoryPersistence(
@@ -466,21 +516,24 @@ void main() {
     expect(harness.diagnostics.identityReads, 0);
   });
 
-  test('every run allocates a fresh ID instead of selective rerun state', () async {
-    final ids = <String>['run-a', 'run-b'];
-    final harness = _Harness(runIdFactory: () => ids.removeAt(0));
+  test(
+    'every run allocates a fresh ID instead of selective rerun state',
+    () async {
+      final ids = <String>['run-a', 'run-b'];
+      final harness = _Harness(runIdFactory: () => ids.removeAt(0));
 
-    final first = await harness.runner.run(
-      runInteraction: harness.runPassingInteraction,
-    );
-    final second = await harness.runner.run(
-      runInteraction: harness.runPassingInteraction,
-    );
+      final first = await harness.runner.run(
+        runInteraction: harness.runPassingInteraction,
+      );
+      final second = await harness.runner.run(
+        runInteraction: harness.runPassingInteraction,
+      );
 
-    expect(first.runId, 'run-a');
-    expect(second.runId, 'run-b');
-    expect(second.runId, isNot(first.runId));
-  });
+      expect(first.runId, 'run-a');
+      expect(second.runId, 'run-b');
+      expect(second.runId, isNot(first.runId));
+    },
+  );
 }
 
 final class _Harness {
@@ -502,30 +555,30 @@ final class _Harness {
     String Function()? runIdFactory,
     Duration runtimeCleanupTimeout = const Duration(seconds: 12),
     List<String>? events,
-  })  : events = events ?? <String>[],
-        diagnostics =
-            diagnostics ??
-                _FakeDiagnostics(
-                  identity: identity ?? _identity(),
-                  events: events,
-                ),
-        persistence = persistence ??
-            _MemoryPersistence(
-              baseline: hasBaseline ? _baseline() : null,
-              events: events,
-            ),
-        resources = resourceSampler ??
-            _FakeResourceSampler(
-              resourceSummary ?? _passingResourceSummary(),
-              events: events,
-            ) {
+  }) : events = events ?? <String>[],
+       diagnostics =
+           diagnostics ??
+           _FakeDiagnostics(identity: identity ?? _identity(), events: events),
+       persistence =
+           persistence ??
+           _MemoryPersistence(
+             baseline: hasBaseline ? _baseline() : null,
+             events: events,
+           ),
+       resources =
+           resourceSampler ??
+           _FakeResourceSampler(
+             resourceSummary ?? _passingResourceSummary(),
+             events: events,
+           ) {
     final before = _preservation(
       versionCode: this.diagnostics.identity.versionCode ?? 2023,
     );
     final after = afterPreservation ?? before;
     var captureCount = 0;
     final artifact = _FakeVectorArtifact('trace-task7');
-    final actualGoldenRun = goldenRun ??
+    final actualGoldenRun =
+        goldenRun ??
         ({onProgress, onTraceReady}) async {
           goldenRunCount += 1;
           onProgress?.call(_runningGoldenSnapshot());
@@ -535,7 +588,8 @@ final class _Harness {
     runner = HandsetAcceptanceRunner(
       diagnostics: this.diagnostics,
       persistence: this.persistence,
-      capturePreservation: preservationCapture ??
+      capturePreservation:
+          preservationCapture ??
           (deviceIdentity) async {
             captureCount += 1;
             final isBefore = captureCount.isOdd;
@@ -563,9 +617,7 @@ final class _Harness {
       },
       probeModelReadiness: () async => modelReady
           ? const ModelReadinessResult.passed()
-          : const ModelReadinessResult.blocked(
-              'MODEL_PREREQUISITE_MISSING',
-            ),
+          : const ModelReadinessResult.blocked('MODEL_PREREQUISITE_MISSING'),
       resources: resources,
       runtimeCleanupTimeout: runtimeCleanupTimeout,
       clock: clock ?? _AdvancingClock().call,
@@ -643,8 +695,7 @@ final class _FakeResourceSampler implements DeviceResourceSampling {
     this.stopEntered,
     this.stopBarrier,
     this.throwOnStop = false,
-  })
-      : events = events ?? <String>[];
+  }) : events = events ?? <String>[];
 
   final ResourceAcceptanceSummary summary;
   final List<String> events;
@@ -763,30 +814,25 @@ DeviceIdentitySnapshot _identity({
   String model = 'SM-S9280',
   String signerSha256 = PocketGalleryBuildIdentity.canonicalSignerSha256,
 }) {
-  return DeviceIdentitySnapshot.fromMap(
-    <String, Object?>{
-      'manufacturer': manufacturer,
-      'model': model,
-      'sdkInt': 35,
-      'refreshRateHz': 120.0,
-      'packageName': PocketGalleryBuildIdentity.packageName,
-      'versionName': versionCode == 2022 ? '0.5.0' : '0.5.1',
-      'versionCode': versionCode,
-      'signerSha256': signerSha256,
-      'apkSha256': _apkDigest,
-      'unavailableReasons': const <String>[],
-    },
-    sourceCommit: _sourceCommit,
-  );
+  return DeviceIdentitySnapshot.fromMap(<String, Object?>{
+    'manufacturer': manufacturer,
+    'model': model,
+    'sdkInt': 35,
+    'refreshRateHz': 120.0,
+    'packageName': PocketGalleryBuildIdentity.packageName,
+    'versionName': versionCode == 2022 ? '0.5.0' : '0.5.1',
+    'versionCode': versionCode,
+    'signerSha256': signerSha256,
+    'apkSha256': _apkDigest,
+    'unavailableReasons': const <String>[],
+  }, sourceCommit: _sourceCommit);
 }
 
 PreservationSnapshot _baseline() => _preservation(versionCode: 2022);
 
 PreservationSnapshot _preservation({
   required int versionCode,
-  Map<String, String> knowledgeStates = const <String, String>{
-    'doc': 'same',
-  },
+  Map<String, String> knowledgeStates = const <String, String>{'doc': 'same'},
 }) {
   return PreservationSnapshot(
     versionCode: versionCode,
@@ -863,8 +909,8 @@ GoldenTestSnapshot _runningGoldenSnapshot() {
         status: index < 5
             ? GoldenGateStatus.passed
             : index == 5
-                ? GoldenGateStatus.running
-                : GoldenGateStatus.pending,
+            ? GoldenGateStatus.running
+            : GoldenGateStatus.pending,
         detail: '',
       ),
     ),

@@ -18,7 +18,8 @@ class RetrievalTracePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final totalMs = trace.timings.lexicalMs +
+    final totalMs =
+        trace.timings.lexicalMs +
         trace.timings.semanticMs +
         trace.timings.fusionMs +
         trace.timings.evidenceMs +
@@ -84,10 +85,7 @@ class RetrievalTracePage extends StatelessWidget {
               ),
               truth: 'DERIVED contributions / final rank',
               enabled: true,
-              onTap: () => _push(
-                context,
-                HybridRankLabPage(trace: trace),
-              ),
+              onTap: () => _push(context, HybridRankLabPage(trace: trace)),
             ),
             _stage(
               context,
@@ -144,17 +142,16 @@ class RetrievalTracePage extends StatelessWidget {
     required String truth,
     bool enabled = false,
     VoidCallback? onTap,
-  }) =>
-      Card(
-        child: ListTile(
-          leading: Icon(icon),
-          title: Text(title),
-          subtitle: Text('$subtitle\n$truth'),
-          isThreeLine: true,
-          trailing: enabled ? const Icon(Icons.chevron_right) : null,
-          onTap: enabled ? onTap : null,
-        ),
-      );
+  }) => Card(
+    child: ListTile(
+      leading: Icon(icon),
+      title: Text(title),
+      subtitle: Text('$subtitle\n$truth'),
+      isThreeLine: true,
+      trailing: enabled ? const Icon(Icons.chevron_right) : null,
+      onTap: enabled ? onTap : null,
+    ),
+  );
 
   String _stageSubtitle(int count, int ms, String? source) =>
       '$count hits · $ms ms${source == null ? '' : ' · top $source'}';

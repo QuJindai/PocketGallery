@@ -4,12 +4,10 @@ import '../core/models.dart';
 import 'golden_test_state.dart';
 
 typedef GoldenProgressCallback = void Function(GoldenTestSnapshot snapshot);
-typedef GoldenCheckpointCallback = FutureOr<void> Function(
-  GoldenTestSnapshot snapshot,
-);
-typedef GoldenGateTimeoutCallback = FutureOr<void> Function(
-  GoldenGateSnapshot gate,
-);
+typedef GoldenCheckpointCallback =
+    FutureOr<void> Function(GoldenTestSnapshot snapshot);
+typedef GoldenGateTimeoutCallback =
+    FutureOr<void> Function(GoldenGateSnapshot gate);
 typedef GoldenCleanupCallback = FutureOr<void> Function();
 
 class GoldenGateSpec {
@@ -32,7 +30,7 @@ class GoldenGateSpec {
 
 class GoldenGateExecutor {
   GoldenGateExecutor({DateTime Function()? clock})
-      : _clock = clock ?? DateTime.now;
+    : _clock = clock ?? DateTime.now;
 
   final DateTime Function() _clock;
 
@@ -146,10 +144,7 @@ class GoldenGateExecutor {
     }
     final unresolvedOperations = timedOutOperations
         .where((operation) => !operation.settled)
-        .map(
-          (operation) =>
-              'GATE_OPERATION_STILL_ACTIVE:${operation.gateName}',
-        )
+        .map((operation) => 'GATE_OPERATION_STILL_ACTIVE:${operation.gateName}')
         .toList(growable: false);
     if (unresolvedOperations.isNotEmpty) {
       cleanupError = <String>[
@@ -188,10 +183,7 @@ class GoldenGateExecutor {
 }
 
 final class _TrackedGateOperation {
-  _TrackedGateOperation(
-    this.gateName,
-    Future<GateResult> Function() run,
-  ) {
+  _TrackedGateOperation(this.gateName, Future<GateResult> Function() run) {
     future = Future<GateResult>.sync(run).whenComplete(() {
       settled = true;
     });

@@ -46,9 +46,7 @@ class ChunkLineagePage extends StatelessWidget {
                           final text = value.data?.text;
                           return ExpansionTile(
                             tilePadding: EdgeInsets.zero,
-                            title: Text(
-                              '${chunk.chunkId} · ${chunk.locator}',
-                            ),
+                            title: Text('${chunk.chunkId} · ${chunk.locator}'),
                             subtitle: Text(
                               '${chunk.charCount} chars · '
                               '${chunk.tokenCount ?? 'tokens 未捕获'} · '
@@ -58,9 +56,7 @@ class ChunkLineagePage extends StatelessWidget {
                             children: [
                               Align(
                                 alignment: Alignment.centerLeft,
-                                child: Text(
-                                  text ?? 'Chunk 正文未能从 FTS 存储读取。',
-                                ),
+                                child: Text(text ?? 'Chunk 正文未能从 FTS 存储读取。'),
                               ),
                               const SizedBox(height: 6),
                               Align(

@@ -23,90 +23,92 @@ void main() {
     });
 
     test('each well-shaped evidence mismatch emits its one stable reason', () {
-      final cases = <({
-        String reason,
-        void Function(Map<String, dynamic>, Map<String, dynamic>) mutate,
-        String sidecar,
-      })>[
-        (
-          reason: 'SOURCE_COMMIT_MISMATCH',
-          mutate: (device, automated) =>
-              automated['sourceCommit'] = _alternateCommit,
-          sidecar: _apkSha256,
-        ),
-        (
-          reason: 'PACKAGE_MISMATCH',
-          mutate: (device, automated) =>
-              (device['identity'] as Map<String, dynamic>)['packageName'] =
-                  'com.example.wrong',
-          sidecar: _apkSha256,
-        ),
-        (
-          reason: 'VERSION_CODE_MISMATCH',
-          mutate: (device, automated) =>
-              (device['identity'] as Map<String, dynamic>)['versionCode'] =
-                  2024,
-          sidecar: _apkSha256,
-        ),
-        (
-          reason: 'SIGNER_MISMATCH',
-          mutate: (device, automated) =>
-              (device['identity'] as Map<String, dynamic>)['signerSha256'] =
-                  _alternateDigest,
-          sidecar: _apkSha256,
-        ),
-        (
-          reason: 'DEVICE_APK_DIGEST_MISMATCH',
-          mutate: (device, automated) =>
-              (device['identity'] as Map<String, dynamic>)['apkSha256'] =
-                  _alternateDigest,
-          sidecar: _apkSha256,
-        ),
-        (
-          reason: 'SIDECAR_DIGEST_MISMATCH',
-          mutate: (device, automated) {},
-          sidecar: _alternateDigest,
-        ),
-        (
-          reason: 'AUTOMATED_GATES_FAILED',
-          mutate: (device, automated) =>
-              automated['automatedGatesPassed'] = false,
-          sidecar: _apkSha256,
-        ),
-        (
-          reason: 'DEVICE_GATE_STATUS_INVALID',
-          mutate: (device, automated) =>
-              (device['gates'] as List<dynamic>)[4]['status'] = 'FAILED',
-          sidecar: _apkSha256,
-        ),
-        (
-          reason: 'PHONE_FUNCTION_LOOP_NOT_PASS',
-          mutate: (device, automated) =>
-              device['PHONE_FUNCTION_LOOP'] = 'FAIL',
-          sidecar: _apkSha256,
-        ),
-        (
-          reason: 'NESTED_GOLDEN_NOT_PASS',
-          mutate: (device, automated) {
-            final nested = device['nestedGolden'] as Map<String, dynamic>;
-            nested['passed'] = false;
-            (nested['gates'] as List<dynamic>)[5]['status'] = 'FAILED';
-          },
-          sidecar: _apkSha256,
-        ),
-        (
-          reason: 'DEVICE_ACCEPTANCE_NOT_PASS',
-          mutate: (device, automated) =>
-              device['DEVICE_ACCEPTANCE'] = 'BLOCKED',
-          sidecar: _apkSha256,
-        ),
-        (
-          reason: 'MERGE_CANDIDATE_FALSE',
-          mutate: (device, automated) =>
-              device['MERGE_CANDIDATE'] = false,
-          sidecar: _apkSha256,
-        ),
-      ];
+      final cases =
+          <
+            ({
+              String reason,
+              void Function(Map<String, dynamic>, Map<String, dynamic>) mutate,
+              String sidecar,
+            })
+          >[
+            (
+              reason: 'SOURCE_COMMIT_MISMATCH',
+              mutate: (device, automated) =>
+                  automated['sourceCommit'] = _alternateCommit,
+              sidecar: _apkSha256,
+            ),
+            (
+              reason: 'PACKAGE_MISMATCH',
+              mutate: (device, automated) =>
+                  (device['identity'] as Map<String, dynamic>)['packageName'] =
+                      'com.example.wrong',
+              sidecar: _apkSha256,
+            ),
+            (
+              reason: 'VERSION_CODE_MISMATCH',
+              mutate: (device, automated) =>
+                  (device['identity'] as Map<String, dynamic>)['versionCode'] =
+                      2024,
+              sidecar: _apkSha256,
+            ),
+            (
+              reason: 'SIGNER_MISMATCH',
+              mutate: (device, automated) =>
+                  (device['identity'] as Map<String, dynamic>)['signerSha256'] =
+                      _alternateDigest,
+              sidecar: _apkSha256,
+            ),
+            (
+              reason: 'DEVICE_APK_DIGEST_MISMATCH',
+              mutate: (device, automated) =>
+                  (device['identity'] as Map<String, dynamic>)['apkSha256'] =
+                      _alternateDigest,
+              sidecar: _apkSha256,
+            ),
+            (
+              reason: 'SIDECAR_DIGEST_MISMATCH',
+              mutate: (device, automated) {},
+              sidecar: _alternateDigest,
+            ),
+            (
+              reason: 'AUTOMATED_GATES_FAILED',
+              mutate: (device, automated) =>
+                  automated['automatedGatesPassed'] = false,
+              sidecar: _apkSha256,
+            ),
+            (
+              reason: 'DEVICE_GATE_STATUS_INVALID',
+              mutate: (device, automated) =>
+                  (device['gates'] as List<dynamic>)[4]['status'] = 'FAILED',
+              sidecar: _apkSha256,
+            ),
+            (
+              reason: 'PHONE_FUNCTION_LOOP_NOT_PASS',
+              mutate: (device, automated) =>
+                  device['PHONE_FUNCTION_LOOP'] = 'FAIL',
+              sidecar: _apkSha256,
+            ),
+            (
+              reason: 'NESTED_GOLDEN_NOT_PASS',
+              mutate: (device, automated) {
+                final nested = device['nestedGolden'] as Map<String, dynamic>;
+                nested['passed'] = false;
+                (nested['gates'] as List<dynamic>)[5]['status'] = 'FAILED';
+              },
+              sidecar: _apkSha256,
+            ),
+            (
+              reason: 'DEVICE_ACCEPTANCE_NOT_PASS',
+              mutate: (device, automated) =>
+                  device['DEVICE_ACCEPTANCE'] = 'BLOCKED',
+              sidecar: _apkSha256,
+            ),
+            (
+              reason: 'MERGE_CANDIDATE_FALSE',
+              mutate: (device, automated) => device['MERGE_CANDIDATE'] = false,
+              sidecar: _apkSha256,
+            ),
+          ];
 
       for (final testCase in cases) {
         final device = _deviceJson();
@@ -119,16 +121,10 @@ void main() {
           sidecar: testCase.sidecar,
         );
 
-        expect(
-          decision.mergeReady,
-          isFalse,
-          reason: testCase.reason,
-        );
-        expect(
-          decision.reasons,
-          <String>[testCase.reason],
-          reason: testCase.reason,
-        );
+        expect(decision.mergeReady, isFalse, reason: testCase.reason);
+        expect(decision.reasons, <String>[
+          testCase.reason,
+        ], reason: testCase.reason);
       }
     });
 
@@ -175,27 +171,28 @@ void main() {
       ]);
     });
 
-    test('digest hex is normalized but source commit comparison stays exact',
-        () {
-      final automated = _automatedJson()
-        ..['signerSha256'] = PocketGalleryBuildIdentity
-            .canonicalSignerSha256
-            .toUpperCase()
-        ..['apkSha256'] = _apkSha256.toUpperCase();
-      expect(
-        _adjudicate(
-          automated: automated,
-          sidecar: _apkSha256.toUpperCase(),
-        ).mergeReady,
-        isTrue,
-      );
+    test(
+      'digest hex is normalized but source commit comparison stays exact',
+      () {
+        final automated = _automatedJson()
+          ..['signerSha256'] = PocketGalleryBuildIdentity.canonicalSignerSha256
+              .toUpperCase()
+          ..['apkSha256'] = _apkSha256.toUpperCase();
+        expect(
+          _adjudicate(
+            automated: automated,
+            sidecar: _apkSha256.toUpperCase(),
+          ).mergeReady,
+          isTrue,
+        );
 
-      automated['sourceCommit'] = _sourceCommit.toUpperCase();
-      expect(
-        _adjudicate(automated: automated).reasons,
-        contains('SOURCE_COMMIT_MISMATCH'),
-      );
-    });
+        automated['sourceCommit'] = _sourceCommit.toUpperCase();
+        expect(
+          _adjudicate(automated: automated).reasons,
+          contains('SOURCE_COMMIT_MISMATCH'),
+        );
+      },
+    );
   });
 
   group('R5.0 strict evidence parsing', () {
@@ -271,16 +268,13 @@ void main() {
     test('rejects missing duplicate and unknown nested F gate names', () {
       final missing = _deviceJson();
       final missingNested = missing['nestedGolden'] as Map<String, dynamic>;
-      missingNested['gates'] =
-          (missingNested['gates'] as List<dynamic>).take(9).toList();
+      missingNested['gates'] = (missingNested['gates'] as List<dynamic>)
+          .take(9)
+          .toList();
       final duplicate = _mutateGoldenGateName(1, _goldenGateNames.first);
       final unknown = _mutateGoldenGateName(0, 'F11_UNKNOWN');
 
-      for (final value in <Map<String, dynamic>>[
-        missing,
-        duplicate,
-        unknown,
-      ]) {
+      for (final value in <Map<String, dynamic>>[missing, duplicate, unknown]) {
         expect(
           () => DeviceAcceptanceEvidence.fromJson(value),
           throwsFormatException,
@@ -321,8 +315,9 @@ void main() {
       expect(result.stdout, contains('MERGE_READY=true'));
       expect(fixture.output.existsSync(), isTrue);
       expect(File('${fixture.output.path}.tmp').existsSync(), isFalse);
-      final decoded = jsonDecode(await fixture.output.readAsString())
-          as Map<String, dynamic>;
+      final decoded =
+          jsonDecode(await fixture.output.readAsString())
+              as Map<String, dynamic>;
       expect(decoded['mergeReady'], isTrue);
       expect(decoded['reasons'], isEmpty);
     });
@@ -337,13 +332,13 @@ void main() {
 
       expect(result.exitCode, 2);
       expect(result.stdout, contains('MERGE_READY=false'));
-      final decoded = jsonDecode(await fixture.output.readAsString())
-          as Map<String, dynamic>;
+      final decoded =
+          jsonDecode(await fixture.output.readAsString())
+              as Map<String, dynamic>;
       expect(decoded['reasons'], <String>['AUTOMATED_GATES_FAILED']);
     });
 
-    test('missing arguments exit sixty-four without creating output',
-        () async {
+    test('missing arguments exit sixty-four without creating output', () async {
       final result = await _runCli(const <String>[]);
 
       expect(result.exitCode, 64);
@@ -365,56 +360,50 @@ ReleaseReadinessDecision _adjudicate({
 }
 
 Map<String, dynamic> _deviceJson() => <String, dynamic>{
-      'schema': 'pocketgallery.r50.handset-acceptance.v1',
-      'schemaVersion': 1,
-      'runId': 'r50-release-test',
-      'PHONE_FUNCTION_LOOP': 'PASS',
-      'DEVICE_ACCEPTANCE': 'PASS',
-      'MERGE_CANDIDATE': true,
-      'baselineVersionCode': 2022,
-      'identity': <String, dynamic>{
-        'manufacturer': 'samsung',
-        'model': 'SM-S9280',
-        'packageName': PocketGalleryBuildIdentity.packageName,
-        'versionCode': 2023,
-        'signerSha256': PocketGalleryBuildIdentity.canonicalSignerSha256,
-        'apkSha256': _apkSha256,
-        'sourceCommit': _sourceCommit,
-      },
-      'gates': <Map<String, dynamic>>[
-        for (final name in _handsetGateNames)
-          <String, dynamic>{
-            'name': name,
-            'status': 'PASSED',
-          },
-      ],
-      'nestedGolden': <String, dynamic>{
-        'schemaVersion': 2,
-        'runId': 'golden-release-test',
-        'phase': 'COMPLETED',
-        'passed': true,
-        'cleanupError': null,
-        'gates': <Map<String, dynamic>>[
-          for (final name in _goldenGateNames)
-            <String, dynamic>{
-              'name': name,
-              'status': 'PASSED',
-            },
-        ],
-      },
-    };
+  'schema': 'pocketgallery.r50.handset-acceptance.v1',
+  'schemaVersion': 1,
+  'runId': 'r50-release-test',
+  'PHONE_FUNCTION_LOOP': 'PASS',
+  'DEVICE_ACCEPTANCE': 'PASS',
+  'MERGE_CANDIDATE': true,
+  'baselineVersionCode': 2022,
+  'identity': <String, dynamic>{
+    'manufacturer': 'samsung',
+    'model': 'SM-S9280',
+    'packageName': PocketGalleryBuildIdentity.packageName,
+    'versionCode': 2023,
+    'signerSha256': PocketGalleryBuildIdentity.canonicalSignerSha256,
+    'apkSha256': _apkSha256,
+    'sourceCommit': _sourceCommit,
+  },
+  'gates': <Map<String, dynamic>>[
+    for (final name in _handsetGateNames)
+      <String, dynamic>{'name': name, 'status': 'PASSED'},
+  ],
+  'nestedGolden': <String, dynamic>{
+    'schemaVersion': 2,
+    'runId': 'golden-release-test',
+    'phase': 'COMPLETED',
+    'passed': true,
+    'cleanupError': null,
+    'gates': <Map<String, dynamic>>[
+      for (final name in _goldenGateNames)
+        <String, dynamic>{'name': name, 'status': 'PASSED'},
+    ],
+  },
+};
 
 Map<String, dynamic> _automatedJson() => <String, dynamic>{
-      'schema': 'pocketgallery.r50.automated-evidence.v1',
-      'sourceCommit': _sourceCommit,
-      'automatedGatesPassed': true,
-      'packageName': PocketGalleryBuildIdentity.packageName,
-      'baselineVersionCode': 2022,
-      'versionCode': 2023,
-      'signerSha256': PocketGalleryBuildIdentity.canonicalSignerSha256,
-      'apkSha256': _apkSha256,
-      'workflowIdentity': 'PocketGallery Phone Pilot APK/123/1',
-    };
+  'schema': 'pocketgallery.r50.automated-evidence.v1',
+  'sourceCommit': _sourceCommit,
+  'automatedGatesPassed': true,
+  'packageName': PocketGalleryBuildIdentity.packageName,
+  'baselineVersionCode': 2022,
+  'versionCode': 2023,
+  'signerSha256': PocketGalleryBuildIdentity.canonicalSignerSha256,
+  'apkSha256': _apkSha256,
+  'workflowIdentity': 'PocketGallery Phone Pilot APK/123/1',
+};
 
 Map<String, dynamic> _mutateDeviceGateName(int index, String name) {
   final value = _deviceJson();
@@ -430,15 +419,11 @@ Map<String, dynamic> _mutateGoldenGateName(int index, String name) {
 }
 
 Future<ProcessResult> _runCli(List<String> arguments) {
-  return Process.run(
-    'dart',
-    <String>[
-      'run',
-      'tool/adjudicate_handset_acceptance.dart',
-      ...arguments,
-    ],
-    workingDirectory: Directory.current.path,
-  );
+  return Process.run('dart', <String>[
+    'run',
+    'tool/adjudicate_handset_acceptance.dart',
+    ...arguments,
+  ], workingDirectory: Directory.current.path);
 }
 
 final class _CliFixture {
@@ -457,19 +442,17 @@ final class _CliFixture {
   final File output;
 
   List<String> get arguments => <String>[
-        '--device-report',
-        device.path,
-        '--automated-evidence',
-        automated.path,
-        '--apk-sha256',
-        sidecar.path,
-        '--output',
-        output.path,
-      ];
+    '--device-report',
+    device.path,
+    '--automated-evidence',
+    automated.path,
+    '--apk-sha256',
+    sidecar.path,
+    '--output',
+    output.path,
+  ];
 
-  static Future<_CliFixture> create({
-    Map<String, dynamic>? automated,
-  }) async {
+  static Future<_CliFixture> create({Map<String, dynamic>? automated}) async {
     final directory = await Directory.systemTemp.createTemp('pg-r50-adj-');
     final deviceFile = File('${directory.path}/device.json');
     final automatedFile = File('${directory.path}/automated.json');
@@ -494,10 +477,8 @@ final class _CliFixture {
   Future<void> dispose() => directory.delete(recursive: true);
 }
 
-const String _sourceCommit =
-    '0123456789abcdef0123456789abcdef01234567';
-const String _alternateCommit =
-    'fedcba9876543210fedcba9876543210fedcba98';
+const String _sourceCommit = '0123456789abcdef0123456789abcdef01234567';
+const String _alternateCommit = 'fedcba9876543210fedcba9876543210fedcba98';
 const String _apkSha256 =
     '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
 const String _alternateDigest =

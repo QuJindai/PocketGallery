@@ -23,8 +23,8 @@ class DynamicEvidenceSelection {
     required List<DynamicEvidenceCandidate> selected,
     required Map<String, String> dropReasons,
     required this.totalTokens,
-  })  : selected = List.unmodifiable(selected),
-        dropReasons = UnmodifiableMapView(dropReasons);
+  }) : selected = List.unmodifiable(selected),
+       dropReasons = UnmodifiableMapView(dropReasons);
 
   final List<DynamicEvidenceCandidate> selected;
   final Map<String, String> dropReasons;
@@ -60,11 +60,13 @@ class DynamicEvidencePolicy {
 
     while (remaining.isNotEmpty && selected.length < maxEvidence) {
       remaining.sort((left, right) {
-        final leftAdjusted = left.score +
+        final leftAdjusted =
+            left.score +
             (selected.any((item) => item.documentId == left.documentId)
                 ? 0
                 : diversityBonus);
-        final rightAdjusted = right.score +
+        final rightAdjusted =
+            right.score +
             (selected.any((item) => item.documentId == right.documentId)
                 ? 0
                 : diversityBonus);

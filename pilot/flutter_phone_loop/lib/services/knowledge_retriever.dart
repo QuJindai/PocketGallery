@@ -31,8 +31,8 @@ class KnowledgeRetriever implements KnowledgeRetrievalGateway {
     HybridRanker? ranker,
     EvidencePackBuilder? evidenceBuilder,
     this.runtime,
-  })  : ranker = ranker ?? const HybridRanker(),
-        evidenceBuilder = evidenceBuilder ?? const EvidencePackBuilder();
+  }) : ranker = ranker ?? const HybridRanker(),
+       evidenceBuilder = evidenceBuilder ?? const EvidencePackBuilder();
 
   final LexicalFtsStore lexicalStore;
   final SemanticStore semanticStore;
@@ -116,11 +116,7 @@ class KnowledgeRetriever implements KnowledgeRetrievalGateway {
     final embedderReady = FlutterGemma.hasActiveEmbedder();
     final semanticWatch = Stopwatch()..start();
     final semantic = embedderReady
-        ? await semanticStore.search(
-            query,
-            topK: limit * 2,
-            scope: scope,
-          )
+        ? await semanticStore.search(query, topK: limit * 2, scope: scope)
         : const <RetrievalHit>[];
     semanticWatch.stop();
 
@@ -182,9 +178,10 @@ class KnowledgeRetriever implements KnowledgeRetrievalGateway {
         traceDraft: RetrievalTraceDraft(
           startedAt: startedAt,
           timings: baseDraft.timings.copyWith(
-            fusionMs: baseDraft.timings.fusionMs +
-                fallbackWatch.elapsedMilliseconds,
-            evidenceMs: baseDraft.timings.evidenceMs +
+            fusionMs:
+                baseDraft.timings.fusionMs + fallbackWatch.elapsedMilliseconds,
+            evidenceMs:
+                baseDraft.timings.evidenceMs +
                 fallbackEvidenceWatch.elapsedMilliseconds,
           ),
           lexicalHits: baseDraft.lexicalHits,

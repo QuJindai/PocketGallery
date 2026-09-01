@@ -16,25 +16,34 @@ void main() {
       mode: ChatMode.knowledge,
       scope: KnowledgeScope.documents({'doc-a'}),
     );
-    await store.appendMessage(ChatMessage.user(
-      id: 'm1', sessionId: session.id, text: '31 03 51 01',
-    ));
-    await store.appendMessage(ChatMessage.assistant(
-      id: 'm2', sessionId: session.id, text: '车辆仍在处理中 [E1]',
-      evidenceJson: '[{"anchor":"E1","chunkId":"c1"}]',
-      citedAnchorsJson: '["E1"]', retrievalMode: 'knowledge',
-    ));
+    await store.appendMessage(
+      ChatMessage.user(id: 'm1', sessionId: session.id, text: '31 03 51 01'),
+    );
+    await store.appendMessage(
+      ChatMessage.assistant(
+        id: 'm2',
+        sessionId: session.id,
+        text: '车辆仍在处理中 [E1]',
+        evidenceJson: '[{"anchor":"E1","chunkId":"c1"}]',
+        citedAnchorsJson: '["E1"]',
+        retrievalMode: 'knowledge',
+      ),
+    );
     final loaded = await store.getSession(session.id);
     final messages = await store.messages(session.id);
     expect(loaded!.mode, ChatMode.knowledge);
     expect(loaded.scope.documentIds, {'doc-a'});
-    expect(messages.map((m) => m.text).toList(),
-        ['31 03 51 01', '车辆仍在处理中 [E1]']);
+    expect(messages.map((m) => m.text).toList(), [
+      '31 03 51 01',
+      '车辆仍在处理中 [E1]',
+    ]);
     db.close();
   });
 
   test('chat schema is additive and isolated from R3 knowledge DBs', () async {
-    final source = await File('lib/chat/chat_session_store.dart').readAsString();
+    final source = await File(
+      'lib/chat/chat_session_store.dart',
+    ).readAsString();
     expect(source, contains('pocketgallery_chat.db'));
     expect(source, isNot(contains('DROP TABLE')));
     expect(source, isNot(contains('pocketgallery_fts5.db')));

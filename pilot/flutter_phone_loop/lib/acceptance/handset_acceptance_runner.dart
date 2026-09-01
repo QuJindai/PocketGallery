@@ -13,36 +13,32 @@ import 'pocketgallery_build_identity.dart';
 import 'preservation_probe.dart';
 import 'vector_acceptance.dart';
 
-typedef GoldenAcceptanceRun = Future<GoldenTestReport> Function({
-  GoldenProgressCallback? onProgress,
-  GoldenTraceReadyCallback? onTraceReady,
-});
+typedef GoldenAcceptanceRun =
+    Future<GoldenTestReport> Function({
+      GoldenProgressCallback? onProgress,
+      GoldenTraceReadyCallback? onTraceReady,
+    });
 
 typedef GoldenAcceptanceInterrupt = Future<void> Function(String reasonCode);
 
 typedef KnownFixtureCleanup = Future<void> Function();
 
-typedef PreservationCapture = Future<PreservationSnapshot> Function(
-  DeviceIdentitySnapshot identity,
-);
+typedef PreservationCapture =
+    Future<PreservationSnapshot> Function(DeviceIdentitySnapshot identity);
 
-typedef VectorArtifactCapture = Future<VectorAcceptanceArtifact> Function(
-  String traceId,
-);
+typedef VectorArtifactCapture =
+    Future<VectorAcceptanceArtifact> Function(String traceId);
 
-typedef VectorTruthEvaluation = VectorTruthResult Function(
-  VectorAcceptanceArtifact artifact,
-);
+typedef VectorTruthEvaluation =
+    VectorTruthResult Function(VectorAcceptanceArtifact artifact);
 
-typedef VectorInteractionRun = Future<VectorInteractionResult> Function(
-  VectorAcceptanceArtifact artifact,
-);
+typedef VectorInteractionRun =
+    Future<VectorInteractionResult> Function(VectorAcceptanceArtifact artifact);
 
 typedef ModelReadinessProbe = Future<ModelReadinessResult> Function();
 
-typedef HandsetProgressCallback = void Function(
-  HandsetAcceptanceSnapshot snapshot,
-);
+typedef HandsetProgressCallback =
+    void Function(HandsetAcceptanceSnapshot snapshot);
 
 abstract interface class HandsetAcceptanceController {
   ValueListenable<String?> get interruption;
@@ -103,7 +99,7 @@ final class ModelReadinessResult {
   const ModelReadinessResult.passed() : this._(true, null);
 
   const ModelReadinessResult.blocked(String reasonCode)
-      : this._(false, reasonCode);
+    : this._(false, reasonCode);
 
   final bool ready;
   final String? reasonCode;
@@ -231,9 +227,7 @@ final class HandsetAcceptanceRunner implements HandsetAcceptanceController {
     _interruptReason = normalized;
     interruption.value = normalized;
     if (_goldenActive) {
-      _interruptFuture = Future<void>.sync(
-        () => interruptGolden(normalized),
-      );
+      _interruptFuture = Future<void>.sync(() => interruptGolden(normalized));
     }
     return _interruptFuture ?? Future<void>.value();
   }
@@ -409,7 +403,9 @@ final class HandsetAcceptanceRunner implements HandsetAcceptanceController {
       identity.isTargetS24Ultra
           ? HandsetGateStatus.passed
           : HandsetGateStatus.blocked,
-      identity.isTargetS24Ultra ? 'TARGET_DEVICE_CONFIRMED' : 'TARGET_DEVICE_MISMATCH',
+      identity.isTargetS24Ultra
+          ? 'TARGET_DEVICE_CONFIRMED'
+          : 'TARGET_DEVICE_MISMATCH',
       onProgress,
       evidence: evidence,
     );
@@ -522,7 +518,8 @@ final class HandsetAcceptanceRunner implements HandsetAcceptanceController {
       return;
     }
     final identity = _identity;
-    final valid = identity != null &&
+    final valid =
+        identity != null &&
         baseline.versionCode != null &&
         identity.versionCode != null &&
         baseline.versionCode! < identity.versionCode! &&
@@ -545,8 +542,9 @@ final class HandsetAcceptanceRunner implements HandsetAcceptanceController {
     );
   }
 
-  ModelReadinessResult _modelReadiness =
-      const ModelReadinessResult.blocked('MODEL_PREREQUISITE_MISSING');
+  ModelReadinessResult _modelReadiness = const ModelReadinessResult.blocked(
+    'MODEL_PREREQUISITE_MISSING',
+  );
 
   Future<void> _probeReadinessAndPreservation() async {
     try {
@@ -654,7 +652,8 @@ final class HandsetAcceptanceRunner implements HandsetAcceptanceController {
       return;
     }
     final nested = report.snapshot;
-    final failed = nested?.cleanupError != null ||
+    final failed =
+        nested?.cleanupError != null ||
         (nested?.gates.any(
               (gate) =>
                   gate.status == GoldenGateStatus.failed ||
@@ -667,8 +666,8 @@ final class HandsetAcceptanceRunner implements HandsetAcceptanceController {
       nested?.cleanupError != null
           ? 'GOLDEN_CLEANUP_FAILED'
           : failed
-              ? 'PHONE_FUNCTION_LOOP_FAILED'
-              : 'PHONE_FUNCTION_LOOP_BLOCKED',
+          ? 'PHONE_FUNCTION_LOOP_FAILED'
+          : 'PHONE_FUNCTION_LOOP_BLOCKED',
       onProgress,
     );
   }
@@ -701,7 +700,10 @@ final class HandsetAcceptanceRunner implements HandsetAcceptanceController {
       final evidence = <AcceptanceEvidence>[];
       for (final entry in result.evidence.entries) {
         final actual = entry.value;
-        if (actual == null || actual is String || actual is num || actual is bool) {
+        if (actual == null ||
+            actual is String ||
+            actual is num ||
+            actual is bool) {
           evidence.add(
             _evidence(
               code: entry.key.toUpperCase(),
@@ -958,16 +960,15 @@ final class HandsetAcceptanceRunner implements HandsetAcceptanceController {
     );
     final failed = summary.reasonCodes.any(
       (reason) =>
-          reason == 'MEMORY_PRESSURE' ||
-          reason == 'THERMAL_LIMIT_EXCEEDED',
+          reason == 'MEMORY_PRESSURE' || reason == 'THERMAL_LIMIT_EXCEEDED',
     );
     final status = interruptionCode != null
         ? HandsetGateStatus.blocked
         : failed
-            ? HandsetGateStatus.failed
-            : unavailable
-                ? HandsetGateStatus.blocked
-                : HandsetGateStatus.passed;
+        ? HandsetGateStatus.failed
+        : unavailable
+        ? HandsetGateStatus.blocked
+        : HandsetGateStatus.passed;
     await _finishGate(
       name,
       status,
@@ -1049,9 +1050,7 @@ final class HandsetAcceptanceRunner implements HandsetAcceptanceController {
       return;
     }
     await persistence.saveBaseline(_preservationAfter!);
-    _replaceCurrent(
-      baselineVersionCode: _preservationAfter!.versionCode,
-    );
+    _replaceCurrent(baselineVersionCode: _preservationAfter!.versionCode);
   }
 
   Future<HandsetAcceptanceSnapshot> _runH10(
@@ -1065,8 +1064,8 @@ final class HandsetAcceptanceRunner implements HandsetAcceptanceController {
     final status = interruptionCode == null
         ? HandsetGateStatus.passed
         : HandsetGateStatus.blocked;
-    final mergeCandidate = status == HandsetGateStatus.passed &&
-        _isMergeCandidateEligible();
+    final mergeCandidate =
+        status == HandsetGateStatus.passed && _isMergeCandidateEligible();
     final prospective = _snapshotWithGate(
       _current!,
       name,
@@ -1079,10 +1078,7 @@ final class HandsetAcceptanceRunner implements HandsetAcceptanceController {
     );
     try {
       final bytes = HandsetReportExporter.encodeRedacted(prospective);
-      final path = await persistence.saveFinalReport(
-        bytes,
-        prospective.runId,
-      );
+      final path = await persistence.saveFinalReport(bytes, prospective.runId);
       final completed = _copySnapshot(prospective, reportPath: path);
       await persistence.saveCheckpoint(completed);
       _current = completed;
@@ -1149,9 +1145,7 @@ final class HandsetAcceptanceRunner implements HandsetAcceptanceController {
       failed = true;
     }
     try {
-      await diagnostics
-          .setKeepScreenOn(false)
-          .timeout(runtimeCleanupTimeout);
+      await diagnostics.setKeepScreenOn(false).timeout(runtimeCleanupTimeout);
     } catch (_) {
       failed = true;
     }

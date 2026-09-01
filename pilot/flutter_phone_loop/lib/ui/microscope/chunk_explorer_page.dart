@@ -167,11 +167,16 @@ class _ChunkExplorerPageState extends State<ChunkExplorerPage> {
                 Card(
                   child: ListTile(
                     selected: document.documentId == selectedDocumentId,
-                    leading: Icon(document.chunkCount == 0
-                        ? Icons.warning_amber
-                        : Icons.description_outlined),
-                    title: Text(document.sourceName,
-                        maxLines: 1, overflow: TextOverflow.ellipsis),
+                    leading: Icon(
+                      document.chunkCount == 0
+                          ? Icons.warning_amber
+                          : Icons.description_outlined,
+                    ),
+                    title: Text(
+                      document.sourceName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                     subtitle: Text(
                       '${document.chunkCount} chunks · SHA ${_short(document.sha256)}',
                     ),
@@ -193,7 +198,8 @@ class _ChunkExplorerPageState extends State<ChunkExplorerPage> {
                   ),
                 )
               else
-                for (final inspection in chunks) _chunkCard(context, inspection),
+                for (final inspection in chunks)
+                  _chunkCard(context, inspection),
             ],
           ],
         ),
@@ -230,8 +236,10 @@ class _ChunkExplorerPageState extends State<ChunkExplorerPage> {
                 _metric('Documents', '${h.documentCount}'),
                 _metric('Chunks', '${h.chunkCount}'),
                 _metric('FTS', '${h.ftsIndexedCount}/${h.chunkCount}'),
-                _metric('Legacy observation',
-                    '${h.vectorIndexedCount}/${h.chunkCount}'),
+                _metric(
+                  'Legacy observation',
+                  '${h.vectorIndexedCount}/${h.chunkCount}',
+                ),
                 _metric('Legacy missing', '${h.missingVectorCount}'),
                 _metric('Legacy stale', '${h.staleVectorCount}'),
                 _metric('0-chunk', '${h.zeroChunkDocuments}'),
@@ -253,14 +261,26 @@ class _ChunkExplorerPageState extends State<ChunkExplorerPage> {
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  _metric('Generated', '${active.generated}/${active.required}'),
-                  _metric('Persisted', '${active.persisted}/${active.required}'),
+                  _metric(
+                    'Generated',
+                    '${active.generated}/${active.required}',
+                  ),
+                  _metric(
+                    'Persisted',
+                    '${active.persisted}/${active.required}',
+                  ),
                   _metric('Indexed', '${active.indexed}/${active.required}'),
-                  _metric('Search Verified', active.searchVerified ? 'YES' : 'NO'),
+                  _metric(
+                    'Search Verified',
+                    active.searchVerified ? 'YES' : 'NO',
+                  ),
                   _metric('Pending', '${active.pending}'),
                   _metric('Failed', '${active.failed}'),
                   _metric('Stale model', '${active.staleModel}'),
-                  _metric('ACTIVE readiness', active.ready ? 'READY' : 'NOT READY'),
+                  _metric(
+                    'ACTIVE readiness',
+                    active.ready ? 'READY' : 'NOT READY',
+                  ),
                 ],
               ),
               const SizedBox(height: 5),
@@ -301,9 +321,7 @@ class _ChunkExplorerPageState extends State<ChunkExplorerPage> {
               ),
               const SizedBox(height: 4),
               Text(
-                rebuilding
-                    ? '已完成项即时落盘；中断后再次运行会从剩余项继续。'
-                    : '不会重算已经健康的向量。',
+                rebuilding ? '已完成项即时落盘；中断后再次运行会从剩余项继续。' : '不会重算已经健康的向量。',
                 style: Theme.of(context).textTheme.bodySmall,
               ),
             ],
@@ -314,71 +332,70 @@ class _ChunkExplorerPageState extends State<ChunkExplorerPage> {
   }
 
   Widget _metric(String name, String value) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-        decoration: BoxDecoration(
-          border: Border.all(color: Theme.of(context).dividerColor),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(value, style: const TextStyle(fontWeight: FontWeight.bold)),
-            Text(name, style: const TextStyle(fontSize: 11)),
-          ],
-        ),
-      );
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+    decoration: BoxDecoration(
+      border: Border.all(color: Theme.of(context).dividerColor),
+      borderRadius: BorderRadius.circular(10),
+    ),
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(value, style: const TextStyle(fontWeight: FontWeight.bold)),
+        Text(name, style: const TextStyle(fontSize: 11)),
+      ],
+    ),
+  );
 
   Widget _chunkCard(BuildContext context, ChunkInspection item) => Card(
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    child: Padding(
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      '#${item.chunk.ordinal + 1} · ${item.chunk.locator}',
-                      style: const TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                  ),
-                  Chip(
-                    visualDensity: VisualDensity.compact,
-                    label: Text(item.vectorReady
-                        ? 'Legacy observation ✓'
-                        : 'Legacy observation —'),
-                  ),
-                ],
-              ),
-              Wrap(
-                spacing: 12,
-                runSpacing: 4,
-                children: [
-                  Text('chars ${item.characterCount}'),
-                  Text('overlap ${item.overlapChars}'),
-                  Text('FTS ${item.ftsReady ? '✓' : '—'}'),
-                  if (item.vectorDimension != null)
-                    Text('${item.vectorDimension}D'),
-                  if (item.vectorNorm != null)
-                    Text('norm ${item.vectorNorm!.toStringAsFixed(4)}'),
-                ],
-              ),
-              if (item.vectorModelIdentity != null) ...[
-                const SizedBox(height: 4),
-                Text(
-                  item.vectorModelIdentity!,
-                  style: Theme.of(context).textTheme.bodySmall,
+              Expanded(
+                child: Text(
+                  '#${item.chunk.ordinal + 1} · ${item.chunk.locator}',
+                  style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
-              ],
-              const Divider(),
-              SelectableText(
-                item.chunk.text,
-                maxLines: 8,
+              ),
+              Chip(
+                visualDensity: VisualDensity.compact,
+                label: Text(
+                  item.vectorReady
+                      ? 'Legacy observation ✓'
+                      : 'Legacy observation —',
+                ),
               ),
             ],
           ),
-        ),
-      );
+          Wrap(
+            spacing: 12,
+            runSpacing: 4,
+            children: [
+              Text('chars ${item.characterCount}'),
+              Text('overlap ${item.overlapChars}'),
+              Text('FTS ${item.ftsReady ? '✓' : '—'}'),
+              if (item.vectorDimension != null)
+                Text('${item.vectorDimension}D'),
+              if (item.vectorNorm != null)
+                Text('norm ${item.vectorNorm!.toStringAsFixed(4)}'),
+            ],
+          ),
+          if (item.vectorModelIdentity != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              item.vectorModelIdentity!,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ],
+          const Divider(),
+          SelectableText(item.chunk.text, maxLines: 8),
+        ],
+      ),
+    ),
+  );
 
   String _short(String value) =>
       value.length <= 10 ? value : '${value.substring(0, 10)}…';

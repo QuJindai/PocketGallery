@@ -92,125 +92,128 @@ void main() {
     expect(failedHandoff.captureError, contains('capture failed'));
   });
 
-  test('interrupt keeps the first reason and shares close and cleanup futures', () async {
-    var closeCount = 0;
-    var cleanupCount = 0;
-    final control = GoldenRunControl(
-      closeActiveModel: () async {
-        closeCount += 1;
-      },
-    );
+  test(
+    'interrupt keeps the first reason and shares close and cleanup futures',
+    () async {
+      var closeCount = 0;
+      var cleanupCount = 0;
+      final control = GoldenRunControl(
+        closeActiveModel: () async {
+          closeCount += 1;
+        },
+      );
 
-    await Future.wait<void>(<Future<void>>[
-      control.interrupt('USER_CANCELLED'),
-      control.interrupt('APP_BACKGROUNDED'),
-      control.closeActiveModel(),
-    ]);
+      await Future.wait<void>(<Future<void>>[
+        control.interrupt('USER_CANCELLED'),
+        control.interrupt('APP_BACKGROUNDED'),
+        control.closeActiveModel(),
+      ]);
 
-    expect(control.reasonCode, 'USER_CANCELLED');
-    expect(closeCount, 1);
-    final firstCleanup = control.cleanup(() async {
-      cleanupCount += 1;
-    });
-    final secondCleanup = control.cleanup(() async {
-      cleanupCount += 1;
-    });
-    expect(identical(firstCleanup, secondCleanup), isTrue);
-    await Future.wait<void>(<Future<void>>[firstCleanup, secondCleanup]);
-    expect(cleanupCount, 1);
+      expect(control.reasonCode, 'USER_CANCELLED');
+      expect(closeCount, 1);
+      final firstCleanup = control.cleanup(() async {
+        cleanupCount += 1;
+      });
+      final secondCleanup = control.cleanup(() async {
+        cleanupCount += 1;
+      });
+      expect(identical(firstCleanup, secondCleanup), isTrue);
+      await Future.wait<void>(<Future<void>>[firstCleanup, secondCleanup]);
+      expect(cleanupCount, 1);
 
-    final idleRunner = GoldenTestRunner(KnowledgeEngine());
-    await idleRunner.interrupt('USER_CANCELLED');
-    await idleRunner.interrupt('APP_BACKGROUNDED');
-  });
+      final idleRunner = GoldenTestRunner(KnowledgeEngine());
+      await idleRunner.interrupt('USER_CANCELLED');
+      await idleRunner.interrupt('APP_BACKGROUNDED');
+    },
+  );
 
-  test('sequential model closes are not suppressed after one close finishes',
-      () async {
-    var closeCount = 0;
-    final control = GoldenRunControl(
-      closeActiveModel: () async {
-        closeCount += 1;
-      },
-    );
+  test(
+    'sequential model closes are not suppressed after one close finishes',
+    () async {
+      var closeCount = 0;
+      final control = GoldenRunControl(
+        closeActiveModel: () async {
+          closeCount += 1;
+        },
+      );
 
-    await control.closeActiveModel();
-    await control.closeActiveModel();
+      await control.closeActiveModel();
+      await control.closeActiveModel();
 
-    expect(closeCount, 2);
-  });
+      expect(closeCount, 2);
+    },
+  );
 
-  test('late interruption preserves terminal failure and cleanup evidence',
-      () async {
-    final startedAt = DateTime.utc(2026, 9, 1);
-    final executor = _SnapshotExecutor(
-      GoldenTestSnapshot(
-        runId: 'golden-terminal-precedence',
-        phase: GoldenRunPhase.completed,
-        startedAt: startedAt,
-        updatedAt: startedAt.add(const Duration(seconds: 1)),
-        cleanupError: 'cleanup failure must survive',
-        gates: <GoldenGateSnapshot>[
-          GoldenGateSnapshot(
-            name: 'F1_IMPORT_CHUNK',
-            label: 'failed',
-            timeout: const Duration(seconds: 1),
-            status: GoldenGateStatus.failed,
-            detail: 'fixture failure',
-          ),
-          GoldenGateSnapshot(
-            name: 'F6_GEMMA_CITATION',
-            label: 'timed out',
-            timeout: const Duration(seconds: 1),
-            status: GoldenGateStatus.timedOut,
-            detail: 'timeout=1000ms',
-          ),
-          const GoldenGateSnapshot(
-            name: 'F7_CHAT_REALWORLD',
-            label: 'not started',
-            timeout: Duration(seconds: 1),
-          ),
-        ],
-      ),
-    );
-    final directory =
-        await Directory.systemTemp.createTemp('pg-r50-interruption-');
-    addTearDown(() => directory.delete(recursive: true));
-    final runner = GoldenTestRunner(
-      KnowledgeEngine(),
-      executor: executor,
-      reportStore: GoldenTestReportStore(
-        directoryProvider: () async => directory,
-      ),
-    );
+  test(
+    'late interruption preserves terminal failure and cleanup evidence',
+    () async {
+      final startedAt = DateTime.utc(2026, 9, 1);
+      final executor = _SnapshotExecutor(
+        GoldenTestSnapshot(
+          runId: 'golden-terminal-precedence',
+          phase: GoldenRunPhase.completed,
+          startedAt: startedAt,
+          updatedAt: startedAt.add(const Duration(seconds: 1)),
+          cleanupError: 'cleanup failure must survive',
+          gates: <GoldenGateSnapshot>[
+            GoldenGateSnapshot(
+              name: 'F1_IMPORT_CHUNK',
+              label: 'failed',
+              timeout: const Duration(seconds: 1),
+              status: GoldenGateStatus.failed,
+              detail: 'fixture failure',
+            ),
+            GoldenGateSnapshot(
+              name: 'F6_GEMMA_CITATION',
+              label: 'timed out',
+              timeout: const Duration(seconds: 1),
+              status: GoldenGateStatus.timedOut,
+              detail: 'timeout=1000ms',
+            ),
+            const GoldenGateSnapshot(
+              name: 'F7_CHAT_REALWORLD',
+              label: 'not started',
+              timeout: Duration(seconds: 1),
+            ),
+          ],
+        ),
+      );
+      final directory = await Directory.systemTemp.createTemp(
+        'pg-r50-interruption-',
+      );
+      addTearDown(() => directory.delete(recursive: true));
+      final runner = GoldenTestRunner(
+        KnowledgeEngine(),
+        executor: executor,
+        reportStore: GoldenTestReportStore(
+          directoryProvider: () async => directory,
+        ),
+      );
 
-    final run = runner.run();
-    await executor.entered.future;
-    await runner.interrupt('USER_CANCELLED');
-    executor.release.complete();
-    final snapshot = (await run).snapshot!;
+      final run = runner.run();
+      await executor.entered.future;
+      await runner.interrupt('USER_CANCELLED');
+      executor.release.complete();
+      final snapshot = (await run).snapshot!;
 
-    expect(
-      snapshot.gate('F1_IMPORT_CHUNK')!.status,
-      GoldenGateStatus.failed,
-    );
-    expect(
-      snapshot.gate('F6_GEMMA_CITATION')!.status,
-      GoldenGateStatus.timedOut,
-    );
-    expect(
-      snapshot.gate('F7_CHAT_REALWORLD')!.status,
-      GoldenGateStatus.blocked,
-    );
-    expect(
-      snapshot.gate('F7_CHAT_REALWORLD')!.detail,
-      'USER_CANCELLED',
-    );
-    expect(snapshot.cleanupError, 'cleanup failure must survive');
-  });
+      expect(snapshot.gate('F1_IMPORT_CHUNK')!.status, GoldenGateStatus.failed);
+      expect(
+        snapshot.gate('F6_GEMMA_CITATION')!.status,
+        GoldenGateStatus.timedOut,
+      );
+      expect(
+        snapshot.gate('F7_CHAT_REALWORLD')!.status,
+        GoldenGateStatus.blocked,
+      );
+      expect(snapshot.gate('F7_CHAT_REALWORLD')!.detail, 'USER_CANCELLED');
+      expect(snapshot.cleanupError, 'cleanup failure must survive');
+    },
+  );
 
   test('Gemma model acquisition cannot resurrect a closed service', () async {
-    final source =
-        await File('lib/services/gemma_chat_service.dart').readAsString();
+    final source = await File(
+      'lib/services/gemma_chat_service.dart',
+    ).readAsString();
 
     expect(source, contains('_closed = true'));
     expect(source, contains('if (_closed)'));

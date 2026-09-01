@@ -47,9 +47,9 @@ class KnowledgeEngine {
     SemanticStore? semanticStore,
     LineageStore? lineageStore,
     ActiveVectorIndex? activeVectorIndex,
-  })  : lexicalStore = lexicalStore ?? LexicalFtsStore(),
-        importer = importer ?? DocumentImporter(),
-        gemma = gemma ?? GemmaService() {
+  }) : lexicalStore = lexicalStore ?? LexicalFtsStore(),
+       importer = importer ?? DocumentImporter(),
+       gemma = gemma ?? GemmaService() {
     this.semanticStore = semanticStore ?? SemanticStore(this.lexicalStore);
     this.lineageStore = lineageStore ?? LineageStore();
     this.activeVectorIndex = activeVectorIndex ?? SqliteActiveVectorIndex();
@@ -223,33 +223,35 @@ class KnowledgeEngine {
       R45VectorMigration.activeStrategyId,
     );
     final existing = await lineageStore.buildJobById(jobId);
-    await lineageStore.putBuildJob(BuildJobRecord(
-      jobId: jobId,
-      jobType: 'r46-import-lineage',
-      strategyId: R45VectorMigration.activeStrategyId,
-      documentId: document.documentId,
-      status: status,
-      totalItems: document.chunks.length,
-      completedItems: state == BuildState.ready ? document.chunks.length : 0,
-      checkpointJson: jsonEncode({
-        'state': _buildStateValue(state),
-        'chunkCount': document.chunks.length,
-      }),
-      currentSource: document.sourceName,
-      failureCode: failureCode,
-      failureDetail: failureDetail,
-      createdAt: existing?.createdAt ?? now,
-      updatedAt: now,
-    ));
+    await lineageStore.putBuildJob(
+      BuildJobRecord(
+        jobId: jobId,
+        jobType: 'r46-import-lineage',
+        strategyId: R45VectorMigration.activeStrategyId,
+        documentId: document.documentId,
+        status: status,
+        totalItems: document.chunks.length,
+        completedItems: state == BuildState.ready ? document.chunks.length : 0,
+        checkpointJson: jsonEncode({
+          'state': _buildStateValue(state),
+          'chunkCount': document.chunks.length,
+        }),
+        currentSource: document.sourceName,
+        failureCode: failureCode,
+        failureDetail: failureDetail,
+        createdAt: existing?.createdAt ?? now,
+        updatedAt: now,
+      ),
+    );
   }
 
   String _buildStateValue(BuildState state) => switch (state) {
-        BuildState.prepared => 'prepared',
-        BuildState.lexicalCommitted => 'lexical_committed',
-        BuildState.lineageCommitted => 'lineage_committed',
-        BuildState.vectorCommitted => 'vector_committed',
-        BuildState.ready => 'ready',
-      };
+    BuildState.prepared => 'prepared',
+    BuildState.lexicalCommitted => 'lexical_committed',
+    BuildState.lineageCommitted => 'lineage_committed',
+    BuildState.vectorCommitted => 'vector_committed',
+    BuildState.ready => 'ready',
+  };
 
   Future<List<KnowledgeDocument>> listDocuments() async {
     await lexicalStore.initialize();
@@ -316,32 +318,39 @@ class KnowledgeEngine {
     // Do not re-embed healthy chunks. This operation is deliberately
     // checkpoint/resume friendly: every successful add is persisted, and a
     // later run recomputes only the remaining missing/stale set.
-    final pendingChunks = chunks.where((chunk) {
-      final observation = observationsByChunk[chunk.id];
-      return observation == null ||
-          observation.modelIdentity != SemanticStore.embeddingModelIdentity;
-    }).toList(growable: false);
+    final pendingChunks = chunks
+        .where((chunk) {
+          final observation = observationsByChunk[chunk.id];
+          return observation == null ||
+              observation.modelIdentity != SemanticStore.embeddingModelIdentity;
+        })
+        .toList(growable: false);
 
     if (pendingChunks.isEmpty) {
       onProgress?.call(const SemanticSyncProgress(total: 0, completed: 0));
       return;
     }
 
-    onProgress?.call(SemanticSyncProgress(
-      total: pendingChunks.length,
-      completed: 0,
-      currentSource: pendingChunks.first.sourceName,
-      currentChunkId: pendingChunks.first.id,
-    ));
+    onProgress?.call(
+      SemanticSyncProgress(
+        total: pendingChunks.length,
+        completed: 0,
+        currentSource: pendingChunks.first.sourceName,
+        currentChunkId: pendingChunks.first.id,
+      ),
+    );
 
-    await semanticStore.addChunks(pendingChunks,
+    await semanticStore.addChunks(
+      pendingChunks,
       onProgress: (completed, total, current) {
-        onProgress?.call(SemanticSyncProgress(
-          total: total,
-          completed: completed,
-          currentSource: current.sourceName,
-          currentChunkId: current.id,
-        ));
+        onProgress?.call(
+          SemanticSyncProgress(
+            total: total,
+            completed: completed,
+            currentSource: current.sourceName,
+            currentChunkId: current.id,
+          ),
+        );
       },
     );
   }

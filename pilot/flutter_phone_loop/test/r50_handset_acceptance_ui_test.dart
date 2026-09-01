@@ -22,119 +22,123 @@ import 'package:sqlite3/sqlite3.dart';
 void main() {
   group('R5.0 prominent handset entry', () {
     testWidgets(
-        'entry stays above Advanced while models are unavailable and opens one full-screen route',
-        (tester) async {
-      _setPhoneSize(tester);
-      final database = sqlite3.openInMemory();
-      addTearDown(database.close);
-      final latest = _terminalSnapshot(AcceptanceVerdict.pass);
+      'entry stays above Advanced while models are unavailable and opens one full-screen route',
+      (tester) async {
+        _setPhoneSize(tester);
+        final database = sqlite3.openInMemory();
+        addTearDown(database.close);
+        final latest = _terminalSnapshot(AcceptanceVerdict.pass);
 
-      await tester.pumpWidget(
-        MaterialApp(
-          home: ModelSettingsPage(
-            engine: KnowledgeEngine(),
-            store: ChatSessionStore(database: database),
-            setupService: _UnavailableModelSetupService(),
-            acceptanceSnapshotLoader: () async => latest,
-            acceptancePageBuilder: (context) => const Scaffold(
-              body: Center(child: Text('S24U acceptance full screen')),
+        await tester.pumpWidget(
+          MaterialApp(
+            home: ModelSettingsPage(
+              engine: KnowledgeEngine(),
+              store: ChatSessionStore(database: database),
+              setupService: _UnavailableModelSetupService(),
+              acceptanceSnapshotLoader: () async => latest,
+              acceptancePageBuilder: (context) => const Scaffold(
+                body: Center(child: Text('S24U acceptance full screen')),
+              ),
             ),
           ),
-        ),
-      );
-      await tester.pump();
-      await tester.pump();
+        );
+        await tester.pump();
+        await tester.pump();
 
-      final entry = find.byKey(
-        const ValueKey<String>('handset-acceptance-entry'),
-      );
-      expect(entry, findsOneWidget);
-      expect(find.text('手机一键验收'), findsOneWidget);
-      expect(find.text('最近结果：PASS · 通过'), findsOneWidget);
-      expect(find.text('升级基线：版本 2022'), findsOneWidget);
-      expect(
-        tester.getTopLeft(entry).dy,
-        lessThan(tester.getTopLeft(find.text('高级 / 诊断')).dy),
-      );
+        final entry = find.byKey(
+          const ValueKey<String>('handset-acceptance-entry'),
+        );
+        expect(entry, findsOneWidget);
+        expect(find.text('手机一键验收'), findsOneWidget);
+        expect(find.text('最近结果：PASS · 通过'), findsOneWidget);
+        expect(find.text('升级基线：版本 2022'), findsOneWidget);
+        expect(
+          tester.getTopLeft(entry).dy,
+          lessThan(tester.getTopLeft(find.text('高级 / 诊断')).dy),
+        );
 
-      await tester.tap(entry);
-      await tester.pumpAndSettle();
+        await tester.tap(entry);
+        await tester.pumpAndSettle();
 
-      expect(find.text('S24U acceptance full screen'), findsOneWidget);
-      expect(find.text('模型 / 设置'), findsNothing);
-    });
+        expect(find.text('S24U acceptance full screen'), findsOneWidget);
+        expect(find.text('模型 / 设置'), findsNothing);
+      },
+    );
 
     testWidgets(
-        'entry waits for checkpoint recovery before exposing an interrupted result',
-        (tester) async {
-      final recovery = Completer<HandsetAcceptanceSnapshot?>();
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: HandsetAcceptanceEntryCard(
-              recoverLatest: () => recovery.future,
-              onOpen: () {},
+      'entry waits for checkpoint recovery before exposing an interrupted result',
+      (tester) async {
+        final recovery = Completer<HandsetAcceptanceSnapshot?>();
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: HandsetAcceptanceEntryCard(
+                recoverLatest: () => recovery.future,
+                onOpen: () {},
+              ),
             ),
           ),
-        ),
-      );
+        );
 
-      expect(find.text('正在恢复上次验收…'), findsOneWidget);
-      expect(find.textContaining('进程中断'), findsNothing);
+        expect(find.text('正在恢复上次验收…'), findsOneWidget);
+        expect(find.textContaining('进程中断'), findsNothing);
 
-      recovery.complete(_interruptedSnapshot());
-      await tester.pump();
-      await tester.pump();
+        recovery.complete(_interruptedSnapshot());
+        await tester.pump();
+        await tester.pump();
 
-      expect(find.text('最近结果：BLOCKED · 受阻'), findsOneWidget);
-      expect(find.text('上次验收已安全恢复：进程中断'), findsOneWidget);
-    });
+        expect(find.text('最近结果：BLOCKED · 受阻'), findsOneWidget);
+        expect(find.text('上次验收已安全恢复：进程中断'), findsOneWidget);
+      },
+    );
   });
 
   group('R5.0 handset dashboard', () {
     testWidgets(
-        'running H4 renders determinate outer progress and expandable real F1-F10 progress',
-        (tester) async {
-      _setPhoneSize(tester);
-      final running = _runningH4Snapshot();
-      final controller = _FakeHandsetController(
-        progress: <HandsetAcceptanceSnapshot>[running],
-        holdRun: true,
-      );
-      await _pumpAcceptancePage(tester, controller);
+      'running H4 renders determinate outer progress and expandable real F1-F10 progress',
+      (tester) async {
+        _setPhoneSize(tester);
+        final running = _runningH4Snapshot();
+        final controller = _FakeHandsetController(
+          progress: <HandsetAcceptanceSnapshot>[running],
+          holdRun: true,
+        );
+        await _pumpAcceptancePage(tester, controller);
 
-      await tester.tap(find.text('开始手机一键验收'));
-      await tester.pump();
+        await tester.tap(find.text('开始手机一键验收'));
+        await tester.pump();
 
-      expect(find.text('35%'), findsOneWidget);
-      expect(find.text('当前：H4/10 · 手机功能闭环'), findsOneWidget);
-      expect(find.text('已用时：00:12'), findsOneWidget);
-      expect(
-        find.text('检查点：PG_HANDSET_ACCEPTANCE_LAST.json · 已保存'),
-        findsOneWidget,
-      );
-      final startButton = tester.widget<FilledButton>(
-        find.byKey(const ValueKey<String>('handset-acceptance-start')),
-      );
-      expect(startButton.onPressed, isNull);
+        expect(find.text('35%'), findsOneWidget);
+        expect(find.text('当前：H4/10 · 手机功能闭环'), findsOneWidget);
+        expect(find.text('已用时：00:12'), findsOneWidget);
+        expect(
+          find.text('检查点：PG_HANDSET_ACCEPTANCE_LAST.json · 已保存'),
+          findsOneWidget,
+        );
+        final startButton = tester.widget<FilledButton>(
+          find.byKey(const ValueKey<String>('handset-acceptance-start')),
+        );
+        expect(startButton.onPressed, isNull);
 
-      await tester.scrollUntilVisible(
-        find.text('Phone Golden Test · F1–F10'),
-        240,
-        scrollable: find.byType(Scrollable).first,
-      );
-      await tester.pump();
-      await tester.tap(find.text('Phone Golden Test · F1–F10'));
-      await tester.pump();
-      expect(find.text('F1 · Golden gate 1'), findsOneWidget);
-      expect(find.text('F10 · Golden gate 10'), findsOneWidget);
+        await tester.scrollUntilVisible(
+          find.text('Phone Golden Test · F1–F10'),
+          240,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await tester.pump();
+        await tester.tap(find.text('Phone Golden Test · F1–F10'));
+        await tester.pump();
+        expect(find.text('F1 · Golden gate 1'), findsOneWidget);
+        expect(find.text('F10 · Golden gate 10'), findsOneWidget);
 
-      controller.complete(_terminalSnapshot(AcceptanceVerdict.pass));
-      await tester.pumpAndSettle();
-    });
+        controller.complete(_terminalSnapshot(AcceptanceVerdict.pass));
+        await tester.pumpAndSettle();
+      },
+    );
 
-    testWidgets('awaiting H6 opens the real guided high-dimensional 3D route',
-        (tester) async {
+    testWidgets('awaiting H6 opens the real guided high-dimensional 3D route', (
+      tester,
+    ) async {
       _setPhoneSize(tester);
       final controller = _FakeHandsetController(
         progress: <HandsetAcceptanceSnapshot>[_awaitingH6Snapshot()],
@@ -151,57 +155,68 @@ void main() {
 
       await tester.tap(find.byType(CloseButton));
       await tester.pumpAndSettle();
-      expect(controller.interactionResult?.reasonCode, 'USER_ACTION_INCOMPLETE');
+      expect(
+        controller.interactionResult?.reasonCode,
+        'USER_ACTION_INCOMPLETE',
+      );
       expect(find.text('验收受阻'), findsOneWidget);
     });
 
-    testWidgets('running post-checks expose frame and handset resource evidence',
-        (tester) async {
-      _setPhoneSize(tester);
-      final controller = _FakeHandsetController(
-        progress: <HandsetAcceptanceSnapshot>[_runningResourcesSnapshot()],
-        holdRun: true,
-      );
-      await _pumpAcceptancePage(tester, controller);
+    testWidgets(
+      'running post-checks expose frame and handset resource evidence',
+      (tester) async {
+        _setPhoneSize(tester);
+        final controller = _FakeHandsetController(
+          progress: <HandsetAcceptanceSnapshot>[_runningResourcesSnapshot()],
+          holdRun: true,
+        );
+        await _pumpAcceptancePage(tester, controller);
 
-      await tester.tap(find.text('开始手机一键验收'));
-      await tester.pump();
+        await tester.tap(find.text('开始手机一键验收'));
+        await tester.pump();
 
-      for (final metric in <String>[
-        '帧 P95：14.2 ms',
-        '基线 PSS：320000 KiB',
-        '最低可用内存：4000000000 bytes',
-        '电池温度峰值：38.4 °C',
-        '最高热状态：2',
-      ]) {
-        expect(find.text(metric), findsOneWidget);
-      }
+        for (final metric in <String>[
+          '帧 P95：14.2 ms',
+          '基线 PSS：320000 KiB',
+          '最低可用内存：4000000000 bytes',
+          '电池温度峰值：38.4 °C',
+          '最高热状态：2',
+        ]) {
+          expect(find.text(metric), findsOneWidget);
+        }
 
-      controller.complete(_terminalSnapshot(AcceptanceVerdict.pass));
-      await tester.pumpAndSettle();
-    });
+        controller.complete(_terminalSnapshot(AcceptanceVerdict.pass));
+        await tester.pumpAndSettle();
+      },
+    );
 
-    testWidgets('PASS uses the green terminal card and only three run actions',
-        (tester) async {
-      _setPhoneSize(tester);
-      await _pumpCompletedRun(
-        tester,
-        _terminalSnapshot(AcceptanceVerdict.pass),
-      );
+    testWidgets(
+      'PASS uses the green terminal card and only three run actions',
+      (tester) async {
+        _setPhoneSize(tester);
+        await _pumpCompletedRun(
+          tester,
+          _terminalSnapshot(AcceptanceVerdict.pass),
+        );
 
-      expect(find.text('验收通过'), findsOneWidget);
-      expect(find.text('DEVICE_ACCEPTANCE = PASS'), findsOneWidget);
-      _expectOnlyTerminalActions(tester);
-      final card = tester.widget<Card>(
-        find.byKey(const ValueKey<String>('handset-terminal-pass')),
-      );
-      expect(card.color, Theme.of(tester.element(find.text('验收通过')))
-          .colorScheme
-          .tertiaryContainer);
-    });
+        expect(find.text('验收通过'), findsOneWidget);
+        expect(find.text('DEVICE_ACCEPTANCE = PASS'), findsOneWidget);
+        _expectOnlyTerminalActions(tester);
+        final card = tester.widget<Card>(
+          find.byKey(const ValueKey<String>('handset-terminal-pass')),
+        );
+        expect(
+          card.color,
+          Theme.of(
+            tester.element(find.text('验收通过')),
+          ).colorScheme.tertiaryContainer,
+        );
+      },
+    );
 
-    testWidgets('FAIL stays distinct from BLOCKED and explains remediation',
-        (tester) async {
+    testWidgets('FAIL stays distinct from BLOCKED and explains remediation', (
+      tester,
+    ) async {
       _setPhoneSize(tester);
       await _pumpCompletedRun(
         tester,
@@ -216,31 +231,33 @@ void main() {
     });
 
     testWidgets(
-        'missing models are not pre-checked and become truthful BLOCKED only after start',
-        (tester) async {
-      _setPhoneSize(tester);
-      await _pumpAcceptancePage(
-        tester,
-        _FakeHandsetController(
-          terminal: _terminalSnapshot(AcceptanceVerdict.blocked),
-        ),
-      );
+      'missing models are not pre-checked and become truthful BLOCKED only after start',
+      (tester) async {
+        _setPhoneSize(tester);
+        await _pumpAcceptancePage(
+          tester,
+          _FakeHandsetController(
+            terminal: _terminalSnapshot(AcceptanceVerdict.blocked),
+          ),
+        );
 
-      expect(find.textContaining('本机模型尚未就绪'), findsNothing);
-      await tester.tap(find.text('开始手机一键验收'));
-      await tester.pumpAndSettle();
+        expect(find.textContaining('本机模型尚未就绪'), findsNothing);
+        await tester.tap(find.text('开始手机一键验收'));
+        await tester.pumpAndSettle();
 
-      expect(find.text('验收受阻'), findsOneWidget);
-      expect(find.text('DEVICE_ACCEPTANCE = BLOCKED'), findsOneWidget);
-      expect(find.text('原因：本机模型尚未就绪'), findsOneWidget);
-      expect(find.textContaining('建议：先在模型设置完成'), findsOneWidget);
-      _expectOnlyTerminalActions(tester);
-    });
+        expect(find.text('验收受阻'), findsOneWidget);
+        expect(find.text('DEVICE_ACCEPTANCE = BLOCKED'), findsOneWidget);
+        expect(find.text('原因：本机模型尚未就绪'), findsOneWidget);
+        expect(find.textContaining('建议：先在模型设置完成'), findsOneWidget);
+        _expectOnlyTerminalActions(tester);
+      },
+    );
   });
 
   group('R5.0 lifecycle and redacted export', () {
-    testWidgets('leaving resumed state interrupts the single active run',
-        (tester) async {
+    testWidgets('leaving resumed state interrupts the single active run', (
+      tester,
+    ) async {
       _setPhoneSize(tester);
       final controller = _FakeHandsetController(
         progress: <HandsetAcceptanceSnapshot>[_runningH4Snapshot()],
@@ -250,9 +267,7 @@ void main() {
       await tester.tap(find.text('开始手机一键验收'));
       await tester.pump();
 
-      tester.binding.handleAppLifecycleStateChanged(
-        AppLifecycleState.paused,
-      );
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
       await tester.pump();
 
       expect(controller.interruption.value, 'APP_BACKGROUND_INTERRUPTION');
@@ -261,14 +276,13 @@ void main() {
       ]);
 
       controller.complete(_terminalSnapshot(AcceptanceVerdict.blocked));
-      tester.binding.handleAppLifecycleStateChanged(
-        AppLifecycleState.resumed,
-      );
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
       await tester.pumpAndSettle();
     });
 
-    testWidgets('active run exposes one visible cancel-and-cleanup action',
-        (tester) async {
+    testWidgets('active run exposes one visible cancel-and-cleanup action', (
+      tester,
+    ) async {
       _setPhoneSize(tester);
       final controller = _FakeHandsetController(
         progress: <HandsetAcceptanceSnapshot>[_runningH4Snapshot()],
@@ -291,8 +305,31 @@ void main() {
       await tester.pumpAndSettle();
     });
 
-    testWidgets('system back interrupts and retains an active acceptance route',
-        (tester) async {
+    testWidgets(
+      'system back interrupts and retains an active acceptance route',
+      (tester) async {
+        _setPhoneSize(tester);
+        final controller = _FakeHandsetController(
+          progress: <HandsetAcceptanceSnapshot>[_runningH4Snapshot()],
+          holdRun: true,
+        );
+        await _pumpAcceptancePage(tester, controller);
+        await tester.tap(find.text('开始手机一键验收'));
+        await tester.pump();
+
+        await tester.binding.handlePopRoute();
+        await tester.pump();
+
+        expect(controller.interruptReasons, <String>['USER_CANCELLED']);
+        expect(find.text('手机一键验收'), findsOneWidget);
+        controller.complete(_terminalSnapshot(AcceptanceVerdict.blocked));
+        await tester.pumpAndSettle();
+      },
+    );
+
+    testWidgets('disposing an active page performs best-effort interruption', (
+      tester,
+    ) async {
       _setPhoneSize(tester);
       final controller = _FakeHandsetController(
         progress: <HandsetAcceptanceSnapshot>[_runningH4Snapshot()],
@@ -302,29 +339,7 @@ void main() {
       await tester.tap(find.text('开始手机一键验收'));
       await tester.pump();
 
-      await tester.binding.handlePopRoute();
-      await tester.pump();
-
-      expect(controller.interruptReasons, <String>['USER_CANCELLED']);
-      expect(find.text('手机一键验收'), findsOneWidget);
-      controller.complete(_terminalSnapshot(AcceptanceVerdict.blocked));
-      await tester.pumpAndSettle();
-    });
-
-    testWidgets('disposing an active page performs best-effort interruption',
-        (tester) async {
-      _setPhoneSize(tester);
-      final controller = _FakeHandsetController(
-        progress: <HandsetAcceptanceSnapshot>[_runningH4Snapshot()],
-        holdRun: true,
-      );
-      await _pumpAcceptancePage(tester, controller);
-      await tester.tap(find.text('开始手机一键验收'));
-      await tester.pump();
-
-      await tester.pumpWidget(
-        const MaterialApp(home: SizedBox.shrink()),
-      );
+      await tester.pumpWidget(const MaterialApp(home: SizedBox.shrink()));
       await tester.pump();
 
       expect(controller.interruptReasons, <String>['USER_CANCELLED']);
@@ -332,46 +347,49 @@ void main() {
       await tester.pump();
     });
 
-    testWidgets('export saves exact allow-listed bytes and never renders a token',
-        (tester) async {
-      _setPhoneSize(tester);
-      final terminal = _terminalSnapshot(
-        AcceptanceVerdict.pass,
-        includeSensitiveEvidence: true,
-      );
-      Uint8List? savedBytes;
-      String? savedName;
-      final controller = _FakeHandsetController(recovered: terminal);
-      await _pumpAcceptancePage(
-        tester,
-        controller,
-        reportSaver: (bytes, fileName) async {
-          savedBytes = bytes;
-          savedName = fileName;
-          return Uri.parse('content://exports/PG_HANDSET_ACCEPTANCE.json');
-        },
-      );
+    testWidgets(
+      'export saves exact allow-listed bytes and never renders a token',
+      (tester) async {
+        _setPhoneSize(tester);
+        final terminal = _terminalSnapshot(
+          AcceptanceVerdict.pass,
+          includeSensitiveEvidence: true,
+        );
+        Uint8List? savedBytes;
+        String? savedName;
+        final controller = _FakeHandsetController(recovered: terminal);
+        await _pumpAcceptancePage(
+          tester,
+          controller,
+          reportSaver: (bytes, fileName) async {
+            savedBytes = bytes;
+            savedName = fileName;
+            return Uri.parse('content://exports/PG_HANDSET_ACCEPTANCE.json');
+          },
+        );
 
-      await tester.tap(find.text('查看证据'));
-      await tester.pump();
-      expect(_visibleText(tester), isNot(contains('hf_super_secret_token')));
+        await tester.tap(find.text('查看证据'));
+        await tester.pump();
+        expect(_visibleText(tester), isNot(contains('hf_super_secret_token')));
 
-      await tester.tap(find.text('导出脱敏报告'));
-      await tester.pumpAndSettle();
+        await tester.tap(find.text('导出脱敏报告'));
+        await tester.pumpAndSettle();
 
-      expect(savedName, 'PG_HANDSET_ACCEPTANCE_r50-terminal.json');
-      expect(
-        savedBytes,
-        orderedEquals(HandsetReportExporter.encodeRedacted(terminal)),
-      );
-      expect(utf8.decode(savedBytes!), isNot(contains('hf_super_secret_token')));
-      expect(
-        find.text(
-          '已导出：content://exports/PG_HANDSET_ACCEPTANCE.json',
-        ),
-        findsOneWidget,
-      );
-    });
+        expect(savedName, 'PG_HANDSET_ACCEPTANCE_r50-terminal.json');
+        expect(
+          savedBytes,
+          orderedEquals(HandsetReportExporter.encodeRedacted(terminal)),
+        );
+        expect(
+          utf8.decode(savedBytes!),
+          isNot(contains('hf_super_secret_token')),
+        );
+        expect(
+          find.text('已导出：content://exports/PG_HANDSET_ACCEPTANCE.json'),
+          findsOneWidget,
+        );
+      },
+    );
   });
 }
 
@@ -408,10 +426,7 @@ Future<void> _pumpCompletedRun(
   WidgetTester tester,
   HandsetAcceptanceSnapshot terminal,
 ) async {
-  await _pumpAcceptancePage(
-    tester,
-    _FakeHandsetController(terminal: terminal),
-  );
+  await _pumpAcceptancePage(tester, _FakeHandsetController(terminal: terminal));
   await tester.tap(find.text('开始手机一键验收'));
   await tester.pumpAndSettle();
 }
@@ -426,8 +441,10 @@ void _expectOnlyTerminalActions(WidgetTester tester) {
   );
   expect(buttons, findsNWidgets(3));
   for (final label in <String>['查看证据', '导出脱敏报告', '完整重跑']) {
-    expect(find.descendant(of: actionArea, matching: find.text(label)),
-        findsOneWidget);
+    expect(
+      find.descendant(of: actionArea, matching: find.text(label)),
+      findsOneWidget,
+    );
   }
 }
 
@@ -537,8 +554,8 @@ HandsetAcceptanceSnapshot _runningH4Snapshot() {
             status: number <= 5
                 ? GoldenGateStatus.passed
                 : number == 6
-                    ? GoldenGateStatus.running
-                    : GoldenGateStatus.pending,
+                ? GoldenGateStatus.running
+                : GoldenGateStatus.pending,
           ),
       ],
     ),
@@ -626,9 +643,7 @@ HandsetAcceptanceSnapshot _interruptedSnapshot() {
             ? HandsetGateStatus.passed
             : HandsetGateStatus.blocked,
     },
-    details: const <String, String>{
-      'H2_BUILD_IDENTITY': 'PROCESS_INTERRUPTED',
-    },
+    details: const <String, String>{'H2_BUILD_IDENTITY': 'PROCESS_INTERRUPTED'},
     baselineVersionCode: 2022,
   );
 }
@@ -657,8 +672,8 @@ HandsetAcceptanceSnapshot _snapshot({
           detail: details[entry.key] ?? '',
           evidence: evidence[entry.key] ?? const <AcceptanceEvidence>[],
           startedAt: statuses.containsKey(entry.key) ? _now : null,
-          finishedAt: (statuses[entry.key] ?? HandsetGateStatus.pending)
-                  .isTerminal
+          finishedAt:
+              (statuses[entry.key] ?? HandsetGateStatus.pending).isTerminal
               ? _now
               : null,
         ),
@@ -683,61 +698,61 @@ const Map<String, String> _gateLabels = <String, String>{
 
 const Map<String, List<AcceptanceEvidence>> _resourceEvidence =
     <String, List<AcceptanceEvidence>>{
-  'H7_RENDER_PERFORMANCE': <AcceptanceEvidence>[
-    AcceptanceEvidence(
-      code: 'FRAME_P95_MS',
-      method: EvidenceMethod.measured,
-      source: 'SchedulerBinding.addTimingsCallback',
-      actual: 14.2,
-      threshold: 16.7,
-      unit: 'ms',
-      available: true,
-      detail: 'EVIDENCE_RECORDED',
-    ),
-  ],
-  'H8_MEMORY_THERMAL': <AcceptanceEvidence>[
-    AcceptanceEvidence(
-      code: 'BASELINE_PSS_KIB',
-      method: EvidenceMethod.measured,
-      source: 'Debug.getPss',
-      actual: 320000,
-      threshold: 524288,
-      unit: 'KiB',
-      available: true,
-      detail: 'EVIDENCE_RECORDED',
-    ),
-    AcceptanceEvidence(
-      code: 'MIN_AVAILABLE_MEMORY_BYTES',
-      method: EvidenceMethod.measured,
-      source: 'ActivityManager.MemoryInfo',
-      actual: 4000000000,
-      threshold: null,
-      unit: 'bytes',
-      available: true,
-      detail: 'EVIDENCE_RECORDED',
-    ),
-    AcceptanceEvidence(
-      code: 'PEAK_BATTERY_TEMPERATURE_C',
-      method: EvidenceMethod.measured,
-      source: 'ACTION_BATTERY_CHANGED',
-      actual: 38.4,
-      threshold: null,
-      unit: '°C',
-      available: true,
-      detail: 'EVIDENCE_RECORDED',
-    ),
-    AcceptanceEvidence(
-      code: 'MAX_THERMAL_STATUS',
-      method: EvidenceMethod.measured,
-      source: 'PowerManager.currentThermalStatus',
-      actual: 2,
-      threshold: 3,
-      unit: null,
-      available: true,
-      detail: 'EVIDENCE_RECORDED',
-    ),
-  ],
-};
+      'H7_RENDER_PERFORMANCE': <AcceptanceEvidence>[
+        AcceptanceEvidence(
+          code: 'FRAME_P95_MS',
+          method: EvidenceMethod.measured,
+          source: 'SchedulerBinding.addTimingsCallback',
+          actual: 14.2,
+          threshold: 16.7,
+          unit: 'ms',
+          available: true,
+          detail: 'EVIDENCE_RECORDED',
+        ),
+      ],
+      'H8_MEMORY_THERMAL': <AcceptanceEvidence>[
+        AcceptanceEvidence(
+          code: 'BASELINE_PSS_KIB',
+          method: EvidenceMethod.measured,
+          source: 'Debug.getPss',
+          actual: 320000,
+          threshold: 524288,
+          unit: 'KiB',
+          available: true,
+          detail: 'EVIDENCE_RECORDED',
+        ),
+        AcceptanceEvidence(
+          code: 'MIN_AVAILABLE_MEMORY_BYTES',
+          method: EvidenceMethod.measured,
+          source: 'ActivityManager.MemoryInfo',
+          actual: 4000000000,
+          threshold: null,
+          unit: 'bytes',
+          available: true,
+          detail: 'EVIDENCE_RECORDED',
+        ),
+        AcceptanceEvidence(
+          code: 'PEAK_BATTERY_TEMPERATURE_C',
+          method: EvidenceMethod.measured,
+          source: 'ACTION_BATTERY_CHANGED',
+          actual: 38.4,
+          threshold: null,
+          unit: '°C',
+          available: true,
+          detail: 'EVIDENCE_RECORDED',
+        ),
+        AcceptanceEvidence(
+          code: 'MAX_THERMAL_STATUS',
+          method: EvidenceMethod.measured,
+          source: 'PowerManager.currentThermalStatus',
+          actual: 2,
+          threshold: 3,
+          unit: null,
+          available: true,
+          detail: 'EVIDENCE_RECORDED',
+        ),
+      ],
+    };
 
 final class _TestVectorArtifact implements VectorAcceptanceArtifact {
   const _TestVectorArtifact();

@@ -34,9 +34,7 @@ final class HandsetAcceptanceComposition {
     const vectorCapture = VectorAcceptanceCapture();
     final runner = HandsetAcceptanceRunner(
       diagnostics: diagnostics,
-      persistence: FileHandsetAcceptancePersistence(
-        HandsetAcceptanceStore(),
-      ),
+      persistence: FileHandsetAcceptancePersistence(HandsetAcceptanceStore()),
       capturePreservation: preservation.capture,
       runGolden: golden.run,
       interruptGolden: golden.interrupt,
@@ -52,11 +50,8 @@ final class HandsetAcceptanceComposition {
   }
 
   static Future<ModelReadinessResult> probeInstalledModelReadiness() async {
-    if (!FlutterGemma.hasActiveModel() ||
-        !FlutterGemma.hasActiveEmbedder()) {
-      return const ModelReadinessResult.blocked(
-        'MODEL_PREREQUISITE_MISSING',
-      );
+    if (!FlutterGemma.hasActiveModel() || !FlutterGemma.hasActiveEmbedder()) {
+      return const ModelReadinessResult.blocked('MODEL_PREREQUISITE_MISSING');
     }
     await FlutterGemma.getActiveEmbedder();
     final model = GemmaService();

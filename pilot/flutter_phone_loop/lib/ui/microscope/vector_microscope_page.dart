@@ -206,10 +206,7 @@ class _VectorMicroscopePageState extends State<VectorMicroscopePage> {
             ),
             if (ratios.isNotEmpty)
               Text(
-                'DERIVED explained variance · ${[
-                  for (final ratio in ratios.take(3))
-                    '${(ratio * 100).toStringAsFixed(1)}%'
-                ].join(' / ')}',
+                'DERIVED explained variance · ${[for (final ratio in ratios.take(3)) '${(ratio * 100).toStringAsFixed(1)}%'].join(' / ')}',
               ),
           ],
         ),
@@ -255,7 +252,8 @@ class _VectorMicroscopePlotSectionState
   Widget build(BuildContext context) {
     final data = widget.data;
     final neighborIds = data.neighbors.map((row) => row.chunk.id).toSet();
-    final selected = _pointById(data.points, selectedId) ??
+    final selected =
+        _pointById(data.points, selectedId) ??
         _queryPoint(data.points) ??
         data.points.firstOrNull;
     final neighbor = selected == null
@@ -273,9 +271,7 @@ class _VectorMicroscopePlotSectionState
                 color: Theme.of(context).colorScheme.secondaryContainer,
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: const Text(
-                '即时观测，不是历史 Trace 的精确查询向量；用于检查当前知识库的局部关系。',
-              ),
+              child: const Text('即时观测，不是历史 Trace 的精确查询向量；用于检查当前知识库的局部关系。'),
             ),
             const SizedBox(height: 10),
             Text(
@@ -294,8 +290,8 @@ class _VectorMicroscopePlotSectionState
                     kind: point.isQuery
                         ? VectorPlotKind.query
                         : neighborIds.contains(point.id)
-                            ? VectorPlotKind.candidate
-                            : VectorPlotKind.context,
+                        ? VectorPlotKind.candidate
+                        : VectorPlotKind.context,
                     label: point.isQuery ? 'Query' : null,
                   ),
               ],
@@ -314,7 +310,7 @@ class _VectorMicroscopePlotSectionState
                 selected.isQuery
                     ? data.query
                     : '${selected.locator} · cosine '
-                        '${selected.cosineToQuery?.toStringAsFixed(4) ?? '未捕获'}',
+                          '${selected.cosineToQuery?.toStringAsFixed(4) ?? '未捕获'}',
               ),
               if (neighbor != null) ...<Widget>[
                 const SizedBox(height: 4),

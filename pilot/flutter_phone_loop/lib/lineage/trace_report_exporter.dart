@@ -137,9 +137,7 @@ abstract final class TraceReportExporter {
 
   static Object? _sanitizePayload(Object? value) {
     if (value is List) {
-      return <Object?>[
-        for (final item in value) _sanitizePayload(item),
-      ];
+      return <Object?>[for (final item in value) _sanitizePayload(item)];
     }
     if (value is Map) {
       final result = <String, Object?>{};

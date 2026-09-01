@@ -16,10 +16,7 @@ class FlutterGemmaEmbeddingGenerator implements EmbeddingGenerator {
   @override
   Future<List<double>> generateQuery(String text) async {
     final embedder = await FlutterGemma.getActiveEmbedder();
-    return embedder.generateEmbedding(
-      text,
-      taskType: TaskType.retrievalQuery,
-    );
+    return embedder.generateEmbedding(text, taskType: TaskType.retrievalQuery);
   }
 
   @override
@@ -33,10 +30,7 @@ class FlutterGemmaEmbeddingGenerator implements EmbeddingGenerator {
 }
 
 class CapturedQueryEmbedding {
-  const CapturedQueryEmbedding({
-    required this.embedding,
-    required this.vector,
-  });
+  const CapturedQueryEmbedding({required this.embedding, required this.vector});
 
   final LineageEmbedding embedding;
   final List<double> vector;
@@ -92,9 +86,6 @@ class QueryEmbeddingRuntime {
       generatedAt: DateTime.now().toUtc(),
     );
     await store.putEmbedding(embedding);
-    return CapturedQueryEmbedding(
-      embedding: embedding,
-      vector: vector,
-    );
+    return CapturedQueryEmbedding(embedding: embedding, vector: vector);
   }
 }

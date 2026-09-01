@@ -63,7 +63,8 @@ class ChatOrchestrator {
 
   Future<ChatMessage> sendMessage(String sessionId, String text) async {
     final clean = text.trim();
-    if (clean.isEmpty) throw ArgumentError.value(text, 'text', 'Message is empty');
+    if (clean.isEmpty)
+      throw ArgumentError.value(text, 'text', 'Message is empty');
 
     var session = await store.getSession(sessionId);
     if (session == null) throw StateError('Unknown chat session: $sessionId');
@@ -76,7 +77,8 @@ class ChatOrchestrator {
     );
     await store.appendMessage(user);
 
-    if (prior.isEmpty && (session.title == '新会话' || session.title.trim().isEmpty)) {
+    if (prior.isEmpty &&
+        (session.title == '新会话' || session.title.trim().isEmpty)) {
       final title = clean.replaceAll(RegExp(r'\s+'), ' ');
       session = await store.updateSession(
         sessionId,
@@ -184,8 +186,8 @@ class ChatOrchestrator {
       final retrievalMode = session.mode == ChatMode.modelOnly
           ? 'modelOnly'
           : useEvidence
-              ? '${session.mode.name}:${retrieval!.lexicalOnly ? 'lexical-only' : 'hybrid'}'
-              : 'auto:modelOnly';
+          ? '${session.mode.name}:${retrieval!.lexicalOnly ? 'lexical-only' : 'hybrid'}'
+          : 'auto:modelOnly';
       String? traceId = lineageTraceId;
       if (traceId != null && recorder != null) {
         failureStage = 'context';
@@ -211,30 +213,25 @@ class ChatOrchestrator {
         sessionId: sessionId,
         text: answer,
         retrievalMode: retrievalMode,
-        evidenceJson:
-            evidence.isEmpty ? null : ChatMessage.encodeEvidence(evidence),
-        citedAnchorsJson:
-            anchors.isEmpty ? null : ChatMessage.encodeAnchors(anchors),
+        evidenceJson: evidence.isEmpty
+            ? null
+            : ChatMessage.encodeEvidence(evidence),
+        citedAnchorsJson: anchors.isEmpty
+            ? null
+            : ChatMessage.encodeAnchors(anchors),
         traceId: traceId,
       );
       await store.appendMessage(reply);
       if (lineageTraceId != null && recorder != null) {
         failureStage = 'trace';
-        await recorder.completeTrace(
-          lineageTraceId,
-          finalMode: retrievalMode,
-        );
+        await recorder.completeTrace(lineageTraceId, finalMode: retrievalMode);
       }
       return reply;
     } catch (error) {
       final traceId = lineageTraceId;
       if (traceId != null && recorder != null) {
         try {
-          await recorder.failTrace(
-            traceId,
-            stage: failureStage,
-            error: error,
-          );
+          await recorder.failTrace(traceId, stage: failureStage, error: error);
         } catch (_) {
           // Preserve the original retrieval/model failure for the UI.
         }
@@ -259,36 +256,40 @@ class ChatOrchestrator {
       lane: recorder.lane,
       tokenCountsByAnchor: turnResult.evidenceTokenCounts,
     );
-    await recorder.promptBudget(PromptBudgetRecord(
-      traceId: traceId,
-      strategyId: recorder.strategyId,
-      lane: recorder.lane,
-      modelContextLimit: budget.modelContextLimit,
-      systemTokens: budget.systemTokens,
-      historyTokens: budget.historyTokens,
-      evidenceTokens: budget.evidenceTokens,
-      queryTokens: budget.queryTokens,
-      outputReserveTokens: budget.outputReserveTokens,
-      totalPrefillTokens: budget.totalPrefillTokens,
-      remainingTokens: budget.remainingTokens,
-      trimmedHistoryMessages: budget.trimmedHistoryMessages,
-      trimmedEvidenceItems: budget.trimmedEvidenceItems,
-      trimDetailJson: jsonEncode(budget.trimDetails),
-    ));
+    await recorder.promptBudget(
+      PromptBudgetRecord(
+        traceId: traceId,
+        strategyId: recorder.strategyId,
+        lane: recorder.lane,
+        modelContextLimit: budget.modelContextLimit,
+        systemTokens: budget.systemTokens,
+        historyTokens: budget.historyTokens,
+        evidenceTokens: budget.evidenceTokens,
+        queryTokens: budget.queryTokens,
+        outputReserveTokens: budget.outputReserveTokens,
+        totalPrefillTokens: budget.totalPrefillTokens,
+        remainingTokens: budget.remainingTokens,
+        trimmedHistoryMessages: budget.trimmedHistoryMessages,
+        trimmedEvidenceItems: budget.trimmedEvidenceItems,
+        trimDetailJson: jsonEncode(budget.trimDetails),
+      ),
+    );
     final generation = turnResult.generation;
     onStage('generation');
-    await recorder.generation(GenerationStatsRecord(
-      traceId: traceId,
-      strategyId: recorder.strategyId,
-      lane: recorder.lane,
-      ttftMs: generation.ttftMs,
-      generationMs: generation.generationMs,
-      outputTokens: generation.outputTokens,
-      decodeTokensPerSecond: generation.decodeTokensPerSecond,
-      backend: generation.backend,
-      nativeSessionRebuilt: generation.nativeSessionRebuilt,
-      sessionResetReason: generation.sessionResetReason,
-    ));
+    await recorder.generation(
+      GenerationStatsRecord(
+        traceId: traceId,
+        strategyId: recorder.strategyId,
+        lane: recorder.lane,
+        ttftMs: generation.ttftMs,
+        generationMs: generation.generationMs,
+        outputTokens: generation.outputTokens,
+        decodeTokensPerSecond: generation.decodeTokensPerSecond,
+        backend: generation.backend,
+        nativeSessionRebuilt: generation.nativeSessionRebuilt,
+        sessionResetReason: generation.sessionResetReason,
+      ),
+    );
     final byAnchor = <String, EvidenceItem>{
       for (final item in evidence) item.anchor: item,
     };
@@ -296,33 +297,31 @@ class ChatOrchestrator {
     for (final anchor in anchors) {
       final item = byAnchor[anchor];
       if (item == null) continue;
-      final chunkLineage =
-          await lineageStore?.lineageChunkById(item.chunk.id);
+      final chunkLineage = await lineageStore?.lineageChunkById(item.chunk.id);
       final sectionId = chunkLineage?.sectionId;
       final sectionLineage = sectionId == null
           ? null
           : await lineageStore?.lineageSectionById(sectionId);
-      citations.add(CitationRecord(
-        citationId: LineageIds.citationId(traceId, anchor),
-        traceId: traceId,
-        anchor: anchor,
-        evidenceId: LineageIds.evidenceId(
-          traceId,
-          recorder.strategyId,
-          item.chunk.id,
+      citations.add(
+        CitationRecord(
+          citationId: LineageIds.citationId(traceId, anchor),
+          traceId: traceId,
+          anchor: anchor,
+          evidenceId: LineageIds.evidenceId(
+            traceId,
+            recorder.strategyId,
+            item.chunk.id,
+          ),
+          chunkId: item.chunk.id,
+          documentId: chunkLineage?.documentId ?? item.chunk.documentId,
+          sectionId: sectionId,
+          pageNo: sectionLineage?.pageNo,
+          citationStatus: 'resolved',
         ),
-        chunkId: item.chunk.id,
-        documentId: chunkLineage?.documentId ?? item.chunk.documentId,
-        sectionId: sectionId,
-        pageNo: sectionLineage?.pageNo,
-        citationStatus: 'resolved',
-      ));
+      );
     }
     onStage('citation');
-    await recorder.citations(
-      traceId: traceId,
-      records: citations,
-    );
+    await recorder.citations(traceId: traceId, records: citations);
   }
 
   Future<String?> _persistTrace({
@@ -336,22 +335,25 @@ class ChatOrchestrator {
     final draft = retrieval?.traceDraft;
     if (target == null || draft == null) return null;
     final traceId = '${session.id}-${DateTime.now().microsecondsSinceEpoch}';
-    await target.save(RetrievalTrace(
-      traceId: traceId,
-      sessionId: session.id,
-      query: query,
-      mode: session.mode.name,
-      startedAt: draft.startedAt,
-      completedAt: DateTime.now().toUtc(),
-      scopeDocumentIds: session.scope.documentIds ?? const <String>{},
-      timings: draft.timings.copyWith(generationMs: generationMs),
-      lexicalHits: draft.lexicalHits,
-      semanticHits: draft.semanticHits,
-      hybridHits: draft.hybridHits,
-      evidenceAnchors:
-          retrieval!.evidence.map((item) => item.anchor).toList(growable: false),
-      citations: citations,
-    ));
+    await target.save(
+      RetrievalTrace(
+        traceId: traceId,
+        sessionId: session.id,
+        query: query,
+        mode: session.mode.name,
+        startedAt: draft.startedAt,
+        completedAt: DateTime.now().toUtc(),
+        scopeDocumentIds: session.scope.documentIds ?? const <String>{},
+        timings: draft.timings.copyWith(generationMs: generationMs),
+        lexicalHits: draft.lexicalHits,
+        semanticHits: draft.semanticHits,
+        hybridHits: draft.hybridHits,
+        evidenceAnchors: retrieval!.evidence
+            .map((item) => item.anchor)
+            .toList(growable: false),
+        citations: citations,
+      ),
+    );
     return traceId;
   }
 }

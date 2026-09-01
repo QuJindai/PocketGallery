@@ -36,11 +36,13 @@ Future<void> main() async {
     lineageStore: engine.lineageStore,
   );
 
-  runApp(PocketGalleryPilot(
-    engine: engine,
-    chatStore: chatStore,
-    orchestrator: orchestrator,
-  ));
+  runApp(
+    PocketGalleryPilot(
+      engine: engine,
+      chatStore: chatStore,
+      orchestrator: orchestrator,
+    ),
+  );
 }
 
 class PocketGalleryPilot extends StatelessWidget {
@@ -60,10 +62,7 @@ class PocketGalleryPilot extends StatelessWidget {
     return MaterialApp(
       title: 'PocketGallery',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorSchemeSeed: Colors.indigo,
-        useMaterial3: true,
-      ),
+      theme: ThemeData(colorSchemeSeed: Colors.indigo, useMaterial3: true),
       home: MainShell(
         engine: engine,
         store: chatStore,

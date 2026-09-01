@@ -60,15 +60,15 @@ class GoldenTestReport {
       snapshot?.passed ?? results.every((result) => result.passed);
 
   Map<String, Object?> toJson() => <String, Object?>{
-        ...?snapshot?.toJson(),
-        if (snapshot == null) ...<String, Object?>{
-          'startedAt': startedAt.toIso8601String(),
-          'passed': passed,
-          'results': results.map((result) => result.toJson()).toList(),
-        },
-        'traceId': traceId,
-        'traceCaptureError': traceCaptureError,
-      };
+    ...?snapshot?.toJson(),
+    if (snapshot == null) ...<String, Object?>{
+      'startedAt': startedAt.toIso8601String(),
+      'passed': passed,
+      'results': results.map((result) => result.toJson()).toList(),
+    },
+    'traceId': traceId,
+    'traceCaptureError': traceCaptureError,
+  };
 }
 
 class GoldenTraceHandoff {
@@ -155,10 +155,7 @@ class GoldenLineageVerifier {
     'trace.completed',
   };
 
-  Future<List<GateResult>> verify(
-    LineageStore store,
-    String? traceId,
-  ) async {
+  Future<List<GateResult>> verify(LineageStore store, String? traceId) async {
     if (traceId == null || traceId.trim().isEmpty) {
       return const <GateResult>[
         GateResult('F8_RUNTIME_LINEAGE', false, 'traceId 未捕获'),
@@ -172,12 +169,12 @@ class GoldenLineageVerifier {
     final activeEvents = trace == null
         ? const <TraceEventRecord>[]
         : events
-            .where(
-              (event) =>
-                  event.lane == RetrievalLane.active &&
-                  event.strategyId == trace.activeStrategyId,
-            )
-            .toList(growable: false);
+              .where(
+                (event) =>
+                    event.lane == RetrievalLane.active &&
+                    event.strategyId == trace.activeStrategyId,
+              )
+              .toList(growable: false);
     final capturedKinds = activeEvents.map((event) => event.kind).toSet();
     final missingKinds = requiredRuntimeEventKinds.difference(capturedKinds);
     final f8Passed =
@@ -231,10 +228,11 @@ class GoldenLineageVerifier {
     final componentSum = budget == null
         ? null
         : budget.systemTokens +
-            budget.historyTokens +
-            budget.evidenceTokens +
-            budget.queryTokens;
-    final componentsNonNegative = budget != null &&
+              budget.historyTokens +
+              budget.evidenceTokens +
+              budget.queryTokens;
+    final componentsNonNegative =
+        budget != null &&
         <int>[
           budget.systemTokens,
           budget.historyTokens,
@@ -268,10 +266,7 @@ class GoldenLineageVerifier {
     return <GateResult>[f8, f9, f10];
   }
 
-  TraceEventRecord? _event(
-    List<TraceEventRecord> events,
-    String kind,
-  ) {
+  TraceEventRecord? _event(List<TraceEventRecord> events, String kind) {
     for (final event in events) {
       if (event.kind == kind) return event;
     }
@@ -297,23 +292,25 @@ class GoldenLineageVerifier {
 class GoldenF7Assertion {
   static final RegExp _citationPattern = RegExp(r'\[E\d+\]');
 
-  static GateResult evaluate(
-    ChatMessage reply,
-    Set<String> validAnchors,
-  ) {
+  static GateResult evaluate(ChatMessage reply, Set<String> validAnchors) {
     final text = reply.text.trim();
     final rawCitations = _citationPattern
         .allMatches(text)
-        .map((match) => match.group(0)!.substring(1, match.group(0)!.length - 1))
+        .map(
+          (match) => match.group(0)!.substring(1, match.group(0)!.length - 1),
+        )
         .toSet();
     final sentinel = text.contains('PG_EVIDENCE_LAST_6');
-    final citesE6 = rawCitations.contains('E6') &&
-        reply.citedAnchors.contains('E6');
-    final validCitations = rawCitations.isNotEmpty &&
+    final citesE6 =
+        rawCitations.contains('E6') && reply.citedAnchors.contains('E6');
+    final validCitations =
+        rawCitations.isNotEmpty &&
         rawCitations.every(validAnchors.contains) &&
         reply.citedAnchors.every(validAnchors.contains);
-    final knowledgeMode = reply.retrievalMode?.startsWith('knowledge:') ?? false;
-    final passed = text.isNotEmpty &&
+    final knowledgeMode =
+        reply.retrievalMode?.startsWith('knowledge:') ?? false;
+    final passed =
+        text.isNotEmpty &&
         sentinel &&
         citesE6 &&
         validCitations &&
@@ -322,9 +319,9 @@ class GoldenF7Assertion {
       'F7_CHAT_REALWORLD',
       passed,
       'sentinel=$sentinel citesE6=$citesE6 '
-      'validCitations=$validCitations knowledgeMode=$knowledgeMode '
-      'citations=${rawCitations.toList()..sort()} '
-      'reply=${_compact(text, 180)}',
+          'validCitations=$validCitations knowledgeMode=$knowledgeMode '
+          'citations=${rawCitations.toList()..sort()} '
+          'reply=${_compact(text, 180)}',
     );
   }
 }
@@ -334,8 +331,8 @@ class GoldenTestRunner {
     this.engine, {
     GoldenGateExecutor? executor,
     GoldenTestReportStore? reportStore,
-  })  : _executor = executor ?? GoldenGateExecutor(),
-        _reportStore = reportStore ?? GoldenTestReportStore();
+  }) : _executor = executor ?? GoldenGateExecutor(),
+       _reportStore = reportStore ?? GoldenTestReportStore();
 
   final KnowledgeEngine engine;
   final GoldenGateExecutor _executor;
@@ -349,96 +346,93 @@ class GoldenTestRunner {
     if (_activeContext != null) {
       throw StateError('Golden Test is already running');
     }
-    final context = _GoldenRunContext(
-      engine,
-      onTraceReady: onTraceReady,
-    );
+    final context = _GoldenRunContext(engine, onTraceReady: onTraceReady);
     _activeContext = context;
     try {
       var snapshot = await _executor.execute(
         runId: 'phone-${DateTime.now().toUtc().microsecondsSinceEpoch}',
         gates: [
-        GoldenGateSpec(
-          name: 'F1_IMPORT_CHUNK',
-          label: '导入并切分临时语料',
-          timeout: const Duration(seconds: 45),
-          run: context.runF1,
-        ),
-        GoldenGateSpec(
-          name: 'F2_FTS5',
-          label: 'FTS5 精确召回',
-          timeout: const Duration(seconds: 30),
-          blockedWhen: _f1DidNotPass,
-          blockedReason: 'F1 fixture preparation did not pass',
-          run: context.runF2,
-        ),
-        GoldenGateSpec(
-          name: 'F3_EMBEDDING',
-          label: 'Embedding 语义召回',
-          timeout: const Duration(seconds: 90),
-          blockedWhen: _f1DidNotPass,
-          blockedReason: 'F1 fixture preparation did not pass',
-          run: context.runF3,
-        ),
-        GoldenGateSpec(
-          name: 'F4_HYBRID_RERANK',
-          label: 'Hybrid / Rerank',
-          timeout: const Duration(seconds: 90),
-          blockedWhen: _f1DidNotPass,
-          blockedReason: 'F1 fixture preparation did not pass',
-          run: context.runF4,
-        ),
-        GoldenGateSpec(
-          name: 'F5_EVIDENCE',
-          label: '证据包与锚点',
-          timeout: const Duration(seconds: 20),
-          blockedWhen: _f1DidNotPass,
-          blockedReason: 'F1 fixture preparation did not pass',
-          run: context.runF5,
-        ),
-        GoldenGateSpec(
-          name: 'F6_GEMMA_CITATION',
-          label: '真实 Gemma 引用回答',
-          timeout: const Duration(seconds: 240),
-          blockedWhen: _f1DidNotPass,
-          blockedReason: 'F1 fixture preparation did not pass',
-          run: context.runF6,
-        ),
-        GoldenGateSpec(
-          name: 'F7_CHAT_REALWORLD',
-          label: '重证据连续第二轮',
-          timeout: const Duration(seconds: 240),
-          blockedWhen: (snapshot) =>
-              _f1DidNotPass(snapshot) ||
-              snapshot.gate('F6_GEMMA_CITATION')?.status !=
-                  GoldenGateStatus.passed,
-          blockedReason: 'F1 or F6 did not pass',
-          run: context.runF7,
-        ),
-        GoldenGateSpec(
-          name: 'F8_RUNTIME_LINEAGE',
-          label: 'ACTIVE 运行时血缘闭环',
-          timeout: const Duration(seconds: 10),
-          blockedWhen: _f6DidNotPass,
-          blockedReason: 'F6 lineage source did not pass',
-          run: context.runF8,
-        ),
-        GoldenGateSpec(
-          name: 'F9_QUERY_VECTOR_IDENTITY',
-          label: '查询向量身份一致性',
-          timeout: const Duration(seconds: 10),
-          blockedWhen: _f6DidNotPass,
-          blockedReason: 'F6 lineage source did not pass',
-          run: context.runF9,
-        ),
-        GoldenGateSpec(
-          name: 'F10_CONTEXT_BUDGET',
-          label: '上下文预算守恒',
-          timeout: const Duration(seconds: 10),
-          blockedWhen: _f6DidNotPass,
-          blockedReason: 'F6 lineage source did not pass',
-          run: context.runF10,
-        ),
+          GoldenGateSpec(
+            name: 'F1_IMPORT_CHUNK',
+            label: '导入并切分临时语料',
+            timeout: const Duration(seconds: 45),
+            run: context.runF1,
+          ),
+          GoldenGateSpec(
+            name: 'F2_FTS5',
+            label: 'FTS5 精确召回',
+            timeout: const Duration(seconds: 30),
+            blockedWhen: _f1DidNotPass,
+            blockedReason: 'F1 fixture preparation did not pass',
+            run: context.runF2,
+          ),
+          GoldenGateSpec(
+            name: 'F3_EMBEDDING',
+            label: 'Embedding 语义召回',
+            timeout: const Duration(seconds: 90),
+            blockedWhen: _f1DidNotPass,
+            blockedReason: 'F1 fixture preparation did not pass',
+            run: context.runF3,
+          ),
+          GoldenGateSpec(
+            name: 'F4_HYBRID_RERANK',
+            label: 'Hybrid / Rerank',
+            timeout: const Duration(seconds: 90),
+            blockedWhen: _f1DidNotPass,
+            blockedReason: 'F1 fixture preparation did not pass',
+            run: context.runF4,
+          ),
+          GoldenGateSpec(
+            name: 'F5_EVIDENCE',
+            label: '证据包与锚点',
+            timeout: const Duration(seconds: 20),
+            blockedWhen: _f1DidNotPass,
+            blockedReason: 'F1 fixture preparation did not pass',
+            run: context.runF5,
+          ),
+          GoldenGateSpec(
+            name: 'F6_GEMMA_CITATION',
+            label: '真实 Gemma 引用回答',
+            timeout: const Duration(seconds: 240),
+            blockedWhen: _f1DidNotPass,
+            blockedReason: 'F1 fixture preparation did not pass',
+            run: context.runF6,
+          ),
+          GoldenGateSpec(
+            name: 'F7_CHAT_REALWORLD',
+            label: '重证据连续第二轮',
+            timeout: const Duration(seconds: 240),
+            blockedWhen: (snapshot) =>
+                _f1DidNotPass(snapshot) ||
+                snapshot.gate('F6_GEMMA_CITATION')?.status !=
+                    GoldenGateStatus.passed,
+            blockedReason: 'F1 or F6 did not pass',
+            run: context.runF7,
+          ),
+          GoldenGateSpec(
+            name: 'F8_RUNTIME_LINEAGE',
+            label: 'ACTIVE 运行时血缘闭环',
+            timeout: const Duration(seconds: 10),
+            blockedWhen: _f6DidNotPass,
+            blockedReason: 'F6 lineage source did not pass',
+            run: context.runF8,
+          ),
+          GoldenGateSpec(
+            name: 'F9_QUERY_VECTOR_IDENTITY',
+            label: '查询向量身份一致性',
+            timeout: const Duration(seconds: 10),
+            blockedWhen: _f6DidNotPass,
+            blockedReason: 'F6 lineage source did not pass',
+            run: context.runF9,
+          ),
+          GoldenGateSpec(
+            name: 'F10_CONTEXT_BUDGET',
+            label: '上下文预算守恒',
+            timeout: const Duration(seconds: 10),
+            blockedWhen: _f6DidNotPass,
+            blockedReason: 'F6 lineage source did not pass',
+            run: context.runF10,
+          ),
         ],
         onProgress: onProgress,
         onCheckpoint: (snapshot) async {
@@ -479,8 +473,7 @@ class GoldenTestRunner {
       snapshot.gate('F1_IMPORT_CHUNK')?.status != GoldenGateStatus.passed;
 
   static bool _f6DidNotPass(GoldenTestSnapshot snapshot) =>
-      snapshot.gate('F6_GEMMA_CITATION')?.status !=
-      GoldenGateStatus.passed;
+      snapshot.gate('F6_GEMMA_CITATION')?.status != GoldenGateStatus.passed;
 
   GoldenTestSnapshot _mapInterruptedSnapshot(
     GoldenTestSnapshot snapshot,
@@ -504,7 +497,8 @@ class GoldenTestRunner {
           gate.status == GoldenGateStatus.pending ||
           gate.status == GoldenGateStatus.running,
     );
-    final allPassed = gates.isNotEmpty &&
+    final allPassed =
+        gates.isNotEmpty &&
         gates.every((gate) => gate.status == GoldenGateStatus.passed);
     if (!mappedAnActiveGate && allPassed) {
       gates[gates.length - 1] = gates.last.copyWith(
@@ -522,10 +516,8 @@ class GoldenTestRunner {
 }
 
 class _GoldenRunContext {
-  _GoldenRunContext(
-    this.engine, {
-    GoldenTraceReadyCallback? onTraceReady,
-  }) : traceHandoff = GoldenTraceHandoff(onTraceReady) {
+  _GoldenRunContext(this.engine, {GoldenTraceReadyCallback? onTraceReady})
+    : traceHandoff = GoldenTraceHandoff(onTraceReady) {
     control = GoldenRunControl(
       closeActiveModel: () async {
         await chatModel?.close();
@@ -575,7 +567,7 @@ class _GoldenRunContext {
         'F1_IMPORT_CHUNK',
         chunkCounts.every((count) => count > 0),
         'chunks=${chunkCounts.fold<int>(0, (sum, count) => sum + count)} '
-        'perSource=$chunkCounts',
+            'perSource=$chunkCounts',
       );
     } finally {
       if (f1TimedOut) {
@@ -599,8 +591,7 @@ class _GoldenRunContext {
 
   Future<GateResult> runF3() async {
     control.throwIfInterrupted();
-    final hits =
-        await engine.semanticStore.search('为什么诊断程序一直等不到标定完成状态');
+    final hits = await engine.semanticStore.search('为什么诊断程序一直等不到标定完成状态');
     control.throwIfInterrupted();
     return GateResult(
       'F3_EMBEDDING',
@@ -609,7 +600,7 @@ class _GoldenRunContext {
       hits.isEmpty
           ? 'no hit'
           : 'top1=${hits.first.chunk.sourceName} '
-              'score=${hits.first.score.toStringAsFixed(3)}',
+                'score=${hits.first.score.toStringAsFixed(3)}',
     );
   }
 
@@ -637,7 +628,7 @@ class _GoldenRunContext {
       hits.isEmpty
           ? 'no hit'
           : 'top1=${hits.first.chunk.sourceName} '
-              'channels=${hits.first.channels.join("+")}',
+                'channels=${hits.first.channels.join("+")}',
     );
   }
 
@@ -682,7 +673,8 @@ class _GoldenRunContext {
     control.throwIfInterrupted();
     lineageTraceId = reply.traceId;
     traceHandoff.traceId = reply.traceId;
-    final passed = reply.text.contains('31 03 51 01') &&
+    final passed =
+        reply.text.contains('31 03 51 01') &&
         (reply.text.contains('等待') || reply.text.contains('处理中')) &&
         reply.citedAnchors.isNotEmpty &&
         (reply.retrievalMode?.startsWith('knowledge:') ?? false);
@@ -690,7 +682,7 @@ class _GoldenRunContext {
       'F6_GEMMA_CITATION',
       passed,
       'citations=${reply.citedAnchors} mode=${reply.retrievalMode} '
-      'reply=${_compact(reply.text, 220)}',
+          'reply=${_compact(reply.text, 220)}',
     );
   }
 
@@ -728,11 +720,8 @@ class _GoldenRunContext {
 
   Future<GateResult> _lineageGate(int index) async {
     control.throwIfInterrupted();
-    final verification = lineageVerification ??=
-        const GoldenLineageVerifier().verify(
-      engine.lineageStore,
-      lineageTraceId,
-    );
+    final verification = lineageVerification ??= const GoldenLineageVerifier()
+        .verify(engine.lineageStore, lineageTraceId);
     final gates = await verification;
     control.throwIfInterrupted();
     return gates[index];
@@ -743,8 +732,7 @@ class _GoldenRunContext {
       f1TimedOut = true;
       await RetrievalBenchmarkFixture.removeKnownFixtures(engine);
     }
-    if (gate.name == 'F6_GEMMA_CITATION' ||
-        gate.name == 'F7_CHAT_REALWORLD') {
+    if (gate.name == 'F6_GEMMA_CITATION' || gate.name == 'F7_CHAT_REALWORLD') {
       await control.closeActiveModel();
     }
   }
@@ -800,7 +788,8 @@ class _GoldenHeavyEvidenceRetriever implements KnowledgeRetrievalGateway {
         sourceName: 'pg_golden_heavy_$number.txt',
         locator: 'chunk#$number',
         ordinal: 0,
-        text: '$marker。第$number条上下文证据。'
+        text:
+            '$marker。第$number条上下文证据。'
             '${'制造现场诊断与模型上下文预算验证内容。' * 120}',
       );
     }, growable: false);

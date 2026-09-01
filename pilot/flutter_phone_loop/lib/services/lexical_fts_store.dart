@@ -10,8 +10,8 @@ import '../observability/fts_inspector.dart';
 
 class LexicalFtsStore {
   LexicalFtsStore({Database? database})
-      : _db = database,
-        _ownsDatabase = database == null;
+    : _db = database,
+      _ownsDatabase = database == null;
 
   Database? _db;
   final bool _ownsDatabase;
@@ -74,10 +74,13 @@ class LexicalFtsStore {
 
   Future<List<PgChunk>> chunksForDocument(String documentId) async {
     await initialize();
-    final rows = _db!.select('''
+    final rows = _db!.select(
+      '''
       SELECT id, document_id, source_name, locator, ordinal, content
       FROM pg_chunks WHERE document_id = ? ORDER BY ordinal
-    ''', [documentId]);
+    ''',
+      [documentId],
+    );
     return rows.map(_rowToChunk).toList();
   }
 
@@ -98,12 +101,14 @@ class LexicalFtsStore {
       FROM pg_documents ORDER BY source_name COLLATE NOCASE, document_id
     ''');
     return rows
-        .map((row) => KnowledgeDocument(
-              documentId: row['document_id'] as String,
-              sourceName: row['source_name'] as String,
-              sha256: row['sha256'] as String,
-              chunkCount: (row['chunk_count'] as num).toInt(),
-            ))
+        .map(
+          (row) => KnowledgeDocument(
+            documentId: row['document_id'] as String,
+            sourceName: row['source_name'] as String,
+            sha256: row['sha256'] as String,
+            chunkCount: (row['chunk_count'] as num).toInt(),
+          ),
+        )
         .toList();
   }
 
@@ -112,14 +117,15 @@ class LexicalFtsStore {
     final db = _db!;
     db.execute('BEGIN IMMEDIATE;');
     try {
-      final old = db.select(
-        'SELECT id FROM pg_chunks WHERE document_id = ?',
-        [doc.documentId],
-      );
+      final old = db.select('SELECT id FROM pg_chunks WHERE document_id = ?', [
+        doc.documentId,
+      ]);
       for (final row in old) {
         db.execute('DELETE FROM pg_chunks_fts WHERE id = ?', [row['id']]);
       }
-      db.execute('DELETE FROM pg_chunks WHERE document_id = ?', [doc.documentId]);
+      db.execute('DELETE FROM pg_chunks WHERE document_id = ?', [
+        doc.documentId,
+      ]);
 
       final insertPlain = db.prepare('''
         INSERT OR REPLACE INTO pg_chunks
@@ -149,11 +155,14 @@ class LexicalFtsStore {
         insertFts.close();
       }
 
-      db.execute('''
+      db.execute(
+        '''
         INSERT OR REPLACE INTO pg_documents
         (document_id, source_name, sha256, chunk_count)
         VALUES (?, ?, ?, ?)
-      ''', [doc.documentId, doc.sourceName, doc.sha256, doc.chunks.length]);
+      ''',
+        [doc.documentId, doc.sourceName, doc.sha256, doc.chunks.length],
+      );
       db.execute('COMMIT;');
     } catch (_) {
       db.execute('ROLLBACK;');
@@ -166,15 +175,16 @@ class LexicalFtsStore {
     final db = _db!;
     db.execute('BEGIN IMMEDIATE;');
     try {
-      final ids = db.select(
-        'SELECT id FROM pg_chunks WHERE document_id = ?',
-        [documentId],
-      );
+      final ids = db.select('SELECT id FROM pg_chunks WHERE document_id = ?', [
+        documentId,
+      ]);
       for (final row in ids) {
         db.execute('DELETE FROM pg_chunks_fts WHERE id = ?', [row['id']]);
       }
       db.execute('DELETE FROM pg_chunks WHERE document_id = ?', [documentId]);
-      db.execute('DELETE FROM pg_documents WHERE document_id = ?', [documentId]);
+      db.execute('DELETE FROM pg_documents WHERE document_id = ?', [
+        documentId,
+      ]);
       db.execute('COMMIT;');
     } catch (_) {
       db.execute('ROLLBACK;');
@@ -248,7 +258,8 @@ class LexicalFtsStore {
       ''', args);
     } catch (_) {
       final quoted = '"${query.replaceAll('"', '""')}"';
-      rows = _db!.select('''
+      rows = _db!.select(
+        '''
         SELECT id, document_id, source_name, locator, ordinal, content,
                bm25(pg_chunks_fts) AS bm,
                content AS snip
@@ -256,7 +267,9 @@ class LexicalFtsStore {
         WHERE pg_chunks_fts MATCH ? $scopeSql
         ORDER BY bm
         LIMIT ?
-      ''', <Object?>[quoted, ...ids, topK]);
+      ''',
+        <Object?>[quoted, ...ids, topK],
+      );
     }
 
     final terms = cjkWindows.isNotEmpty ? cjkWindows : _queryTerms(query);
@@ -275,11 +288,15 @@ class LexicalFtsStore {
             affinity: _bm25Affinity((rows[i]['bm'] as num).toDouble()),
             snippet: rows[i]['snip'] as String,
             matchedTerms: terms
-                .where((term) =>
-                    (rows[i]['content'] as String).toLowerCase().contains(term))
+                .where(
+                  (term) => (rows[i]['content'] as String)
+                      .toLowerCase()
+                      .contains(term),
+                )
                 .toList(growable: false),
-            matchMode:
-                cjkWindows.isNotEmpty ? 'cjk-trigram-window' : 'fts5-trigram',
+            matchMode: cjkWindows.isNotEmpty
+                ? 'cjk-trigram-window'
+                : 'fts5-trigram',
           ),
       ],
     );
@@ -297,13 +314,16 @@ class LexicalFtsStore {
         ? ''
         : ' AND document_id IN (${List.filled(ids.length, '?').join(',')}) ';
     final patterns = terms.map((e) => '%$e%').toList();
-    final rows = _db!.select('''
+    final rows = _db!.select(
+      '''
       SELECT id, document_id, source_name, locator, ordinal, content
       FROM pg_chunks
       WHERE ($likeSql) $scopeSql
       ORDER BY document_id, ordinal
       LIMIT ?
-    ''', <Object?>[...patterns, ...ids, topK]);
+    ''',
+      <Object?>[...patterns, ...ids, topK],
+    );
 
     return FtsInspectionResult(
       query: query,
@@ -343,13 +363,13 @@ class LexicalFtsStore {
   }
 
   PgChunk _rowToChunk(Row row) => PgChunk(
-        id: row['id'] as String,
-        documentId: row['document_id'] as String,
-        sourceName: row['source_name'] as String,
-        locator: row['locator'] as String,
-        ordinal: (row['ordinal'] as num).toInt(),
-        text: row['content'] as String,
-      );
+    id: row['id'] as String,
+    documentId: row['document_id'] as String,
+    sourceName: row['source_name'] as String,
+    locator: row['locator'] as String,
+    ordinal: (row['ordinal'] as num).toInt(),
+    text: row['content'] as String,
+  );
 
   double _bm25Affinity(double bm) => 1.0 / (1.0 + bm.abs());
 
@@ -372,9 +392,7 @@ class LexicalFtsStore {
 
     final terms = <String>{...cjkWindows, ...nonCjk}.take(16).toList();
     if (terms.isNotEmpty) {
-      return terms
-          .map((x) => '"${x.replaceAll('"', '""')}"')
-          .join(' OR ');
+      return terms.map((x) => '"${x.replaceAll('"', '""')}"').join(' OR ');
     }
 
     final escaped = q.replaceAll('"', '""');

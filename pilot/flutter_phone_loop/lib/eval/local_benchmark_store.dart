@@ -28,26 +28,26 @@ class LocalBenchmarkCase {
   final DateTime updatedAt;
 
   RetrievalBenchmarkCase toBenchmarkCase() => RetrievalBenchmarkCase(
-        id: id,
-        question: question,
-        expectedDocumentIds: expectedDocumentIds,
-        expectedSourceNames: const <String>{},
-        expectedChunkIds: expectedChunkIds,
-        expectedUseKnowledge:
-            expectedDocumentIds.isNotEmpty || expectedChunkIds.isNotEmpty,
-        tags: tags,
-      );
+    id: id,
+    question: question,
+    expectedDocumentIds: expectedDocumentIds,
+    expectedSourceNames: const <String>{},
+    expectedChunkIds: expectedChunkIds,
+    expectedUseKnowledge:
+        expectedDocumentIds.isNotEmpty || expectedChunkIds.isNotEmpty,
+    tags: tags,
+  );
 }
 
 class LocalBenchmarkStore {
   LocalBenchmarkStore({Database? database, this.databasePath})
-      : _db = database,
-        _ownsDatabase = database == null;
+    : _db = database,
+      _ownsDatabase = database == null;
 
   LocalBenchmarkStore.inMemory()
-      : _db = sqlite3.openInMemory(),
-        databasePath = null,
-        _ownsDatabase = true;
+    : _db = sqlite3.openInMemory(),
+      databasePath = null,
+      _ownsDatabase = true;
 
   static const databaseFileName = 'pocketgallery_local_benchmark.db';
 
@@ -59,7 +59,8 @@ class LocalBenchmarkStore {
   Future<void> initialize() async {
     if (_initialized) return;
     if (_db == null) {
-      final path = databasePath ??
+      final path =
+          databasePath ??
           p.join(
             (await getApplicationDocumentsDirectory()).path,
             databaseFileName,
@@ -92,7 +93,8 @@ class LocalBenchmarkStore {
         'At least one expected document or chunk must be selected',
       );
     }
-    _db!.execute('''
+    _db!.execute(
+      '''
       INSERT INTO pg_local_benchmark_cases (
         case_id, question, expected_document_ids_json,
         expected_chunk_ids_json, tags_json, source_trace_id,
@@ -105,16 +107,18 @@ class LocalBenchmarkStore {
         tags_json = excluded.tags_json,
         source_trace_id = excluded.source_trace_id,
         updated_at = excluded.updated_at
-    ''', [
-      value.id,
-      value.question.trim(),
-      _encodeSet(value.expectedDocumentIds),
-      _encodeSet(value.expectedChunkIds),
-      _encodeSet(value.tags),
-      value.sourceTraceId,
-      value.createdAt.toUtc().toIso8601String(),
-      value.updatedAt.toUtc().toIso8601String(),
-    ]);
+    ''',
+      [
+        value.id,
+        value.question.trim(),
+        _encodeSet(value.expectedDocumentIds),
+        _encodeSet(value.expectedChunkIds),
+        _encodeSet(value.tags),
+        value.sourceTraceId,
+        value.createdAt.toUtc().toIso8601String(),
+        value.updatedAt.toUtc().toIso8601String(),
+      ],
+    );
   }
 
   Future<LocalBenchmarkCase?> caseById(String id) async {
@@ -139,10 +143,9 @@ class LocalBenchmarkStore {
 
   Future<void> deleteCase(String id) async {
     await initialize();
-    _db!.execute(
-      'DELETE FROM pg_local_benchmark_cases WHERE case_id = ?',
-      [id],
-    );
+    _db!.execute('DELETE FROM pg_local_benchmark_cases WHERE case_id = ?', [
+      id,
+    ]);
   }
 
   String _encodeSet(Set<String> values) {
@@ -160,17 +163,15 @@ class LocalBenchmarkStore {
   }
 
   LocalBenchmarkCase _fromRow(Row row) => LocalBenchmarkCase(
-        id: row['case_id'] as String,
-        question: row['question'] as String,
-        expectedDocumentIds: _decodeSet(
-          row['expected_document_ids_json'],
-        ),
-        expectedChunkIds: _decodeSet(row['expected_chunk_ids_json']),
-        tags: _decodeSet(row['tags_json']),
-        sourceTraceId: row['source_trace_id'] as String?,
-        createdAt: DateTime.parse(row['created_at'] as String).toUtc(),
-        updatedAt: DateTime.parse(row['updated_at'] as String).toUtc(),
-      );
+    id: row['case_id'] as String,
+    question: row['question'] as String,
+    expectedDocumentIds: _decodeSet(row['expected_document_ids_json']),
+    expectedChunkIds: _decodeSet(row['expected_chunk_ids_json']),
+    tags: _decodeSet(row['tags_json']),
+    sourceTraceId: row['source_trace_id'] as String?,
+    createdAt: DateTime.parse(row['created_at'] as String).toUtc(),
+    updatedAt: DateTime.parse(row['updated_at'] as String).toUtc(),
+  );
 
   void dispose() {
     if (_ownsDatabase) _db?.close();

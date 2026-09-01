@@ -27,19 +27,32 @@ class CandidatePoolPage extends StatelessWidget {
         )
         .toList(growable: false);
     final ftsOnly = candidates
-        .where((candidate) => candidate.ftsRank != null && candidate.vectorRank == null)
+        .where(
+          (candidate) =>
+              candidate.ftsRank != null && candidate.vectorRank == null,
+        )
         .length;
     final vectorOnly = candidates
-        .where((candidate) => candidate.ftsRank == null && candidate.vectorRank != null)
+        .where(
+          (candidate) =>
+              candidate.ftsRank == null && candidate.vectorRank != null,
+        )
         .length;
     final dual = candidates
-        .where((candidate) => candidate.ftsRank != null && candidate.vectorRank != null)
+        .where(
+          (candidate) =>
+              candidate.ftsRank != null && candidate.vectorRank != null,
+        )
         .length;
     final parentChild = candidates
         .where((candidate) => candidate.sourceChannels.contains('parent-child'))
         .length;
-    final selected = candidates.where((candidate) => candidate.selectedForEvidence).length;
-    final dropped = candidates.where((candidate) => candidate.dropReason != null).length;
+    final selected = candidates
+        .where((candidate) => candidate.selectedForEvidence)
+        .length;
+    final dropped = candidates
+        .where((candidate) => candidate.dropReason != null)
+        .length;
     return LineageDetailScaffold(
       pageKey: 'candidate-pool-page',
       title: '候选池 / Candidate Pool',

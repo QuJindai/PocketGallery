@@ -30,10 +30,12 @@ class GemmaService {
           'Use only the supplied evidence. Every factual claim must cite [E#]. '
           'If the evidence is insufficient, say so. Do not invent sources.',
     );
-    await chat.addQueryChunk(Message.text(
-      text: 'EVIDENCE:\n$context\nQUESTION:\n$question',
-      isUser: true,
-    ));
+    await chat.addQueryChunk(
+      Message.text(
+        text: 'EVIDENCE:\n$context\nQUESTION:\n$question',
+        isUser: true,
+      ),
+    );
     final response = await chat.generateChatResponse();
     if (response is TextResponse) return response.token.trim();
     return response.toString().trim();

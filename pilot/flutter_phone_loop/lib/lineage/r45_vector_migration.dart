@@ -9,7 +9,8 @@ import 'lineage_ids.dart';
 import 'lineage_models.dart';
 import 'lineage_store.dart';
 
-typedef DocumentEmbeddingGenerator = Future<List<double>> Function(PgChunk chunk);
+typedef DocumentEmbeddingGenerator =
+    Future<List<double>> Function(PgChunk chunk);
 
 class VectorMigrationReport {
   const VectorMigrationReport({
@@ -68,10 +69,18 @@ class R45VectorMigration {
     void Function(VectorMigrationProgress progress)? onProgress,
   }) async {
     if (activeModelIdentity.trim().isEmpty) {
-      throw ArgumentError.value(activeModelIdentity, 'activeModelIdentity', 'must not be empty');
+      throw ArgumentError.value(
+        activeModelIdentity,
+        'activeModelIdentity',
+        'must not be empty',
+      );
     }
     if (expectedDimension <= 0) {
-      throw ArgumentError.value(expectedDimension, 'expectedDimension', 'must be positive');
+      throw ArgumentError.value(
+        expectedDimension,
+        'expectedDimension',
+        'must be positive',
+      );
     }
 
     await lexicalStore.initialize();
@@ -88,7 +97,9 @@ class R45VectorMigration {
     };
     final chunksByDocument = <String, List<PgChunk>>{};
     for (final chunk in allChunks) {
-      chunksByDocument.putIfAbsent(chunk.documentId, () => <PgChunk>[]).add(chunk);
+      chunksByDocument
+          .putIfAbsent(chunk.documentId, () => <PgChunk>[])
+          .add(chunk);
     }
 
     var reusedFromR45 = 0;
@@ -99,22 +110,26 @@ class R45VectorMigration {
     var processed = 0;
 
     void progress(PgChunk? current) {
-      onProgress?.call(VectorMigrationProgress(
-        total: allChunks.length,
-        completed: processed,
-        failed: failed,
-        currentSource: current?.sourceName,
-        currentChunkId: current?.id,
-      ));
+      onProgress?.call(
+        VectorMigrationProgress(
+          total: allChunks.length,
+          completed: processed,
+          failed: failed,
+          currentSource: current?.sourceName,
+          currentChunkId: current?.id,
+        ),
+      );
     }
 
     progress(allChunks.isEmpty ? null : allChunks.first);
 
     for (final document in documents) {
-      final chunks = <PgChunk>[
-        ...?chunksByDocument[document.documentId],
-      ]..sort((a, b) => a.ordinal.compareTo(b.ordinal));
-      final jobId = LineageIds.buildJobId(document.documentId, activeStrategyId);
+      final chunks = <PgChunk>[...?chunksByDocument[document.documentId]]
+        ..sort((a, b) => a.ordinal.compareTo(b.ordinal));
+      final jobId = LineageIds.buildJobId(
+        document.documentId,
+        activeStrategyId,
+      );
       final existingJob = await lineageStore.buildJobById(jobId);
       final createdAt = existingJob?.createdAt ?? DateTime.now().toUtc();
 
@@ -157,13 +172,23 @@ class R45VectorMigration {
           continue;
         }
 
-        LineageEmbedding? embedding = await lineageStore.embeddingById(embeddingId);
-        if (_reusablePersisted(embedding, activeModelIdentity, expectedDimension)) {
+        LineageEmbedding? embedding = await lineageStore.embeddingById(
+          embeddingId,
+        );
+        if (_reusablePersisted(
+          embedding,
+          activeModelIdentity,
+          expectedDimension,
+        )) {
           resumedPersisted++;
         } else {
           embedding = null;
           final observation = observationByChunk[chunk.id];
-          if (_reusableObservation(observation, activeModelIdentity, expectedDimension)) {
+          if (_reusableObservation(
+            observation,
+            activeModelIdentity,
+            expectedDimension,
+          )) {
             embedding = LineageEmbedding.fromVector(
               embeddingId: embeddingId,
               sourceKind: 'chunk',
@@ -183,7 +208,9 @@ class R45VectorMigration {
             try {
               final vector = await embeddingGenerator(chunk);
               if (vector.length != expectedDimension) {
-                throw StateError('Generated embedding dimension ${vector.length} != $expectedDimension');
+                throw StateError(
+                  'Generated embedding dimension ${vector.length} != $expectedDimension',
+                );
               }
               embedding = LineageEmbedding.fromVector(
                 embeddingId: embeddingId,
@@ -237,14 +264,16 @@ class R45VectorMigration {
           status: VectorCommitStatus.pending,
         );
         try {
-          await activeVectorIndex.add(VectorIndexRecord(
-            embeddingId: readyEmbedding.embeddingId,
-            chunkId: chunk.id,
-            documentId: chunk.documentId,
-            content: chunk.text,
-            embedding: readyEmbedding.vector,
-            modelIdentity: readyEmbedding.modelIdentity,
-          ));
+          await activeVectorIndex.add(
+            VectorIndexRecord(
+              embeddingId: readyEmbedding.embeddingId,
+              chunkId: chunk.id,
+              documentId: chunk.documentId,
+              content: chunk.text,
+              embedding: readyEmbedding.vector,
+              modelIdentity: readyEmbedding.modelIdentity,
+            ),
+          );
           await _putIndexEntry(
             embeddingId: readyEmbedding.embeddingId,
             backendId: backend.backendId,
@@ -299,7 +328,8 @@ class R45VectorMigration {
           currentSource: document.sourceName,
           createdAt: createdAt,
           failureCode: 'R45_VECTOR_MIGRATION_INCOMPLETE',
-          failureDetail: '$failedForDocument vector operation(s) failed for ${document.sourceName}',
+          failureDetail:
+              '$failedForDocument vector operation(s) failed for ${document.sourceName}',
         );
       }
     }
@@ -334,7 +364,10 @@ class R45VectorMigration {
       parseStatus: 'legacy-existing',
       parseErrorCode: null,
       parseErrorDetail: null,
-      extractedCharCount: chunks.fold<int>(0, (sum, chunk) => sum + chunk.text.runes.length),
+      extractedCharCount: chunks.fold<int>(
+        0,
+        (sum, chunk) => sum + chunk.text.runes.length,
+      ),
       emptyPageCount: 0,
       provenanceQuality: 'legacy',
       importedAt: importedAt,
@@ -397,23 +430,24 @@ class R45VectorMigration {
     DateTime? committedAt,
     String? failureCode,
     String? failureDetail,
-  }) =>
-      lineageStore.putVectorIndexEntry(VectorIndexEntryRecord(
-        indexEntryId: LineageIds.vectorIndexEntryId(
-          embeddingId,
-          backendId,
-          activeStrategyId,
-          RetrievalLane.active,
-        ),
-        embeddingId: embeddingId,
-        backendId: backendId,
-        strategyId: activeStrategyId,
-        lane: RetrievalLane.active,
-        commitStatus: status,
-        committedAt: committedAt,
-        failureCode: failureCode,
-        failureDetail: failureDetail,
-      ));
+  }) => lineageStore.putVectorIndexEntry(
+    VectorIndexEntryRecord(
+      indexEntryId: LineageIds.vectorIndexEntryId(
+        embeddingId,
+        backendId,
+        activeStrategyId,
+        RetrievalLane.active,
+      ),
+      embeddingId: embeddingId,
+      backendId: backendId,
+      strategyId: activeStrategyId,
+      lane: RetrievalLane.active,
+      commitStatus: status,
+      committedAt: committedAt,
+      failureCode: failureCode,
+      failureDetail: failureDetail,
+    ),
+  );
 
   Future<void> _putJob({
     required String jobId,
@@ -426,30 +460,31 @@ class R45VectorMigration {
     required DateTime createdAt,
     String? failureCode,
     String? failureDetail,
-  }) =>
-      lineageStore.putBuildJob(BuildJobRecord(
-        jobId: jobId,
-        jobType: 'r45-active-body-migration',
-        strategyId: activeStrategyId,
-        documentId: documentId,
-        status: status,
-        totalItems: totalItems,
-        completedItems: completedItems,
-        checkpointJson: jsonEncode({'state': _buildStateValue(state)}),
-        currentSource: currentSource,
-        failureCode: failureCode,
-        failureDetail: failureDetail,
-        createdAt: createdAt,
-        updatedAt: DateTime.now().toUtc(),
-      ));
+  }) => lineageStore.putBuildJob(
+    BuildJobRecord(
+      jobId: jobId,
+      jobType: 'r45-active-body-migration',
+      strategyId: activeStrategyId,
+      documentId: documentId,
+      status: status,
+      totalItems: totalItems,
+      completedItems: completedItems,
+      checkpointJson: jsonEncode({'state': _buildStateValue(state)}),
+      currentSource: currentSource,
+      failureCode: failureCode,
+      failureDetail: failureDetail,
+      createdAt: createdAt,
+      updatedAt: DateTime.now().toUtc(),
+    ),
+  );
 
   String _buildStateValue(BuildState state) => switch (state) {
-        BuildState.prepared => 'prepared',
-        BuildState.lexicalCommitted => 'lexical_committed',
-        BuildState.lineageCommitted => 'lineage_committed',
-        BuildState.vectorCommitted => 'vector_committed',
-        BuildState.ready => 'ready',
-      };
+    BuildState.prepared => 'prepared',
+    BuildState.lexicalCommitted => 'lexical_committed',
+    BuildState.lineageCommitted => 'lineage_committed',
+    BuildState.vectorCommitted => 'vector_committed',
+    BuildState.ready => 'ready',
+  };
 
   String _fileType(String sourceName) {
     final dot = sourceName.lastIndexOf('.');

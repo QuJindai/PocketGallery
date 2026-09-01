@@ -65,8 +65,10 @@ class _FtsInspectorPageState extends State<FtsInspectorPage> {
         child: ListView(
           padding: const EdgeInsets.all(12),
           children: [
-            Text(widget.trace.query,
-                style: Theme.of(context).textTheme.titleMedium),
+            Text(
+              widget.trace.query,
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
             const SizedBox(height: 8),
             const Wrap(
               spacing: 8,
@@ -80,8 +82,10 @@ class _FtsInspectorPageState extends State<FtsInspectorPage> {
               const SizedBox(height: 8),
               SelectableText('Normalized query · ${result.normalizedQuery}'),
               const SizedBox(height: 4),
-              Text(result.diagnostics,
-                  style: Theme.of(context).textTheme.bodySmall),
+              Text(
+                result.diagnostics,
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
             ],
             const SizedBox(height: 8),
             Row(
@@ -120,15 +124,20 @@ class _FtsInspectorPageState extends State<FtsInspectorPage> {
               for (final hit in result.hits) _hitCard(context, hit),
             if (widget.trace.lexicalHits.isNotEmpty) ...[
               const Divider(height: 28),
-              Text('本次回答 Trace · 历史排名',
-                  style: Theme.of(context).textTheme.titleSmall),
+              Text(
+                '本次回答 Trace · 历史排名',
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
               const SizedBox(height: 6),
               for (final hit in widget.trace.lexicalHits.take(10))
                 ListTile(
                   dense: true,
                   leading: Text('#${hit.rank}'),
-                  title: Text(hit.sourceName,
-                      maxLines: 1, overflow: TextOverflow.ellipsis),
+                  title: Text(
+                    hit.sourceName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                   subtitle: Text('${hit.locator} · ${hit.channel}'),
                   trailing: Text(
                     hit.rawScore == null
@@ -144,43 +153,48 @@ class _FtsInspectorPageState extends State<FtsInspectorPage> {
   }
 
   Widget _hitCard(BuildContext context, FtsInspectionHit hit) => Card(
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    child: Padding(
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              Row(
-                children: [
-                  CircleAvatar(radius: 15, child: Text('${hit.rank}')),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(hit.chunk.sourceName,
-                        maxLines: 1, overflow: TextOverflow.ellipsis),
-                  ),
-                  Text(hit.matchMode),
-                ],
+              CircleAvatar(radius: 15, child: Text('${hit.rank}')),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  hit.chunk.sourceName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
-              const SizedBox(height: 6),
-              Text('${hit.chunk.locator} · ${hit.chunk.id}'),
-              const Divider(),
-              _snippet(context, hit.snippet),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 12,
-                runSpacing: 4,
-                children: [
-                  Text(hit.rawBm25 == null
-                      ? 'REAL BM25 · —'
-                      : 'REAL BM25 · ${hit.rawBm25!.toStringAsFixed(6)}'),
-                  Text('DERIVED affinity · ${hit.affinity.toStringAsFixed(6)}'),
-                  if (hit.matchedTerms.isNotEmpty)
-                    Text('terms · ${hit.matchedTerms.join(' · ')}'),
-                ],
-              ),
+              Text(hit.matchMode),
             ],
           ),
-        ),
-      );
+          const SizedBox(height: 6),
+          Text('${hit.chunk.locator} · ${hit.chunk.id}'),
+          const Divider(),
+          _snippet(context, hit.snippet),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 12,
+            runSpacing: 4,
+            children: [
+              Text(
+                hit.rawBm25 == null
+                    ? 'REAL BM25 · —'
+                    : 'REAL BM25 · ${hit.rawBm25!.toStringAsFixed(6)}',
+              ),
+              Text('DERIVED affinity · ${hit.affinity.toStringAsFixed(6)}'),
+              if (hit.matchedTerms.isNotEmpty)
+                Text('terms · ${hit.matchedTerms.join(' · ')}'),
+            ],
+          ),
+        ],
+      ),
+    ),
+  );
 
   Widget _snippet(BuildContext context, String source) {
     final spans = <TextSpan>[];
@@ -190,22 +204,25 @@ class _FtsInspectorPageState extends State<FtsInspectorPage> {
       if (match.start > cursor) {
         spans.add(TextSpan(text: source.substring(cursor, match.start)));
       }
-      spans.add(TextSpan(
-        text: match.group(1) ?? '',
-        style: TextStyle(
-          fontWeight: FontWeight.bold,
-          backgroundColor:
-              Theme.of(context).colorScheme.secondaryContainer,
+      spans.add(
+        TextSpan(
+          text: match.group(1) ?? '',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
+          ),
         ),
-      ));
+      );
       cursor = match.end;
     }
     if (cursor < source.length) {
       spans.add(TextSpan(text: source.substring(cursor)));
     }
-    return SelectableText.rich(TextSpan(
-      style: DefaultTextStyle.of(context).style,
-      children: spans.isEmpty ? [TextSpan(text: source)] : spans,
-    ));
+    return SelectableText.rich(
+      TextSpan(
+        style: DefaultTextStyle.of(context).style,
+        children: spans.isEmpty ? [TextSpan(text: source)] : spans,
+      ),
+    );
   }
 }

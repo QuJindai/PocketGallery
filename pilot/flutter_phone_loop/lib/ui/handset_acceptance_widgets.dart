@@ -72,8 +72,8 @@ class _HandsetAcceptanceEntryCardState
                     Text(
                       '手机一键验收',
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     const SizedBox(height: 4),
                     const Text('S24 Ultra · H1–H10 · 高维关系 3D 实体交互'),
@@ -217,9 +217,7 @@ class _HandsetAcceptanceProgressPanelState
               Wrap(
                 spacing: 12,
                 runSpacing: 5,
-                children: <Widget>[
-                  for (final metric in metrics) Text(metric),
-                ],
+                children: <Widget>[for (final metric in metrics) Text(metric)],
               ),
             ],
             const Divider(),
@@ -298,13 +296,11 @@ class _HandsetGateRow extends StatelessWidget {
     return ExpansionTile(
       tilePadding: EdgeInsets.zero,
       childrenPadding: EdgeInsets.zero,
-      leading: Icon(
-        presentation.icon,
-        color: presentation.color,
-        size: 20,
+      leading: Icon(presentation.icon, color: presentation.color, size: 20),
+      title: Text(
+        '${gate.name.substring(0, gate.name.indexOf('_'))} · '
+        '${handsetGateChineseLabel(gate.name)}',
       ),
-      title: Text('${gate.name.substring(0, gate.name.indexOf('_'))} · '
-          '${handsetGateChineseLabel(gate.name)}'),
       trailing: Text(presentation.label),
       children: children,
     );
@@ -342,10 +338,7 @@ class _NestedGoldenProgress extends StatelessWidget {
 }
 
 class HandsetAcceptanceTerminalCard extends StatelessWidget {
-  const HandsetAcceptanceTerminalCard({
-    super.key,
-    required this.snapshot,
-  });
+  const HandsetAcceptanceTerminalCard({super.key, required this.snapshot});
 
   final HandsetAcceptanceSnapshot snapshot;
 
@@ -355,29 +348,29 @@ class HandsetAcceptanceTerminalCard extends StatelessWidget {
     final colors = Theme.of(context).colorScheme;
     final presentation = switch (verdict) {
       AcceptanceVerdict.pass => (
-          key: const ValueKey<String>('handset-terminal-pass'),
-          title: '验收通过',
-          code: 'DEVICE_ACCEPTANCE = PASS',
-          icon: Icons.verified,
-          color: colors.tertiaryContainer,
-          foreground: colors.onTertiaryContainer,
-        ),
+        key: const ValueKey<String>('handset-terminal-pass'),
+        title: '验收通过',
+        code: 'DEVICE_ACCEPTANCE = PASS',
+        icon: Icons.verified,
+        color: colors.tertiaryContainer,
+        foreground: colors.onTertiaryContainer,
+      ),
       AcceptanceVerdict.fail => (
-          key: const ValueKey<String>('handset-terminal-fail'),
-          title: '验收失败',
-          code: 'DEVICE_ACCEPTANCE = FAIL',
-          icon: Icons.cancel,
-          color: colors.errorContainer,
-          foreground: colors.onErrorContainer,
-        ),
+        key: const ValueKey<String>('handset-terminal-fail'),
+        title: '验收失败',
+        code: 'DEVICE_ACCEPTANCE = FAIL',
+        icon: Icons.cancel,
+        color: colors.errorContainer,
+        foreground: colors.onErrorContainer,
+      ),
       AcceptanceVerdict.blocked => (
-          key: const ValueKey<String>('handset-terminal-blocked'),
-          title: '验收受阻',
-          code: 'DEVICE_ACCEPTANCE = BLOCKED',
-          icon: Icons.warning_amber_rounded,
-          color: colors.secondaryContainer,
-          foreground: colors.onSecondaryContainer,
-        ),
+        key: const ValueKey<String>('handset-terminal-blocked'),
+        title: '验收受阻',
+        code: 'DEVICE_ACCEPTANCE = BLOCKED',
+        icon: Icons.warning_amber_rounded,
+        color: colors.secondaryContainer,
+        foreground: colors.onSecondaryContainer,
+      ),
     };
     final problemCode = _terminalProblemCode(snapshot);
     return Card(
@@ -396,9 +389,9 @@ class HandsetAcceptanceTerminalCard extends StatelessWidget {
                   child: Text(
                     presentation.title,
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          color: presentation.foreground,
-                          fontWeight: FontWeight.bold,
-                        ),
+                      color: presentation.foreground,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ],
@@ -427,18 +420,18 @@ class HandsetAcceptanceTerminalCard extends StatelessWidget {
 }
 
 String handsetGateChineseLabel(String name) => switch (name) {
-      'H1_TARGET_DEVICE' => '目标设备',
-      'H2_BUILD_IDENTITY' => '构建身份',
-      'H3_UPGRADE_BASELINE' => '升级基线',
-      'H4_PHONE_FUNCTION_LOOP' => '手机功能闭环',
-      'H5_VECTOR_3D_TRUTH' => '高维向量 → 三维真值',
-      'H6_VECTOR_INTERACTION' => '实体 3D 交互',
-      'H7_RENDER_PERFORMANCE' => '渲染性能',
-      'H8_MEMORY_THERMAL' => '内存与温控',
-      'H9_DATA_PRESERVATION' => '数据保全',
-      'H10_REPORT_INTEGRITY' => '报告完整性',
-      _ => '未知验收门',
-    };
+  'H1_TARGET_DEVICE' => '目标设备',
+  'H2_BUILD_IDENTITY' => '构建身份',
+  'H3_UPGRADE_BASELINE' => '升级基线',
+  'H4_PHONE_FUNCTION_LOOP' => '手机功能闭环',
+  'H5_VECTOR_3D_TRUTH' => '高维向量 → 三维真值',
+  'H6_VECTOR_INTERACTION' => '实体 3D 交互',
+  'H7_RENDER_PERFORMANCE' => '渲染性能',
+  'H8_MEMORY_THERMAL' => '内存与温控',
+  'H9_DATA_PRESERVATION' => '数据保全',
+  'H10_REPORT_INTEGRITY' => '报告完整性',
+  _ => '未知验收门',
+};
 
 List<String> _metricLabels(HandsetAcceptanceSnapshot snapshot) {
   final labels = <String>[];
@@ -481,21 +474,21 @@ String _evidenceLabel(AcceptanceEvidence evidence) {
 }
 
 String _evidenceChineseLabel(String code) => switch (code) {
-      'TARGET_MANUFACTURER' => '制造商',
-      'TARGET_MODEL' => '机型',
-      'PACKAGE_NAME' => '包名',
-      'VERSION_CODE' => '版本码',
-      'SIGNER_SHA256' => '签名摘要',
-      'APK_SHA256' => 'APK 摘要',
-      'SOURCE_COMMIT' => '源码提交',
-      'FRAME_P95_MS' => '帧 P95',
-      'BASELINE_PSS_KIB' => '基线 PSS',
-      'FINAL_PSS_GROWTH_KIB' => 'PSS 增长',
-      'MIN_AVAILABLE_MEMORY_BYTES' => '最低可用内存',
-      'MAX_THERMAL_STATUS' => '最高热状态',
-      'PEAK_BATTERY_TEMPERATURE_C' => '电池温度峰值',
-      _ => '已记录证据',
-    };
+  'TARGET_MANUFACTURER' => '制造商',
+  'TARGET_MODEL' => '机型',
+  'PACKAGE_NAME' => '包名',
+  'VERSION_CODE' => '版本码',
+  'SIGNER_SHA256' => '签名摘要',
+  'APK_SHA256' => 'APK 摘要',
+  'SOURCE_COMMIT' => '源码提交',
+  'FRAME_P95_MS' => '帧 P95',
+  'BASELINE_PSS_KIB' => '基线 PSS',
+  'FINAL_PSS_GROWTH_KIB' => 'PSS 增长',
+  'MIN_AVAILABLE_MEMORY_BYTES' => '最低可用内存',
+  'MAX_THERMAL_STATUS' => '最高热状态',
+  'PEAK_BATTERY_TEMPERATURE_C' => '电池温度峰值',
+  _ => '已记录证据',
+};
 
 String? _safeEvidenceValue(AcceptanceEvidence evidence) {
   final actual = evidence.actual;
@@ -521,25 +514,22 @@ String? _approvedEvidenceString(String code, String value) {
     return null;
   }
   return switch (code) {
-    'TARGET_MANUFACTURER' => normalized.toLowerCase() == 'samsung'
-        ? normalized
-        : null,
-    'TARGET_MODEL' => RegExp(
-        r'^SM-S928[A-Z0-9]*$',
-        caseSensitive: false,
-      ).hasMatch(normalized)
-        ? normalized
-        : null,
-    'PACKAGE_NAME' => RegExp(r'^[a-z0-9._]+$').hasMatch(normalized)
-        ? normalized
-        : null,
+    'TARGET_MANUFACTURER' =>
+      normalized.toLowerCase() == 'samsung' ? normalized : null,
+    'TARGET_MODEL' =>
+      RegExp(r'^SM-S928[A-Z0-9]*$', caseSensitive: false).hasMatch(normalized)
+          ? normalized
+          : null,
+    'PACKAGE_NAME' =>
+      RegExp(r'^[a-z0-9._]+$').hasMatch(normalized) ? normalized : null,
     'SIGNER_SHA256' || 'APK_SHA256' =>
       RegExp(r'^[0-9a-fA-F]{64}$').hasMatch(normalized)
           ? normalized.toLowerCase()
           : null,
-    'SOURCE_COMMIT' => RegExp(r'^[0-9a-fA-F]{40}$').hasMatch(normalized)
-        ? normalized.toLowerCase()
-        : null,
+    'SOURCE_COMMIT' =>
+      RegExp(r'^[0-9a-fA-F]{40}$').hasMatch(normalized)
+          ? normalized.toLowerCase()
+          : null,
     _ => null,
   };
 }
@@ -580,16 +570,16 @@ String? _humanReason(String detail) {
 }
 
 String? _knownReason(String code) => switch (code) {
-      'PROCESS_INTERRUPTED' => '上次进程中断，已完成幂等清理',
-      'MODEL_PREREQUISITE_MISSING' => '本机模型尚未就绪',
-      'APP_BACKGROUND_INTERRUPTION' => '验收期间 App 离开前台',
-      'USER_ACTION_INCOMPLETE' => '实体 3D 交互尚未完成',
-      'RENDER_PERFORMANCE_REGRESSION' => '渲染性能未达到实体机门槛',
-      'MEMORY_PRESSURE' => '内存压力超过门槛',
-      'THERMAL_LIMIT_EXCEEDED' => '设备热状态超过门槛',
-      'REQUIRED_EVIDENCE_UNAVAILABLE' => '必要设备证据不可用',
-      _ => null,
-    };
+  'PROCESS_INTERRUPTED' => '上次进程中断，已完成幂等清理',
+  'MODEL_PREREQUISITE_MISSING' => '本机模型尚未就绪',
+  'APP_BACKGROUND_INTERRUPTION' => '验收期间 App 离开前台',
+  'USER_ACTION_INCOMPLETE' => '实体 3D 交互尚未完成',
+  'RENDER_PERFORMANCE_REGRESSION' => '渲染性能未达到实体机门槛',
+  'MEMORY_PRESSURE' => '内存压力超过门槛',
+  'THERMAL_LIMIT_EXCEEDED' => '设备热状态超过门槛',
+  'REQUIRED_EVIDENCE_UNAVAILABLE' => '必要设备证据不可用',
+  _ => null,
+};
 
 String? _terminalProblemCode(HandsetAcceptanceSnapshot snapshot) {
   if (snapshot.cleanupError != null) return 'KNOWN_FIXTURE_CLEANUP_FAILED';
@@ -612,85 +602,83 @@ String _terminalReason(String? code) {
 }
 
 String _terminalRemediation(String? code) => switch (code) {
-      'RENDER_PERFORMANCE_REGRESSION' =>
-        '重新执行三维交互，避免系统负载干扰；若仍失败，检查帧时序证据。',
-      'MODEL_PREREQUISITE_MISSING' =>
-        '先在模型设置完成 Gemma 4 与 EmbeddingGemma 准备，再完整重跑。',
-      'APP_BACKGROUND_INTERRUPTION' || 'PROCESS_INTERRUPTED' =>
-        '保持 App 在前台，确认清理完成后执行完整重跑。',
-      'USER_ACTION_INCOMPLETE' => '完成旋转、双指缩放、点选和界面确认后重跑。',
-      'MEMORY_PRESSURE' => '关闭占用内存的应用，等待系统稳定后完整重跑。',
-      'THERMAL_LIMIT_EXCEEDED' => '等待手机降温并移除外部热源后完整重跑。',
-      _ => '查看证据中的首个未通过验收门，处理后执行完整重跑。',
-    };
+  'RENDER_PERFORMANCE_REGRESSION' => '重新执行三维交互，避免系统负载干扰；若仍失败，检查帧时序证据。',
+  'MODEL_PREREQUISITE_MISSING' => '先在模型设置完成 Gemma 4 与 EmbeddingGemma 准备，再完整重跑。',
+  'APP_BACKGROUND_INTERRUPTION' ||
+  'PROCESS_INTERRUPTED' => '保持 App 在前台，确认清理完成后执行完整重跑。',
+  'USER_ACTION_INCOMPLETE' => '完成旋转、双指缩放、点选和界面确认后重跑。',
+  'MEMORY_PRESSURE' => '关闭占用内存的应用，等待系统稳定后完整重跑。',
+  'THERMAL_LIMIT_EXCEEDED' => '等待手机降温并移除外部热源后完整重跑。',
+  _ => '查看证据中的首个未通过验收门，处理后执行完整重跑。',
+};
 
 _GatePresentation _gatePresentation(HandsetGateStatus status) {
   return switch (status) {
     HandsetGateStatus.pending => const _GatePresentation(
-        Icons.schedule_outlined,
-        '等待',
-        Colors.grey,
-      ),
+      Icons.schedule_outlined,
+      '等待',
+      Colors.grey,
+    ),
     HandsetGateStatus.running => const _GatePresentation(
-        Icons.sync,
-        '运行中',
-        Colors.blue,
-      ),
+      Icons.sync,
+      '运行中',
+      Colors.blue,
+    ),
     HandsetGateStatus.passed => const _GatePresentation(
-        Icons.check_circle,
-        '通过',
-        Colors.green,
-      ),
+      Icons.check_circle,
+      '通过',
+      Colors.green,
+    ),
     HandsetGateStatus.failed => const _GatePresentation(
-        Icons.cancel,
-        '失败',
-        Colors.red,
-      ),
+      Icons.cancel,
+      '失败',
+      Colors.red,
+    ),
     HandsetGateStatus.timedOut => const _GatePresentation(
-        Icons.timer_off,
-        '超时',
-        Colors.orange,
-      ),
+      Icons.timer_off,
+      '超时',
+      Colors.orange,
+    ),
     HandsetGateStatus.blocked => const _GatePresentation(
-        Icons.block,
-        '受阻',
-        Colors.deepOrange,
-      ),
+      Icons.block,
+      '受阻',
+      Colors.deepOrange,
+    ),
   };
 }
 
 _GatePresentation _goldenPresentation(GoldenGateStatus status) {
   return switch (status) {
     GoldenGateStatus.pending => const _GatePresentation(
-        Icons.schedule_outlined,
-        '等待',
-        Colors.grey,
-      ),
+      Icons.schedule_outlined,
+      '等待',
+      Colors.grey,
+    ),
     GoldenGateStatus.running => const _GatePresentation(
-        Icons.sync,
-        '运行中',
-        Colors.blue,
-      ),
+      Icons.sync,
+      '运行中',
+      Colors.blue,
+    ),
     GoldenGateStatus.passed => const _GatePresentation(
-        Icons.check_circle,
-        '通过',
-        Colors.green,
-      ),
+      Icons.check_circle,
+      '通过',
+      Colors.green,
+    ),
     GoldenGateStatus.failed => const _GatePresentation(
-        Icons.cancel,
-        '失败',
-        Colors.red,
-      ),
+      Icons.cancel,
+      '失败',
+      Colors.red,
+    ),
     GoldenGateStatus.timedOut => const _GatePresentation(
-        Icons.timer_off,
-        '超时',
-        Colors.orange,
-      ),
+      Icons.timer_off,
+      '超时',
+      Colors.orange,
+    ),
     GoldenGateStatus.blocked => const _GatePresentation(
-        Icons.block,
-        '受阻',
-        Colors.deepOrange,
-      ),
+      Icons.block,
+      '受阻',
+      Colors.deepOrange,
+    ),
   };
 }
 

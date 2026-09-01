@@ -43,8 +43,8 @@ class VectorObservationIdentity {
 
 class VectorObservationStore {
   VectorObservationStore({Database? database})
-      : _db = database,
-        _ownsDatabase = database == null;
+    : _db = database,
+      _ownsDatabase = database == null;
 
   Database? _db;
   final bool _ownsDatabase;
@@ -88,34 +88,42 @@ class VectorObservationStore {
     }
     final norm = math.sqrt(vector.fold<double>(0, (s, x) => s + x * x));
     final bytes = encodeFloat32(vector);
-    _db!.execute('''
+    _db!.execute(
+      '''
       INSERT OR REPLACE INTO pg_vector_observations
       (chunk_id, document_id, dimension, vector_f32, norm, model_identity, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?)
-    ''', [
-      chunkId,
-      documentId,
-      vector.length,
-      bytes,
-      norm,
-      modelIdentity,
-      (updatedAt ?? DateTime.now()).toUtc().toIso8601String(),
-    ]);
+    ''',
+      [
+        chunkId,
+        documentId,
+        vector.length,
+        bytes,
+        norm,
+        modelIdentity,
+        (updatedAt ?? DateTime.now()).toUtc().toIso8601String(),
+      ],
+    );
   }
 
   Future<VectorObservation?> getChunkVector(String chunkId) async {
     await initialize();
-    final rows = _db!.select('''
+    final rows = _db!.select(
+      '''
       SELECT chunk_id, document_id, dimension, vector_f32, norm,
              model_identity, updated_at
       FROM pg_vector_observations
       WHERE chunk_id = ? LIMIT 1
-    ''', [chunkId]);
+    ''',
+      [chunkId],
+    );
     if (rows.isEmpty) return null;
     return _row(rows.first);
   }
 
-  Future<List<VectorObservation>> listForDocuments(Set<String> documentIds) async {
+  Future<List<VectorObservation>> listForDocuments(
+    Set<String> documentIds,
+  ) async {
     await initialize();
     if (documentIds.isEmpty) return const [];
     final ids = documentIds.toList()..sort();
@@ -168,7 +176,9 @@ class VectorObservationStore {
 
   Future<int> count() async {
     await initialize();
-    return (_db!.select('SELECT COUNT(*) AS c FROM pg_vector_observations').first['c']
+    return (_db!
+                .select('SELECT COUNT(*) AS c FROM pg_vector_observations')
+                .first['c']
             as num)
         .toInt();
   }

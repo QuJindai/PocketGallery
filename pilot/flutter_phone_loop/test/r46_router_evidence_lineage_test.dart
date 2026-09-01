@@ -14,25 +14,19 @@ const chunk1 = PgChunk(
 );
 
 RetrievalHit semantic(double score, int rank, [PgChunk chunk = chunk1]) =>
-    RetrievalHit(
-      chunk: chunk,
-      score: score,
-      channel: 'embedding',
-      rank: rank,
-    );
+    RetrievalHit(chunk: chunk, score: score, channel: 'embedding', rank: rank);
 
 HybridHit hybrid(
   PgChunk chunk,
   double score, {
   Set<String> channels = const <String>{'embedding'},
-}) =>
-    HybridHit(
-      chunk: chunk,
-      score: score,
-      channels: channels,
-      lexicalRank: channels.contains('fts5') ? 1 : null,
-      semanticRank: channels.contains('embedding') ? 1 : null,
-    );
+}) => HybridHit(
+  chunk: chunk,
+  score: score,
+  channels: channels,
+  lexicalRank: channels.contains('fts5') ? 1 : null,
+  semanticRank: channels.contains('embedding') ? 1 : null,
+);
 
 void main() {
   group('router policy preserves the shipped R4.7 thresholds', () {
@@ -102,11 +96,7 @@ void main() {
         lexicalHits: const <RetrievalHit>[],
         semanticHits: <RetrievalHit>[semantic(0.40, 1)],
         hybridHits: <HybridHit>[
-          hybrid(
-            chunk1,
-            0.03,
-            channels: const <String>{'embedding', 'fts5'},
-          ),
+          hybrid(chunk1, 0.03, channels: const <String>{'embedding', 'fts5'}),
         ],
         evidenceAvailable: true,
         requestedMode: 'auto',
@@ -140,58 +130,60 @@ void main() {
     });
   });
 
-  group('evidence policy keeps latest five-item behavior and explains drops', () {
-    const policy = EvidencePolicy();
+  group(
+    'evidence policy keeps latest five-item behavior and explains drops',
+    () {
+      const policy = EvidencePolicy();
 
-    test('caps ordinary evidence at five', () {
-      final hits = <HybridHit>[
-        for (var i = 0; i < 6; i++)
-          hybrid(
-            PgChunk(
-              id: 'c$i',
-              documentId: 'd1',
-              sourceName: 'doc.md',
-              locator: 's$i',
-              ordinal: i,
-              text: 'evidence $i',
+      test('caps ordinary evidence at five', () {
+        final hits = <HybridHit>[
+          for (var i = 0; i < 6; i++)
+            hybrid(
+              PgChunk(
+                id: 'c$i',
+                documentId: 'd1',
+                sourceName: 'doc.md',
+                locator: 's$i',
+                ordinal: i,
+                text: 'evidence $i',
+              ),
+              1 - (i * 0.02),
             ),
-            1 - (i * 0.02),
-          ),
-      ];
-      final selection = policy.select(hits);
-      expect(selection.evidence, hasLength(5));
-      expect(selection.dropReasonFor('c5'), 'max_evidence');
-    });
+        ];
+        final selection = policy.select(hits);
+        expect(selection.evidence, hasLength(5));
+        expect(selection.dropReasonFor('c5'), 'max_evidence');
+      });
 
-    test('records relative-score and token-budget drops', () {
-      const longChunk = PgChunk(
-        id: 'long',
-        documentId: 'd1',
-        sourceName: 'doc.md',
-        locator: 'long',
-        ordinal: 2,
-        text: '1234567890',
-      );
-      const weakChunk = PgChunk(
-        id: 'weak',
-        documentId: 'd1',
-        sourceName: 'doc.md',
-        locator: 'weak',
-        ordinal: 3,
-        text: 'weak',
-      );
-      final relative = policy.select(<HybridHit>[
-        hybrid(chunk1, 1),
-        hybrid(weakChunk, 0.70),
-      ]);
-      final budgeted = policy.select(
-        <HybridHit>[hybrid(longChunk, 1)],
-        maxTotalChars: 5,
-      );
+      test('records relative-score and token-budget drops', () {
+        const longChunk = PgChunk(
+          id: 'long',
+          documentId: 'd1',
+          sourceName: 'doc.md',
+          locator: 'long',
+          ordinal: 2,
+          text: '1234567890',
+        );
+        const weakChunk = PgChunk(
+          id: 'weak',
+          documentId: 'd1',
+          sourceName: 'doc.md',
+          locator: 'weak',
+          ordinal: 3,
+          text: 'weak',
+        );
+        final relative = policy.select(<HybridHit>[
+          hybrid(chunk1, 1),
+          hybrid(weakChunk, 0.70),
+        ]);
+        final budgeted = policy.select(<HybridHit>[
+          hybrid(longChunk, 1),
+        ], maxTotalChars: 5);
 
-      expect(relative.dropReasonFor('weak'), 'relative_score_cutoff');
-      expect(budgeted.evidence, isEmpty);
-      expect(budgeted.dropReasonFor('long'), 'token_budget');
-    });
-  });
+        expect(relative.dropReasonFor('weak'), 'relative_score_cutoff');
+        expect(budgeted.evidence, isEmpty);
+        expect(budgeted.dropReasonFor('long'), 'token_budget');
+      });
+    },
+  );
 }

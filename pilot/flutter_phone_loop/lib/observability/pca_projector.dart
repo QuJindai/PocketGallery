@@ -36,10 +36,7 @@ class PcaProjector {
   const PcaProjector({this.iterations = 40});
   final int iterations;
 
-  PcaProjection project(
-    List<PcaInput> input, {
-    int components = 3,
-  }) {
+  PcaProjection project(List<PcaInput> input, {int components = 3}) {
     if (input.isEmpty) {
       return const PcaProjection(
         points: [],
@@ -103,12 +100,14 @@ class PcaProjector {
       final coordinates = [
         for (var c = 0; c < axes.length; c++) _dot(centered[i], axes[c]),
       ];
-      points.add(PcaPoint(
-        id: input[i].id,
-        x: coordinates.isNotEmpty ? coordinates[0] : 0,
-        y: coordinates.length > 1 ? coordinates[1] : 0,
-        z: coordinates.length > 2 ? coordinates[2] : 0,
-      ));
+      points.add(
+        PcaPoint(
+          id: input[i].id,
+          x: coordinates.isNotEmpty ? coordinates[0] : 0,
+          y: coordinates.length > 1 ? coordinates[1] : 0,
+          z: coordinates.length > 2 ? coordinates[2] : 0,
+        ),
+      );
     }
 
     return PcaProjection(
@@ -122,10 +121,10 @@ class PcaProjector {
   }
 
   List<double> _initialVector(int dimension, int component) => [
-        for (var i = 0; i < dimension; i++)
-          math.sin((i + 1) * (component + 1) * 0.731) +
-              0.37 * math.cos((i + 1) * (component + 2) * 0.419),
-      ];
+    for (var i = 0; i < dimension; i++)
+      math.sin((i + 1) * (component + 1) * 0.731) +
+          0.37 * math.cos((i + 1) * (component + 2) * 0.419),
+  ];
 
   List<double> _covarianceTimes(
     List<List<double>> centered,

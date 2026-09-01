@@ -82,8 +82,7 @@ class RetrievalExperimentEngine {
           queryEmbedding.representation != EmbeddingRepresentation.query) {
         throw StateError('Captured query embedding is required');
       }
-      if (queryEmbedding.modelIdentity !=
-          representationBuilder.modelIdentity) {
+      if (queryEmbedding.modelIdentity != representationBuilder.modelIdentity) {
         throw StateError(
           'model identity mismatch: captured query uses '
           '${queryEmbedding.modelIdentity}, experiment uses '
@@ -184,25 +183,27 @@ class RetrievalExperimentEngine {
           final section = lineageChunk?.sectionId == null
               ? null
               : await store.lineageSectionById(lineageChunk!.sectionId!);
-          inputs.add(FeatureRerankInput(
-            candidateId: LineageIds.candidateId(
-              traceId,
-              strategyId,
-              hit.chunk.id,
+          inputs.add(
+            FeatureRerankInput(
+              candidateId: LineageIds.candidateId(
+                traceId,
+                strategyId,
+                hit.chunk.id,
+              ),
+              chunkId: hit.chunk.id,
+              documentId: hit.chunk.documentId,
+              baseRank: index + 1,
+              features: featureReranker.extract(
+                query: trace.queryText,
+                chunkText: hit.chunk.text,
+                heading: section?.heading,
+                lexicalAffinity: lexicalByChunk[hit.chunk.id]?.affinity ?? 0,
+                cosine: vectorByChunk[hit.chunk.id]?.cosine ?? 0,
+                dualChannel: hit.channels.length > 1,
+                sourceIsNew: seenDocuments.add(hit.chunk.documentId),
+              ),
             ),
-            chunkId: hit.chunk.id,
-            documentId: hit.chunk.documentId,
-            baseRank: index + 1,
-            features: featureReranker.extract(
-              query: trace.queryText,
-              chunkText: hit.chunk.text,
-              heading: section?.heading,
-              lexicalAffinity: lexicalByChunk[hit.chunk.id]?.affinity ?? 0,
-              cosine: vectorByChunk[hit.chunk.id]?.cosine ?? 0,
-              dualChannel: hit.channels.length > 1,
-              sourceIsNew: seenDocuments.add(hit.chunk.documentId),
-            ),
-          ));
+          );
         }
         final reranked = featureReranker.rerank(inputs);
         rerankByChunk.addEntries(
@@ -216,30 +217,30 @@ class RetrievalExperimentEngine {
             ),
         ];
         for (final result in reranked) {
-          await store.putRerankFeature(RerankFeatureRecord(
-            featureId: LineageIds.rerankFeatureId(
-              traceId,
-              strategyId,
-              result.input.chunkId,
+          await store.putRerankFeature(
+            RerankFeatureRecord(
+              featureId: LineageIds.rerankFeatureId(
+                traceId,
+                strategyId,
+                result.input.chunkId,
+              ),
+              traceId: traceId,
+              strategyId: strategyId,
+              lane: RetrievalLane.shadow,
+              candidateId: result.input.candidateId,
+              chunkId: result.input.chunkId,
+              normalizedLexicalAffinity:
+                  result.input.features.normalizedLexicalAffinity,
+              cosine: result.input.features.cosine,
+              dualChannelAgreement: result.input.features.dualChannelAgreement,
+              queryWindowCoverage: result.input.features.queryWindowCoverage,
+              headingMatch: result.input.features.headingMatch,
+              exactTermMatch: result.input.features.exactTermMatch,
+              sourceDiversity: result.input.features.sourceDiversity,
+              rerankScore: result.scored.score,
+              contributionJson: jsonEncode(result.scored.contributions),
             ),
-            traceId: traceId,
-            strategyId: strategyId,
-            lane: RetrievalLane.shadow,
-            candidateId: result.input.candidateId,
-            chunkId: result.input.chunkId,
-            normalizedLexicalAffinity:
-                result.input.features.normalizedLexicalAffinity,
-            cosine: result.input.features.cosine,
-            dualChannelAgreement:
-                result.input.features.dualChannelAgreement,
-            queryWindowCoverage:
-                result.input.features.queryWindowCoverage,
-            headingMatch: result.input.features.headingMatch,
-            exactTermMatch: result.input.features.exactTermMatch,
-            sourceDiversity: result.input.features.sourceDiversity,
-            rerankScore: result.scored.score,
-            contributionJson: jsonEncode(result.scored.contributions),
-          ));
+          );
         }
       }
 
@@ -248,7 +249,9 @@ class RetrievalExperimentEngine {
         hits: finalHits,
         tokenReserve: tokenReserve,
       );
-      final selectedIds = selection.selected.map((item) => item.chunk.id).toSet();
+      final selectedIds = selection.selected
+          .map((item) => item.chunk.id)
+          .toSet();
       final finalRank = <String, int>{
         for (var index = 0; index < finalHits.length; index++)
           finalHits[index].chunk.id: index + 1,
@@ -264,62 +267,68 @@ class RetrievalExperimentEngine {
         final fusedHit = fusedByChunk[chunkId];
         final reranked = rerankByChunk[chunkId];
         final selected = selectedIds.contains(chunkId);
-        await store.putCandidate(CandidateRecord(
-          candidateId: LineageIds.candidateId(traceId, strategyId, chunkId),
-          traceId: traceId,
-          strategyId: strategyId,
-          lane: RetrievalLane.shadow,
-          chunkId: chunkId,
-          embeddingId: vector?.embedding.embeddingId,
-          sourceChannels: <String>[
-            if (lexicalHit != null) 'fts5',
-            if (vector != null) 'embedding:${vector.embedding.representation.name}',
-            if (vector != null &&
-                vector.embedding.representation != EmbeddingRepresentation.body)
-              'parent-child',
-          ].join(','),
-          ftsRank: lexicalHit?.rank,
-          rawBm25: lexicalHit?.rawBm25,
-          vectorRank: vector?.rank,
-          rawCosine: vector?.cosine,
-          fusionRank: fusionRank[chunkId],
-          fusionScore: fusedHit?.score,
-          rerankRank: reranked?.rank,
-          rerankScore: reranked?.scored.score,
-          finalRank: finalRank[chunkId],
-          selectedForEvidence: selected,
-          dropReason: selected
-              ? null
-              : selection.dropReasons[chunkId] ??
-                  (fusedHit == null ? 'fusion_limit' : 'not_selected'),
-        ));
+        await store.putCandidate(
+          CandidateRecord(
+            candidateId: LineageIds.candidateId(traceId, strategyId, chunkId),
+            traceId: traceId,
+            strategyId: strategyId,
+            lane: RetrievalLane.shadow,
+            chunkId: chunkId,
+            embeddingId: vector?.embedding.embeddingId,
+            sourceChannels: <String>[
+              if (lexicalHit != null) 'fts5',
+              if (vector != null)
+                'embedding:${vector.embedding.representation.name}',
+              if (vector != null &&
+                  vector.embedding.representation !=
+                      EmbeddingRepresentation.body)
+                'parent-child',
+            ].join(','),
+            ftsRank: lexicalHit?.rank,
+            rawBm25: lexicalHit?.rawBm25,
+            vectorRank: vector?.rank,
+            rawCosine: vector?.cosine,
+            fusionRank: fusionRank[chunkId],
+            fusionScore: fusedHit?.score,
+            rerankRank: reranked?.rank,
+            rerankScore: reranked?.scored.score,
+            finalRank: finalRank[chunkId],
+            selectedForEvidence: selected,
+            dropReason: selected
+                ? null
+                : selection.dropReasons[chunkId] ??
+                      (fusedHit == null ? 'fusion_limit' : 'not_selected'),
+          ),
+        );
       }
       for (var index = 0; index < selection.selected.length; index++) {
         final item = selection.selected[index];
-        await store.putEvidence(EvidenceRecord(
-          evidenceId: LineageIds.evidenceId(
-            traceId,
-            strategyId,
-            item.chunk.id,
+        await store.putEvidence(
+          EvidenceRecord(
+            evidenceId: LineageIds.evidenceId(
+              traceId,
+              strategyId,
+              item.chunk.id,
+            ),
+            traceId: traceId,
+            strategyId: strategyId,
+            lane: RetrievalLane.shadow,
+            anchor: null,
+            candidateId: LineageIds.candidateId(
+              traceId,
+              strategyId,
+              item.chunk.id,
+            ),
+            chunkId: item.chunk.id,
+            selectionRank: index + 1,
+            score: item.score,
+            tokenCount: await _tokenCount(item.chunk),
+            selectionReason:
+                strategy.evidencePolicy == ExperimentEvidencePolicy.dynamicV1
+                ? 'dynamic_token_budget;source_diversity'
+                : 'shadow_conservative_rank',
           ),
-          traceId: traceId,
-          strategyId: strategyId,
-          lane: RetrievalLane.shadow,
-          anchor: null,
-          candidateId: LineageIds.candidateId(
-            traceId,
-            strategyId,
-            item.chunk.id,
-          ),
-          chunkId: item.chunk.id,
-          selectionRank: index + 1,
-          score: item.score,
-          tokenCount: await _tokenCount(item.chunk),
-          selectionReason: strategy.evidencePolicy ==
-                  ExperimentEvidencePolicy.dynamicV1
-              ? 'dynamic_token_budget;source_diversity'
-              : 'shadow_conservative_rank',
-        ));
+        );
       }
 
       final decision = routerPolicy.evaluate(
@@ -329,27 +338,29 @@ class RetrievalExperimentEngine {
         evidenceAvailable: selection.selected.isNotEmpty,
         requestedMode: trace.requestedMode,
       );
-      await store.putRouterDecision(RouterDecisionRecord(
-        decisionId: LineageIds.routerDecisionId(
-          traceId,
-          strategyId,
-          RetrievalLane.shadow,
+      await store.putRouterDecision(
+        RouterDecisionRecord(
+          decisionId: LineageIds.routerDecisionId(
+            traceId,
+            strategyId,
+            RetrievalLane.shadow,
+          ),
+          traceId: traceId,
+          strategyId: strategyId,
+          lane: RetrievalLane.shadow,
+          ftsHitCount: decision.ftsHitCount,
+          top1Cosine: decision.top1Cosine,
+          top2Cosine: decision.top2Cosine,
+          top1Top2Gap: decision.top1Top2Gap,
+          dualChannel: decision.dualChannel,
+          lexicalGatePass: decision.lexicalGatePass,
+          semanticStrengthGatePass: decision.semanticStrengthGatePass,
+          semanticGapGatePass: decision.semanticGapGatePass,
+          finalUseKnowledge: decision.useKnowledge,
+          ruleProfile: decision.ruleProfile,
+          decisionReason: decision.reason,
         ),
-        traceId: traceId,
-        strategyId: strategyId,
-        lane: RetrievalLane.shadow,
-        ftsHitCount: decision.ftsHitCount,
-        top1Cosine: decision.top1Cosine,
-        top2Cosine: decision.top2Cosine,
-        top1Top2Gap: decision.top1Top2Gap,
-        dualChannel: decision.dualChannel,
-        lexicalGatePass: decision.lexicalGatePass,
-        semanticStrengthGatePass: decision.semanticStrengthGatePass,
-        semanticGapGatePass: decision.semanticGapGatePass,
-        finalUseKnowledge: decision.useKnowledge,
-        ruleProfile: decision.ruleProfile,
-        decisionReason: decision.reason,
-      ));
+      );
 
       final shadowIds = chunkIds.toSet();
       final activeIds = activeBefore.map((item) => item.chunkId).toSet();
@@ -370,8 +381,10 @@ class RetrievalExperimentEngine {
           'queryEmbeddingId': queryEmbedding.embeddingId,
           'candidateCount': chunkIds.length,
           'evidenceCount': selection.selected.length,
-          'addedCandidateIds': (shadowIds.difference(activeIds).toList()..sort()),
-          'removedCandidateIds': (activeIds.difference(shadowIds).toList()..sort()),
+          'addedCandidateIds': (shadowIds.difference(activeIds).toList()
+            ..sort()),
+          'removedCandidateIds': (activeIds.difference(shadowIds).toList()
+            ..sort()),
           'generatedRepresentations': build.generatedItems,
           'reusedRepresentations': build.reusedItems,
         }),
@@ -401,7 +414,9 @@ class RetrievalExperimentEngine {
     };
     final bestByChunk = <String, _VectorParentHit>{};
     for (final representation in strategy.representations) {
-      final embeddings = await store.embeddingsForRepresentation(representation);
+      final embeddings = await store.embeddingsForRepresentation(
+        representation,
+      );
       for (final embedding in embeddings) {
         final chunkId = embedding.chunkId;
         if (chunkId == null || !allowedChunks.containsKey(chunkId)) continue;
@@ -454,14 +469,16 @@ class RetrievalExperimentEngine {
     if (strategy.evidencePolicy == ExperimentEvidencePolicy.dynamicV1) {
       final candidates = <DynamicEvidenceCandidate>[];
       for (final hit in hits) {
-        candidates.add(DynamicEvidenceCandidate(
-          candidateId: hit.chunk.id,
-          chunkId: hit.chunk.id,
-          documentId: hit.chunk.documentId,
-          ordinal: hit.chunk.ordinal,
-          score: hit.score,
-          tokenCount: await _tokenCount(hit.chunk),
-        ));
+        candidates.add(
+          DynamicEvidenceCandidate(
+            candidateId: hit.chunk.id,
+            chunkId: hit.chunk.id,
+            documentId: hit.chunk.documentId,
+            ordinal: hit.chunk.ordinal,
+            score: hit.score,
+            tokenCount: await _tokenCount(hit.chunk),
+          ),
+        );
       }
       final dynamic = dynamicEvidencePolicy.select(
         candidates,
@@ -477,11 +494,9 @@ class RetrievalExperimentEngine {
         dropReasons: dynamic.dropReasons,
       );
     }
-    final selected = const EvidencePolicy(maxEvidence: 3).select(
-      hits,
-      maxItems: 3,
-      maxTotalChars: tokenReserve * 3,
-    );
+    final selected = const EvidencePolicy(
+      maxEvidence: 3,
+    ).select(hits, maxItems: 3, maxTotalChars: tokenReserve * 3);
     return _ExperimentEvidenceSelection(
       selected: <HybridHit>[
         for (final evidence in selected.evidence)
@@ -497,16 +512,16 @@ class RetrievalExperimentEngine {
   }
 
   HybridHit _withScore(HybridHit hit, double score) => HybridHit(
-        chunk: hit.chunk,
-        score: score,
-        channels: hit.channels,
-        lexicalRank: hit.lexicalRank,
-        semanticRank: hit.semanticRank,
-        lexicalContribution: hit.lexicalContribution,
-        semanticContribution: hit.semanticContribution,
-        dualChannelContribution: hit.dualChannelContribution,
-        exactTermContribution: hit.exactTermContribution,
-      );
+    chunk: hit.chunk,
+    score: score,
+    channels: hit.channels,
+    lexicalRank: hit.lexicalRank,
+    semanticRank: hit.semanticRank,
+    lexicalContribution: hit.lexicalContribution,
+    semanticContribution: hit.semanticContribution,
+    dualChannelContribution: hit.dualChannelContribution,
+    exactTermContribution: hit.exactTermContribution,
+  );
 }
 
 class _VectorParentHit {
@@ -523,11 +538,11 @@ class _VectorParentHit {
   final int rank;
 
   _VectorParentHit withRank(int value) => _VectorParentHit(
-        embedding: embedding,
-        chunk: chunk,
-        cosine: cosine,
-        rank: value,
-      );
+    embedding: embedding,
+    chunk: chunk,
+    cosine: cosine,
+    rank: value,
+  );
 }
 
 class _ExperimentEvidenceSelection {

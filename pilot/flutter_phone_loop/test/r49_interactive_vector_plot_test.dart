@@ -64,13 +64,15 @@ void main() {
 
   VectorSpace3dPainter painter(WidgetTester tester) =>
       tester
-          .widget<CustomPaint>(
-            find.byKey(const ValueKey<String>('vector-3d-canvas')),
-          )
-          .painter! as VectorSpace3dPainter;
+              .widget<CustomPaint>(
+                find.byKey(const ValueKey<String>('vector-3d-canvas')),
+              )
+              .painter!
+          as VectorSpace3dPainter;
 
-  testWidgets('single-finger drag rotates camera and reset restores it',
-      (tester) async {
+  testWidgets('single-finger drag rotates camera and reset restores it', (
+    tester,
+  ) async {
     await pumpPlot(tester);
     final before = painter(tester).camera;
 
@@ -84,19 +86,19 @@ void main() {
     expect(moved.yaw, isNot(before.yaw));
     expect(moved.pitch, isNot(before.pitch));
 
-    await tester.tap(
-      find.byKey(const ValueKey<String>('vector-3d-reset')),
-    );
+    await tester.tap(find.byKey(const ValueKey<String>('vector-3d-reset')));
     await tester.pump();
 
     expect(painter(tester).camera, const VectorCamera());
   });
 
-  testWidgets('two-finger pinch changes zoom without exceeding bounds',
-      (tester) async {
+  testWidgets('two-finger pinch changes zoom without exceeding bounds', (
+    tester,
+  ) async {
     await pumpPlot(tester);
-    final surface =
-        find.byKey(const ValueKey<String>('vector-3d-gesture-surface'));
+    final surface = find.byKey(
+      const ValueKey<String>('vector-3d-gesture-surface'),
+    );
     final center = tester.getCenter(surface);
     final first = await tester.startGesture(
       center - const Offset(28, 0),
@@ -113,22 +115,27 @@ void main() {
     await tester.pump();
 
     expect(painter(tester).camera.zoom, greaterThan(1));
-    expect(painter(tester).camera.zoom, lessThanOrEqualTo(VectorCamera.maxZoom));
+    expect(
+      painter(tester).camera.zoom,
+      lessThanOrEqualTo(VectorCamera.maxZoom),
+    );
 
     await first.up();
     await second.up();
   });
 
-  testWidgets('tapping the projected Query selects the real point id',
-      (tester) async {
+  testWidgets('tapping the projected Query selects the real point id', (
+    tester,
+  ) async {
     String? selected;
     await pumpPlot(
       tester,
       initialSelectedId: null,
       onPointSelected: (id) => selected = id,
     );
-    final surface =
-        find.byKey(const ValueKey<String>('vector-3d-gesture-surface'));
+    final surface = find.byKey(
+      const ValueKey<String>('vector-3d-gesture-surface'),
+    );
 
     await tester.tapAt(tester.getCenter(surface));
     await tester.pump();
@@ -137,26 +144,25 @@ void main() {
     expect(painter(tester).selectedId, 'query');
   });
 
-  testWidgets('phone-width plot exposes gesture instructions without overflow',
-      (tester) async {
-    tester.view.physicalSize = const Size(360, 800);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
-    final semantics = tester.ensureSemantics();
-    try {
-      await pumpPlot(tester);
+  testWidgets(
+    'phone-width plot exposes gesture instructions without overflow',
+    (tester) async {
+      tester.view.physicalSize = const Size(360, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final semantics = tester.ensureSemantics();
+      try {
+        await pumpPlot(tester);
 
-      expect(
-        find.bySemanticsLabel('三维向量图：单指旋转，双指缩放，点按查看证据'),
-        findsOneWidget,
-      );
-      expect(find.textContaining('单指旋转'), findsOneWidget);
-      expect(find.text('Query'), findsOneWidget);
-      expect(find.text('Evidence'), findsOneWidget);
-      expect(tester.takeException(), isNull);
-    } finally {
-      semantics.dispose();
-    }
-  });
+        expect(find.bySemanticsLabel('三维向量图：单指旋转，双指缩放，点按查看证据'), findsOneWidget);
+        expect(find.textContaining('单指旋转'), findsOneWidget);
+        expect(find.text('Query'), findsOneWidget);
+        expect(find.text('Evidence'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      } finally {
+        semantics.dispose();
+      }
+    },
+  );
 }

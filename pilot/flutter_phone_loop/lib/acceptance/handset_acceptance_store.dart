@@ -11,26 +11,20 @@ import 'preservation_probe.dart';
 typedef HandsetReportDirectoryProvider = Future<Directory> Function();
 
 final class HandsetAcceptanceStore {
-  HandsetAcceptanceStore({
-    HandsetReportDirectoryProvider? directoryProvider,
-  }) : _directoryProvider =
-            directoryProvider ?? getApplicationDocumentsDirectory;
+  HandsetAcceptanceStore({HandsetReportDirectoryProvider? directoryProvider})
+    : _directoryProvider =
+          directoryProvider ?? getApplicationDocumentsDirectory;
 
-  static const String checkpointFileName =
-      'PG_HANDSET_ACCEPTANCE_LAST.json';
+  static const String checkpointFileName = 'PG_HANDSET_ACCEPTANCE_LAST.json';
   static const String baselineFileName = 'PG_HANDSET_BASELINE.json';
 
   final HandsetReportDirectoryProvider _directoryProvider;
 
   Future<File> saveCheckpoint(HandsetAcceptanceSnapshot snapshot) async {
-    final encoded = const JsonEncoder.withIndent('  ').convert(
-      snapshot.toJson(),
-    );
-    return _writeAtomicString(
-      checkpointFileName,
-      encoded,
-      _decodeCheckpoint,
-    );
+    final encoded = const JsonEncoder.withIndent(
+      '  ',
+    ).convert(snapshot.toJson());
+    return _writeAtomicString(checkpointFileName, encoded, _decodeCheckpoint);
   }
 
   Future<HandsetAcceptanceSnapshot?> readLast() async {
@@ -38,14 +32,10 @@ final class HandsetAcceptanceStore {
   }
 
   Future<File> saveBaseline(PreservationSnapshot snapshot) async {
-    final encoded = const JsonEncoder.withIndent('  ').convert(
-      snapshot.toJson(),
-    );
-    return _writeAtomicString(
-      baselineFileName,
-      encoded,
-      _decodeBaseline,
-    );
+    final encoded = const JsonEncoder.withIndent(
+      '  ',
+    ).convert(snapshot.toJson());
+    return _writeAtomicString(baselineFileName, encoded, _decodeBaseline);
   }
 
   Future<PreservationSnapshot?> readBaseline() async {
@@ -163,16 +153,13 @@ final class HandsetAcceptanceStore {
     if (decoded is! Map) {
       throw const FormatException('Handset baseline must be an object');
     }
-    return PreservationSnapshot.fromJson(
-      Map<String, Object?>.from(decoded),
-    );
+    return PreservationSnapshot.fromJson(Map<String, Object?>.from(decoded));
   }
 
   void _validateFinalReport(Uint8List bytes) {
     final decoded = jsonDecode(utf8.decode(bytes));
     if (decoded is! Map ||
-        decoded['schema'] !=
-            'pocketgallery.r50.handset-acceptance.v1' ||
+        decoded['schema'] != 'pocketgallery.r50.handset-acceptance.v1' ||
         decoded['schemaVersion'] != 1) {
       throw const FormatException('Invalid R5.0 handset report');
     }

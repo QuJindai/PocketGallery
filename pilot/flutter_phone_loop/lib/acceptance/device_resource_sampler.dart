@@ -26,8 +26,8 @@ final class ResourceAcceptanceSummary {
     required this.minimumAvailableMemoryBytes,
     required this.maxThermalStatus,
     required this.peakBatteryTemperatureC,
-  })  : samples = List<DeviceResourceSample>.unmodifiable(samples),
-        reasonCodes = List<String>.unmodifiable(reasonCodes);
+  }) : samples = List<DeviceResourceSample>.unmodifiable(samples),
+       reasonCodes = List<String>.unmodifiable(reasonCodes);
 
   factory ResourceAcceptanceSummary.evaluate(
     List<DeviceResourceSample> samples, {
@@ -89,12 +89,10 @@ final class ResourceAcceptanceSummary {
     final pssGrowthKiB = baselinePssKiB == null || finalPssKiB == null
         ? null
         : finalPssKiB - baselinePssKiB;
-    if (pssGrowthKiB != null &&
-        pssGrowthKiB > maximumPssGrowthKiB) {
+    if (pssGrowthKiB != null && pssGrowthKiB > maximumPssGrowthKiB) {
       reasons.add('MEMORY_PRESSURE');
     }
-    if (maxThermalStatus != null &&
-        maxThermalStatus >= severeThermalStatus) {
+    if (maxThermalStatus != null && maxThermalStatus >= severeThermalStatus) {
       reasons.add('THERMAL_LIMIT_EXCEEDED');
     }
 
@@ -206,9 +204,7 @@ final class DeviceResourceSampler implements DeviceResourceSampling {
 
   Future<void> _capture() async {
     try {
-      _samples.add(
-        await diagnostics.readResources().timeout(captureTimeout),
-      );
+      _samples.add(await diagnostics.readResources().timeout(captureTimeout));
     } catch (_) {
       _readFailed = true;
     }

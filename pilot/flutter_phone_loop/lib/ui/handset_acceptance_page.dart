@@ -36,8 +36,7 @@ class HandsetAcceptancePage extends StatefulWidget {
   final DateTime? now;
 
   @override
-  State<HandsetAcceptancePage> createState() =>
-      _HandsetAcceptancePageState();
+  State<HandsetAcceptancePage> createState() => _HandsetAcceptancePageState();
 }
 
 class _HandsetAcceptancePageState extends State<HandsetAcceptancePage>
@@ -90,9 +89,7 @@ class _HandsetAcceptancePageState extends State<HandsetAcceptancePage>
     if (state == AppLifecycleState.resumed || !_active) return;
     final controller = _controller;
     if (controller == null) return;
-    unawaited(
-      _interruptSafely(controller, 'APP_BACKGROUND_INTERRUPTION'),
-    );
+    unawaited(_interruptSafely(controller, 'APP_BACKGROUND_INTERRUPTION'));
   }
 
   Future<void> _interruptSafely(
@@ -213,147 +210,147 @@ class _HandsetAcceptancePageState extends State<HandsetAcceptancePage>
           child: ListView(
             padding: const EdgeInsets.all(14),
             children: <Widget>[
-            if (_initializing)
-              const Card(
-                child: Padding(
-                  padding: EdgeInsets.all(18),
-                  child: Column(
-                    children: <Widget>[
-                      CircularProgressIndicator(),
-                      SizedBox(height: 12),
-                      Text('正在恢复本机验收检查点…'),
-                    ],
+              if (_initializing)
+                const Card(
+                  child: Padding(
+                    padding: EdgeInsets.all(18),
+                    child: Column(
+                      children: <Widget>[
+                        CircularProgressIndicator(),
+                        SizedBox(height: 12),
+                        Text('正在恢复本机验收检查点…'),
+                      ],
+                    ),
                   ),
-                ),
-              )
-            else if (_initializationFailed)
-              const Card(
-                child: Padding(
-                  padding: EdgeInsets.all(16),
-                  child: Text('本机验收检查点暂时不可读取，请重新进入此页面。'),
-                ),
-              )
-            else ...<Widget>[
-              if (snapshot == null && !_active)
+                )
+              else if (_initializationFailed)
                 const Card(
                   child: Padding(
                     padding: EdgeInsets.all(16),
-                    child: Text(
-                      '一次运行完成 H1–H10：目标设备、同提交构建身份、真实模型闭环、'
-                      '高维向量到三维真值、实体旋转/缩放/点选、帧时序、内存温控、'
-                      '升级数据保全与脱敏报告。模型就绪状态只会在开始后检查。',
+                    child: Text('本机验收检查点暂时不可读取，请重新进入此页面。'),
+                  ),
+                )
+              else ...<Widget>[
+                if (snapshot == null && !_active)
+                  const Card(
+                    child: Padding(
+                      padding: EdgeInsets.all(16),
+                      child: Text(
+                        '一次运行完成 H1–H10：目标设备、同提交构建身份、真实模型闭环、'
+                        '高维向量到三维真值、实体旋转/缩放/点选、帧时序、内存温控、'
+                        '升级数据保全与脱敏报告。模型就绪状态只会在开始后检查。',
+                      ),
                     ),
                   ),
-                ),
-              if (!terminal) ...<Widget>[
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton.icon(
-                    key: const ValueKey<String>('handset-acceptance-start'),
-                    onPressed: _active ? null : _startRun,
-                    icon: _active
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.play_arrow),
-                    label: Text(_active ? '验收运行中…' : '开始手机一键验收'),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                if (_active) ...<Widget>[
+                if (!terminal) ...<Widget>[
                   SizedBox(
                     width: double.infinity,
-                    child: OutlinedButton.icon(
-                      key: const ValueKey<String>(
-                        'handset-acceptance-cancel',
-                      ),
-                      onPressed: _cancelling ||
-                              _controller?.interruption.value != null
-                          ? null
-                          : _cancelRun,
-                      icon: _cancelling
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                              ),
-                            )
-                          : const Icon(Icons.stop_circle_outlined),
-                      label: Text(
-                        _cancelling ? '正在取消并清理…' : '取消并清理',
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                ],
-              ],
-              if (_active && snapshot == null)
-                const Card(
-                  child: Padding(
-                    padding: EdgeInsets.all(16),
-                    child: LinearProgressIndicator(),
-                  ),
-                ),
-              if (snapshot != null && !terminal)
-                HandsetAcceptanceProgressPanel(
-                  snapshot: snapshot,
-                  now: widget.now,
-                ),
-              if (_runFailed)
-                const Card(
-                  child: Padding(
-                    padding: EdgeInsets.all(16),
-                    child: Text('验收运行未能完成；未显示未经审核的内部错误。请重新进入后完整重跑。'),
-                  ),
-                ),
-              if (terminal && snapshot != null) ...<Widget>[
-                HandsetAcceptanceTerminalCard(snapshot: snapshot),
-                const SizedBox(height: 10),
-                Column(
-                  key: const ValueKey<String>('handset-terminal-actions'),
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: <Widget>[
-                    OutlinedButton.icon(
-                      onPressed: () => setState(
-                        () => _showEvidence = !_showEvidence,
-                      ),
-                      icon: const Icon(Icons.fact_check_outlined),
-                      label: const Text('查看证据'),
-                    ),
-                    OutlinedButton.icon(
-                      onPressed: _exporting ? null : _exportReport,
-                      icon: _exporting
+                    child: FilledButton.icon(
+                      key: const ValueKey<String>('handset-acceptance-start'),
+                      onPressed: _active ? null : _startRun,
+                      icon: _active
                           ? const SizedBox(
                               width: 18,
                               height: 18,
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
-                          : const Icon(Icons.save_alt),
-                      label: const Text('导出脱敏报告'),
+                          : const Icon(Icons.play_arrow),
+                      label: Text(_active ? '验收运行中…' : '开始手机一键验收'),
                     ),
-                    FilledButton.icon(
-                      onPressed: _startRun,
-                      icon: const Icon(Icons.replay),
-                      label: const Text('完整重跑'),
-                    ),
-                  ],
-                ),
-                if (_exportStatus != null) ...<Widget>[
-                  const SizedBox(height: 8),
-                  Text(_exportStatus!),
-                ],
-                if (_showEvidence) ...<Widget>[
+                  ),
                   const SizedBox(height: 10),
+                  if (_active) ...<Widget>[
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        key: const ValueKey<String>(
+                          'handset-acceptance-cancel',
+                        ),
+                        onPressed:
+                            _cancelling ||
+                                _controller?.interruption.value != null
+                            ? null
+                            : _cancelRun,
+                        icon: _cancelling
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.stop_circle_outlined),
+                        label: Text(_cancelling ? '正在取消并清理…' : '取消并清理'),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                  ],
+                ],
+                if (_active && snapshot == null)
+                  const Card(
+                    child: Padding(
+                      padding: EdgeInsets.all(16),
+                      child: LinearProgressIndicator(),
+                    ),
+                  ),
+                if (snapshot != null && !terminal)
                   HandsetAcceptanceProgressPanel(
                     snapshot: snapshot,
                     now: widget.now,
                   ),
+                if (_runFailed)
+                  const Card(
+                    child: Padding(
+                      padding: EdgeInsets.all(16),
+                      child: Text('验收运行未能完成；未显示未经审核的内部错误。请重新进入后完整重跑。'),
+                    ),
+                  ),
+                if (terminal && snapshot != null) ...<Widget>[
+                  HandsetAcceptanceTerminalCard(snapshot: snapshot),
+                  const SizedBox(height: 10),
+                  Column(
+                    key: const ValueKey<String>('handset-terminal-actions'),
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: <Widget>[
+                      OutlinedButton.icon(
+                        onPressed: () =>
+                            setState(() => _showEvidence = !_showEvidence),
+                        icon: const Icon(Icons.fact_check_outlined),
+                        label: const Text('查看证据'),
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: _exporting ? null : _exportReport,
+                        icon: _exporting
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.save_alt),
+                        label: const Text('导出脱敏报告'),
+                      ),
+                      FilledButton.icon(
+                        onPressed: _startRun,
+                        icon: const Icon(Icons.replay),
+                        label: const Text('完整重跑'),
+                      ),
+                    ],
+                  ),
+                  if (_exportStatus != null) ...<Widget>[
+                    const SizedBox(height: 8),
+                    Text(_exportStatus!),
+                  ],
+                  if (_showEvidence) ...<Widget>[
+                    const SizedBox(height: 10),
+                    HandsetAcceptanceProgressPanel(
+                      snapshot: snapshot,
+                      now: widget.now,
+                    ),
+                  ],
                 ],
               ],
-            ],
             ],
           ),
         ),

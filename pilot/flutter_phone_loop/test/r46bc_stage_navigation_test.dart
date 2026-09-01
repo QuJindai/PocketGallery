@@ -9,8 +9,9 @@ import 'package:pocketgallery_phone_pilot/ui/microscope/rag_lineage_dashboard_pa
 import 'package:pocketgallery_phone_pilot/ui/microscope/rag_stage.dart';
 
 void main() {
-  testWidgets('all ten trace stages open a truthful drill-down page',
-      (tester) async {
+  testWidgets('all ten trace stages open a truthful drill-down page', (
+    tester,
+  ) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -19,29 +20,33 @@ void main() {
     addTearDown(db.close);
     final store = LineageStore(database: db);
     await store.initialize();
-    await store.putTrace(LineageTrace(
-      traceId: 'tr-navigation',
-      sessionId: 's-navigation',
-      turnId: 't-navigation',
-      queryText: '打开十阶段详情',
-      requestedMode: 'auto',
-      finalMode: 'knowledge',
-      scopeJson: '{"type":"all"}',
-      activeStrategyId: 'active.r45-body-hybrid',
-      startedAt: DateTime.utc(2026, 8, 31, 8),
-      completedAt: DateTime.utc(2026, 8, 31, 8, 0, 1),
-      status: TraceStatus.complete,
-      failureStage: null,
-      failureCode: null,
-    ));
-    final engine = KnowledgeEngine(lineageStore: store);
-    await tester.pumpWidget(MaterialApp(
-      home: RagLineageDashboardPage(
-        engine: engine,
-        lineageStore: store,
+    await store.putTrace(
+      LineageTrace(
         traceId: 'tr-navigation',
+        sessionId: 's-navigation',
+        turnId: 't-navigation',
+        queryText: '打开十阶段详情',
+        requestedMode: 'auto',
+        finalMode: 'knowledge',
+        scopeJson: '{"type":"all"}',
+        activeStrategyId: 'active.r45-body-hybrid',
+        startedAt: DateTime.utc(2026, 8, 31, 8),
+        completedAt: DateTime.utc(2026, 8, 31, 8, 0, 1),
+        status: TraceStatus.complete,
+        failureStage: null,
+        failureCode: null,
       ),
-    ));
+    );
+    final engine = KnowledgeEngine(lineageStore: store);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: RagLineageDashboardPage(
+          engine: engine,
+          lineageStore: store,
+          traceId: 'tr-navigation',
+        ),
+      ),
+    );
     await tester.pumpAndSettle();
 
     for (final stage in RagStage.values) {

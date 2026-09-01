@@ -95,7 +95,8 @@ abstract final class HandsetReportExporter {
       'threshold': _approvedThreshold(evidence.threshold),
       'unit': _approvedUnit(evidence.unit),
       'available': evidence.available,
-      'message': _messages[evidence.code] ??
+      'message':
+          _messages[evidence.code] ??
           (evidence.available ? 'Evidence recorded.' : 'Evidence unavailable.'),
     };
   }
@@ -120,15 +121,15 @@ abstract final class HandsetReportExporter {
   }
 
   static String _identityCode(String field) => switch (field) {
-        'manufacturer' => 'TARGET_MANUFACTURER',
-        'model' => 'TARGET_MODEL',
-        'packageName' => 'PACKAGE_NAME',
-        'versionCode' => 'VERSION_CODE',
-        'signerSha256' => 'SIGNER_SHA256',
-        'apkSha256' => 'APK_SHA256',
-        'sourceCommit' => 'SOURCE_COMMIT',
-        _ => '',
-      };
+    'manufacturer' => 'TARGET_MANUFACTURER',
+    'model' => 'TARGET_MODEL',
+    'packageName' => 'PACKAGE_NAME',
+    'versionCode' => 'VERSION_CODE',
+    'signerSha256' => 'SIGNER_SHA256',
+    'apkSha256' => 'APK_SHA256',
+    'sourceCommit' => 'SOURCE_COMMIT',
+    _ => '',
+  };
 
   static Map<String, Object?>? _nestedGoldenSummary(
     HandsetAcceptanceSnapshot snapshot,
@@ -140,8 +141,9 @@ abstract final class HandsetReportExporter {
       'runId': _safeIdentifier(nested.runId),
       'phase': nested.phase.name.toUpperCase(),
       'passed': nested.passed,
-      'cleanupError':
-          nested.cleanupError == null ? null : 'GOLDEN_CLEANUP_FAILED',
+      'cleanupError': nested.cleanupError == null
+          ? null
+          : 'GOLDEN_CLEANUP_FAILED',
       'startedAt': nested.startedAt.toUtc().toIso8601String(),
       'updatedAt': nested.updatedAt.toUtc().toIso8601String(),
       'durationMs': nested.elapsed.inMilliseconds,
@@ -160,10 +162,7 @@ abstract final class HandsetReportExporter {
     };
   }
 
-  static String? _goldenGateReason(
-    GoldenGateStatus status,
-    String detail,
-  ) {
+  static String? _goldenGateReason(GoldenGateStatus status, String detail) {
     if (status == GoldenGateStatus.passed) return null;
     final normalized = detail.trim();
     if (_stableReasonCode.hasMatch(normalized)) return normalized;
@@ -171,8 +170,7 @@ abstract final class HandsetReportExporter {
       GoldenGateStatus.failed => 'GATE_FAILED',
       GoldenGateStatus.timedOut => 'GATE_TIMEOUT',
       GoldenGateStatus.blocked => 'GATE_BLOCKED',
-      GoldenGateStatus.pending || GoldenGateStatus.running =>
-        'GATE_INCOMPLETE',
+      GoldenGateStatus.pending || GoldenGateStatus.running => 'GATE_INCOMPLETE',
       GoldenGateStatus.passed => null,
     };
   }
@@ -182,28 +180,26 @@ abstract final class HandsetReportExporter {
     if (value is! String || _sensitiveText.hasMatch(value)) return null;
     final normalized = value.trim();
     return switch (code) {
-      'TARGET_MANUFACTURER' => normalized.toLowerCase() == 'samsung'
-          ? normalized
-          : null,
-      'TARGET_MODEL' => RegExp(
-          r'^SM-S928[A-Z0-9]*$',
-          caseSensitive: false,
-        ).hasMatch(normalized)
-          ? normalized
-          : null,
-      'PACKAGE_NAME' => normalized == PocketGalleryBuildIdentity.packageName
-          ? normalized
-          : null,
-      'SIGNER_SHA256' || 'APK_SHA256' => _sha256.hasMatch(normalized)
-          ? normalized.toLowerCase()
-          : null,
+      'TARGET_MANUFACTURER' =>
+        normalized.toLowerCase() == 'samsung' ? normalized : null,
+      'TARGET_MODEL' =>
+        RegExp(r'^SM-S928[A-Z0-9]*$', caseSensitive: false).hasMatch(normalized)
+            ? normalized
+            : null,
+      'PACKAGE_NAME' =>
+        normalized == PocketGalleryBuildIdentity.packageName
+            ? normalized
+            : null,
+      'SIGNER_SHA256' || 'APK_SHA256' =>
+        _sha256.hasMatch(normalized) ? normalized.toLowerCase() : null,
       'SOURCE_COMMIT' =>
         PocketGalleryBuildIdentity.isValidSourceCommit(normalized)
             ? normalized.toLowerCase()
             : null,
-      'VERSION_NAME' => RegExp(r'^[0-9]+(?:\.[0-9]+){1,3}$').hasMatch(normalized)
-          ? normalized
-          : null,
+      'VERSION_NAME' =>
+        RegExp(r'^[0-9]+(?:\.[0-9]+){1,3}$').hasMatch(normalized)
+            ? normalized
+            : null,
       _ => null,
     };
   }
@@ -250,9 +246,7 @@ abstract final class HandsetReportExporter {
   static String _safeIdentifier(String value) {
     final normalized = value.replaceAll(RegExp(r'[^A-Za-z0-9._-]+'), '_');
     if (normalized.isEmpty) return 'run';
-    return normalized.length <= 120
-        ? normalized
-        : normalized.substring(0, 120);
+    return normalized.length <= 120 ? normalized : normalized.substring(0, 120);
   }
 
   static String _phoneFunctionLoop(HandsetGateStatus? status) {
@@ -297,11 +291,9 @@ abstract final class HandsetReportExporter {
     final signer = _evidenceActual(snapshot, 'SIGNER_SHA256');
     final apkDigest = _evidenceActual(snapshot, 'APK_SHA256');
     final sourceCommit = _evidenceActual(snapshot, 'SOURCE_COMMIT');
-    final baselineEvidence = _evidenceActual(
-      snapshot,
-      'BASELINE_VERSION_CODE',
-    );
-    final eligible = snapshot.verdict == AcceptanceVerdict.pass &&
+    final baselineEvidence = _evidenceActual(snapshot, 'BASELINE_VERSION_CODE');
+    final eligible =
+        snapshot.verdict == AcceptanceVerdict.pass &&
         requiredGatesPassed &&
         snapshot.baselineVersionCode != null &&
         snapshot.baselineVersionCode! < 2023 &&

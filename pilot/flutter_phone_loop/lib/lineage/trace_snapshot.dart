@@ -20,22 +20,20 @@ class TraceSnapshot {
     required Map<String, LineageSectionRecord> sectionsById,
     required Map<String, LineageDocumentRecord> documentsById,
     required List<ExperimentRunRecord> experimentRuns,
-  })  : events = List<TraceEventRecord>.unmodifiable(events),
-        candidates = List<CandidateRecord>.unmodifiable(candidates),
-        evidence = List<EvidenceRecord>.unmodifiable(evidence),
-        citations = List<CitationRecord>.unmodifiable(citations),
-        chunksById = UnmodifiableMapView<String, LineageChunkRecord>(
-          Map<String, LineageChunkRecord>.from(chunksById),
-        ),
-        sectionsById = UnmodifiableMapView<String, LineageSectionRecord>(
-          Map<String, LineageSectionRecord>.from(sectionsById),
-        ),
-        documentsById = UnmodifiableMapView<String, LineageDocumentRecord>(
-          Map<String, LineageDocumentRecord>.from(documentsById),
-        ),
-        experimentRuns = List<ExperimentRunRecord>.unmodifiable(
-          experimentRuns,
-        );
+  }) : events = List<TraceEventRecord>.unmodifiable(events),
+       candidates = List<CandidateRecord>.unmodifiable(candidates),
+       evidence = List<EvidenceRecord>.unmodifiable(evidence),
+       citations = List<CitationRecord>.unmodifiable(citations),
+       chunksById = UnmodifiableMapView<String, LineageChunkRecord>(
+         Map<String, LineageChunkRecord>.from(chunksById),
+       ),
+       sectionsById = UnmodifiableMapView<String, LineageSectionRecord>(
+         Map<String, LineageSectionRecord>.from(sectionsById),
+       ),
+       documentsById = UnmodifiableMapView<String, LineageDocumentRecord>(
+         Map<String, LineageDocumentRecord>.from(documentsById),
+       ),
+       experimentRuns = List<ExperimentRunRecord>.unmodifiable(experimentRuns);
 
   final LineageTrace trace;
   final List<TraceEventRecord> events;
@@ -54,29 +52,18 @@ class TraceSnapshot {
   List<CandidateRecord> candidatesFor({
     required String strategyId,
     required RetrievalLane lane,
-  }) =>
-      candidates
-          .where(
-            (record) =>
-                record.strategyId == strategyId && record.lane == lane,
-          )
-          .toList(growable: false);
+  }) => candidates
+      .where((record) => record.strategyId == strategyId && record.lane == lane)
+      .toList(growable: false);
 
   List<EvidenceRecord> evidenceFor({
     required String strategyId,
     required RetrievalLane lane,
-  }) =>
-      evidence
-          .where(
-            (record) =>
-                record.strategyId == strategyId && record.lane == lane,
-          )
-          .toList(growable: false);
+  }) => evidence
+      .where((record) => record.strategyId == strategyId && record.lane == lane)
+      .toList(growable: false);
 
-  static Future<TraceSnapshot> load(
-    LineageStore store,
-    String traceId,
-  ) async {
+  static Future<TraceSnapshot> load(LineageStore store, String traceId) async {
     final trace = await store.traceById(traceId);
     if (trace == null) throw StateError('Unknown lineage trace: $traceId');
     final events = await store.eventsForTrace(traceId);

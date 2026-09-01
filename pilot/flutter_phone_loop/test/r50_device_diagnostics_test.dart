@@ -22,8 +22,7 @@ void main() {
                 'model': 'SM-S9280',
                 'sdkInt': 36,
                 'refreshRateHz': 120.0,
-                'packageName':
-                    'com.qujindai.pocketgallery_phone_pilot.r3',
+                'packageName': 'com.qujindai.pocketgallery_phone_pilot.r3',
                 'versionName': '0.5.0',
                 'versionCode': 2023,
                 'signerSha256':

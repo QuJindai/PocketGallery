@@ -10,10 +10,8 @@ import '../observability/vector_observation_store.dart';
 import 'lexical_fts_store.dart';
 
 class SemanticStore {
-  SemanticStore(
-    this.lexicalStore, {
-    VectorObservationStore? observationStore,
-  }) : observationStore = observationStore ?? VectorObservationStore();
+  SemanticStore(this.lexicalStore, {VectorObservationStore? observationStore})
+    : observationStore = observationStore ?? VectorObservationStore();
 
   static const embeddingModelIdentity =
       'EmbeddingGemma-300M_seq256_mixed-precision';
@@ -25,7 +23,9 @@ class SemanticStore {
   Future<void> initialize() async {
     if (_initialized) return;
     final dir = await getApplicationDocumentsDirectory();
-    await FlutterGemma.rag.initialize(p.join(dir.path, 'pocketgallery_vectors.db'));
+    await FlutterGemma.rag.initialize(
+      p.join(dir.path, 'pocketgallery_vectors.db'),
+    );
     await observationStore.initialize();
     _initialized = true;
   }
@@ -113,12 +113,14 @@ class SemanticStore {
       final c = await lexicalStore.getChunk(rows[i].id);
       if (c == null) continue;
       if (!scope.isAll && !scope.documentIds!.contains(c.documentId)) continue;
-      out.add(RetrievalHit(
-        chunk: c,
-        score: rows[i].similarity.clamp(0.0, 1.0).toDouble(),
-        channel: 'embedding',
-        rank: out.length + 1,
-      ));
+      out.add(
+        RetrievalHit(
+          chunk: c,
+          score: rows[i].similarity.clamp(0.0, 1.0).toDouble(),
+          channel: 'embedding',
+          rank: out.length + 1,
+        ),
+      );
       if (out.length >= topK) break;
     }
     return out;

@@ -10,11 +10,7 @@ import 'microscope/retrieval_benchmark_page.dart';
 import 'microscope/retrieval_experiment_center_page.dart';
 
 class KnowledgePage extends StatefulWidget {
-  const KnowledgePage({
-    super.key,
-    required this.engine,
-    this.orchestrator,
-  });
+  const KnowledgePage({super.key, required this.engine, this.orchestrator});
 
   final KnowledgeEngine engine;
   final ChatOrchestrator? orchestrator;
@@ -72,7 +68,8 @@ class _KnowledgePageState extends State<KnowledgePage> {
   }
 
   Future<void> _delete(KnowledgeDocument doc) async {
-    final confirmed = await showDialog<bool>(
+    final confirmed =
+        await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
             title: const Text('删除文档'),
@@ -117,38 +114,46 @@ class _KnowledgePageState extends State<KnowledgePage> {
   }
 
   Future<void> _openHealth({String? documentId}) async {
-    await Navigator.of(context).push(MaterialPageRoute<void>(
-      builder: (_) => ChunkExplorerPage(
-        engine: widget.engine,
-        initialDocumentId: documentId,
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ChunkExplorerPage(
+          engine: widget.engine,
+          initialDocumentId: documentId,
+        ),
       ),
-    ));
+    );
     await _reload();
   }
 
   Future<void> _openBenchmark() async {
-    await Navigator.of(context).push(MaterialPageRoute<void>(
-      builder: (_) => RetrievalBenchmarkPage(engine: widget.engine),
-    ));
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => RetrievalBenchmarkPage(engine: widget.engine),
+      ),
+    );
   }
 
   Future<void> _openLineage() async {
-    await Navigator.of(context).push(MaterialPageRoute<void>(
-      builder: (_) => RagLineageDashboardPage(
-        engine: widget.engine,
-        lineageStore: widget.engine.lineageStore,
-        orchestrator: widget.orchestrator,
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => RagLineageDashboardPage(
+          engine: widget.engine,
+          lineageStore: widget.engine.lineageStore,
+          orchestrator: widget.orchestrator,
+        ),
       ),
-    ));
+    );
   }
 
   Future<void> _openExperiments() async {
-    await Navigator.of(context).push(MaterialPageRoute<void>(
-      builder: (_) => RetrievalExperimentCenterPage(
-        store: widget.engine.lineageStore,
-        experimentEngine: widget.engine.experimentEngine,
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => RetrievalExperimentCenterPage(
+          store: widget.engine.lineageStore,
+          experimentEngine: widget.engine.experimentEngine,
+        ),
       ),
-    ));
+    );
   }
 
   @override
@@ -224,7 +229,9 @@ class _KnowledgePageState extends State<KnowledgePage> {
                               Expanded(
                                 child: FilledButton.tonalIcon(
                                   onPressed: busy ? null : () => _openHealth(),
-                                  icon: const Icon(Icons.monitor_heart_outlined),
+                                  icon: const Icon(
+                                    Icons.monitor_heart_outlined,
+                                  ),
                                   label: const Text('索引健康'),
                                 ),
                               ),
@@ -280,9 +287,11 @@ class _KnowledgePageState extends State<KnowledgePage> {
                             : 'Embedding 待补建';
                         return ListTile(
                           onTap: () => _openHealth(documentId: doc.documentId),
-                          leading: Icon(doc.chunkCount == 0
-                              ? Icons.image_not_supported_outlined
-                              : Icons.description_outlined),
+                          leading: Icon(
+                            doc.chunkCount == 0
+                                ? Icons.image_not_supported_outlined
+                                : Icons.description_outlined,
+                          ),
                           title: Text(doc.sourceName),
                           subtitle: Text('$chunkText\n$embedding'),
                           isThreeLine: true,

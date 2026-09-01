@@ -30,20 +30,24 @@ void main() {
   });
 
   test('release summary maps failed and blocked phone loops independently', () {
-    final failed = jsonDecode(
-      utf8.decode(
-        HandsetReportExporter.encodeRedacted(
-          _terminalSnapshot(h4Status: HandsetGateStatus.failed),
-        ),
-      ),
-    ) as Map<String, dynamic>;
-    final blocked = jsonDecode(
-      utf8.decode(
-        HandsetReportExporter.encodeRedacted(
-          _terminalSnapshot(h4Status: HandsetGateStatus.blocked),
-        ),
-      ),
-    ) as Map<String, dynamic>;
+    final failed =
+        jsonDecode(
+              utf8.decode(
+                HandsetReportExporter.encodeRedacted(
+                  _terminalSnapshot(h4Status: HandsetGateStatus.failed),
+                ),
+              ),
+            )
+            as Map<String, dynamic>;
+    final blocked =
+        jsonDecode(
+              utf8.decode(
+                HandsetReportExporter.encodeRedacted(
+                  _terminalSnapshot(h4Status: HandsetGateStatus.blocked),
+                ),
+              ),
+            )
+            as Map<String, dynamic>;
 
     expect(failed['PHONE_FUNCTION_LOOP'], 'FAIL');
     expect(failed['DEVICE_ACCEPTANCE'], 'FAIL');
@@ -54,7 +58,9 @@ void main() {
   test('prohibited keys are rejected recursively at the export boundary', () {
     for (final value in <Map<String, Object?>>[
       <String, Object?>{'authorization': 'private'},
-      <String, Object?>{'vectorF32': <double>[1, 2]},
+      <String, Object?>{
+        'vectorF32': <double>[1, 2],
+      },
       <String, Object?>{'documentText': 'private'},
       <String, Object?>{
         'safe': <String, Object?>{'body': 'private'},
@@ -67,11 +73,9 @@ void main() {
     }
 
     expect(
-      () => HandsetReportExporter.validateNoProhibitedKeys(
-        <String, Object?>{
-          'metric': <String, Object?>{'value': 12.4, 'unit': 'ms'},
-        },
-      ),
+      () => HandsetReportExporter.validateNoProhibitedKeys(<String, Object?>{
+        'metric': <String, Object?>{'value': 12.4, 'unit': 'ms'},
+      }),
       returnsNormally,
     );
   });
@@ -89,43 +93,47 @@ void main() {
     );
   });
 
-  test('nested cleanup and gate reasons are explicit without private detail',
-      () {
-    final startedAt = DateTime.utc(2026, 9, 1, 2);
-    final snapshot = _terminalSnapshot(
-      h4Status: HandsetGateStatus.passed,
-      nestedGolden: GoldenTestSnapshot(
-        runId: 'golden-redaction',
-        phase: GoldenRunPhase.completed,
-        startedAt: startedAt,
-        updatedAt: startedAt.add(const Duration(seconds: 1)),
-        cleanupError: 'Bearer hf_secret_private cleanup failed',
-        gates: <GoldenGateSnapshot>[
-          GoldenGateSnapshot(
-            name: 'F6_GEMMA_CITATION',
-            label: 'Gemma',
-            timeout: const Duration(seconds: 1),
-            status: GoldenGateStatus.blocked,
-            detail: 'APP_BACKGROUND_INTERRUPTION',
-            startedAt: startedAt,
-            finishedAt: startedAt.add(const Duration(seconds: 1)),
-          ),
-        ],
-      ),
-    );
+  test(
+    'nested cleanup and gate reasons are explicit without private detail',
+    () {
+      final startedAt = DateTime.utc(2026, 9, 1, 2);
+      final snapshot = _terminalSnapshot(
+        h4Status: HandsetGateStatus.passed,
+        nestedGolden: GoldenTestSnapshot(
+          runId: 'golden-redaction',
+          phase: GoldenRunPhase.completed,
+          startedAt: startedAt,
+          updatedAt: startedAt.add(const Duration(seconds: 1)),
+          cleanupError: 'Bearer hf_secret_private cleanup failed',
+          gates: <GoldenGateSnapshot>[
+            GoldenGateSnapshot(
+              name: 'F6_GEMMA_CITATION',
+              label: 'Gemma',
+              timeout: const Duration(seconds: 1),
+              status: GoldenGateStatus.blocked,
+              detail: 'APP_BACKGROUND_INTERRUPTION',
+              startedAt: startedAt,
+              finishedAt: startedAt.add(const Duration(seconds: 1)),
+            ),
+          ],
+        ),
+      );
 
-    final encoded = utf8.decode(HandsetReportExporter.encodeRedacted(snapshot));
-    final report = jsonDecode(encoded) as Map<String, dynamic>;
-    final nested = report['nestedGolden'] as Map<String, dynamic>;
-    final gates = nested['gates'] as List<dynamic>;
+      final encoded = utf8.decode(
+        HandsetReportExporter.encodeRedacted(snapshot),
+      );
+      final report = jsonDecode(encoded) as Map<String, dynamic>;
+      final nested = report['nestedGolden'] as Map<String, dynamic>;
+      final gates = nested['gates'] as List<dynamic>;
 
-    expect(nested['cleanupError'], 'GOLDEN_CLEANUP_FAILED');
-    expect(
-      (gates.single as Map<String, dynamic>)['reasonCode'],
-      'APP_BACKGROUND_INTERRUPTION',
-    );
-    expect(encoded, isNot(contains('hf_secret_private')));
-  });
+      expect(nested['cleanupError'], 'GOLDEN_CLEANUP_FAILED');
+      expect(
+        (gates.single as Map<String, dynamic>)['reasonCode'],
+        'APP_BACKGROUND_INTERRUPTION',
+      );
+      expect(encoded, isNot(contains('hf_secret_private')));
+    },
+  );
 }
 
 HandsetAcceptanceSnapshot _terminalSnapshot({

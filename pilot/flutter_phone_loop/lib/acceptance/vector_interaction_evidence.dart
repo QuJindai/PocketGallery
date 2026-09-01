@@ -1,11 +1,7 @@
 import 'dart:math' as math;
 
 class VectorCamera {
-  const VectorCamera({
-    this.yaw = -0.58,
-    this.pitch = 0.34,
-    this.zoom = 1,
-  });
+  const VectorCamera({this.yaw = -0.58, this.pitch = 0.34, this.zoom = 1});
 
   static const double minPitch = -1.25;
   static const double maxPitch = 1.25;
@@ -17,14 +13,10 @@ class VectorCamera {
   final double zoom;
 
   VectorCamera clamped() => VectorCamera(
-        yaw: yaw.isFinite ? yaw : -0.58,
-        pitch: (pitch.isFinite ? pitch : 0.34)
-            .clamp(minPitch, maxPitch)
-            .toDouble(),
-        zoom: (zoom.isFinite ? zoom : 1)
-            .clamp(minZoom, maxZoom)
-            .toDouble(),
-      );
+    yaw: yaw.isFinite ? yaw : -0.58,
+    pitch: (pitch.isFinite ? pitch : 0.34).clamp(minPitch, maxPitch).toDouble(),
+    zoom: (zoom.isFinite ? zoom : 1).clamp(minZoom, maxZoom).toDouble(),
+  );
 
   VectorCamera copyWith({double? yaw, double? pitch, double? zoom}) =>
       VectorCamera(
@@ -61,9 +53,8 @@ class VectorInteractionEvent {
 }
 
 class VectorInteractionAccumulator {
-  VectorInteractionAccumulator({
-    required Iterable<String> knownPointIds,
-  }) : knownPointIds = Set<String>.unmodifiable(knownPointIds);
+  VectorInteractionAccumulator({required Iterable<String> knownPointIds})
+    : knownPointIds = Set<String>.unmodifiable(knownPointIds);
 
   static const double minimumYawDelta = 0.25;
   static const double minimumPitchDelta = 0.15;
@@ -90,17 +81,17 @@ class VectorInteractionAccumulator {
   void record(VectorInteractionEvent event) {
     switch (event.type) {
       case VectorInteractionType.rotation:
-        final yawDelta =
-            (event.cameraAfter.yaw - event.cameraBefore.yaw).abs();
-        final pitchDelta =
-            (event.cameraAfter.pitch - event.cameraBefore.pitch).abs();
+        final yawDelta = (event.cameraAfter.yaw - event.cameraBefore.yaw).abs();
+        final pitchDelta = (event.cameraAfter.pitch - event.cameraBefore.pitch)
+            .abs();
         if (yawDelta.isFinite) {
           rotationYawDelta = math.max(rotationYawDelta, yawDelta);
         }
         if (pitchDelta.isFinite) {
           rotationPitchDelta = math.max(rotationPitchDelta, pitchDelta);
         }
-        rotationComplete = rotationComplete ||
+        rotationComplete =
+            rotationComplete ||
             rotationYawDelta >= minimumYawDelta ||
             rotationPitchDelta >= minimumPitchDelta;
         break;

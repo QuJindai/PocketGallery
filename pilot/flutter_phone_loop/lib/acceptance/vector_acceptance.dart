@@ -47,8 +47,8 @@ class VectorTruthResult {
   VectorTruthResult({
     required Iterable<String> reasonCodes,
     required Map<String, Object?> evidence,
-  })  : reasonCodes = List<String>.unmodifiable(reasonCodes),
-        evidence = Map<String, Object?>.unmodifiable(evidence);
+  }) : reasonCodes = List<String>.unmodifiable(reasonCodes),
+       evidence = Map<String, Object?>.unmodifiable(evidence);
 
   final List<String> reasonCodes;
   final Map<String, Object?> evidence;
@@ -76,7 +76,8 @@ class VectorTruthVerifier {
       reasons.add('ACTIVE_TRACE_NOT_COMPLETE');
     }
 
-    final capturedQueryValid = queryEmbedding != null &&
+    final capturedQueryValid =
+        queryEmbedding != null &&
         queryEmbedding.embeddingId == expectedQueryId &&
         queryEmbedding.sourceKind == 'query' &&
         queryEmbedding.sourceId == traceId &&
@@ -157,7 +158,8 @@ class VectorTruthVerifier {
     }
     for (final point in candidatePoints) {
       final candidate = activeCandidates[point.candidateId];
-      final rankCaptured = candidate != null &&
+      final rankCaptured =
+          candidate != null &&
           <int?>[
             candidate.ftsRank,
             candidate.vectorRank,
@@ -170,7 +172,8 @@ class VectorTruthVerifier {
             point.vectorRank,
             point.finalRank,
           ].any((rank) => rank != null && rank > 0);
-      final identityCaptured = candidate != null &&
+      final identityCaptured =
+          candidate != null &&
           candidate.embeddingId == point.embeddingId &&
           candidate.chunkId == point.chunkId &&
           candidate.sourceChannels.trim().isNotEmpty &&
@@ -178,12 +181,12 @@ class VectorTruthVerifier {
       final evidence = evidenceByCandidate[point.candidateId];
       final explanationCaptured = point.selectedForEvidence
           ? candidate?.selectedForEvidence == true &&
-              evidence != null &&
-              point.selectionReason?.trim().isNotEmpty == true &&
-              point.selectionReason == evidence.selectionReason
+                evidence != null &&
+                point.selectionReason?.trim().isNotEmpty == true &&
+                point.selectionReason == evidence.selectionReason
           : candidate?.selectedForEvidence == false &&
-              point.dropReason?.trim().isNotEmpty == true &&
-              point.dropReason == candidate?.dropReason;
+                point.dropReason?.trim().isNotEmpty == true &&
+                point.dropReason == candidate?.dropReason;
       if (!rankCaptured || !identityCaptured || !explanationCaptured) {
         reasons.add('CANDIDATE_EXPLANATION_MISSING');
       }

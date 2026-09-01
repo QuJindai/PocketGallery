@@ -110,15 +110,13 @@ class EvidenceContextPage extends StatelessWidget {
                           'Output Reserve',
                           '${budget.outputReserveTokens}',
                         ),
-                        LineageMetric(
-                          'Remaining',
-                          '${budget.remainingTokens}',
-                        ),
+                        LineageMetric('Remaining', '${budget.remainingTokens}'),
                       ],
                     ),
                     const SizedBox(height: 8),
                     LinearProgressIndicator(
-                      value: budget.totalPrefillTokens / budget.modelContextLimit,
+                      value:
+                          budget.totalPrefillTokens / budget.modelContextLimit,
                     ),
                     const SizedBox(height: 6),
                     Text(

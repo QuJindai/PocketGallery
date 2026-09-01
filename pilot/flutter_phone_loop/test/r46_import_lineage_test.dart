@@ -34,85 +34,80 @@ class NoopActiveVectorIndex implements ActiveVectorIndex {
     required List<double> queryEmbedding,
     required int topK,
     required KnowledgeScope scope,
-  }) async =>
-      const [];
+  }) async => const [];
 
   @override
   Future<VectorIndexProbe> probe() async => VectorIndexProbe(
-        initialized: initialized,
-        databasePath: 'memory://r46-import-lineage',
-        backendId: 'noop-r46-import-lineage',
-        searchVerified: false,
-      );
+    initialized: initialized,
+    databasePath: 'memory://r46-import-lineage',
+    backendId: 'noop-r46-import-lineage',
+    searchVerified: false,
+  );
 
   @override
   Future<void> close() async => initialized = false;
 }
 
 class TestSemanticStore extends SemanticStore {
-  TestSemanticStore(
-    super.lexicalStore,
-    VectorObservationStore observationStore,
-  ) : super(observationStore: observationStore);
+  TestSemanticStore(super.lexicalStore, VectorObservationStore observationStore)
+    : super(observationStore: observationStore);
 
   @override
   Future<void> initialize() => observationStore.initialize();
 }
 
 void main() {
-  test('new markdown import records exact heading and chunk provenance',
-      () async {
-    final tmp = await Directory.systemTemp.createTemp('pg-r46-md-');
-    addTearDown(() => tmp.delete(recursive: true));
-    const source =
-        '# 端侧测试\n\n第一段内容。第二句。\n\n## 功耗\n\n功耗测试方法。还要记录温度。';
-    final file = File('${tmp.path}/a.md');
-    await file.writeAsString(source);
+  test(
+    'new markdown import records exact heading and chunk provenance',
+    () async {
+      final tmp = await Directory.systemTemp.createTemp('pg-r46-md-');
+      addTearDown(() => tmp.delete(recursive: true));
+      const source = '# 端侧测试\n\n第一段内容。第二句。\n\n## 功耗\n\n功耗测试方法。还要记录温度。';
+      final file = File('${tmp.path}/a.md');
+      await file.writeAsString(source);
 
-    final importer = DocumentImporter(
-      chunker: const PgChunker(
-        targetChars: 16,
-        overlapChars: 4,
-        minChunkChars: 6,
-      ),
-    );
-    final result = await importer.importPathWithLineage(file.path);
-
-    expect(result.lineageDocument.provenanceQuality, ProvenanceQuality.exact);
-    expect(result.lineageDocument.fileType, 'md');
-    expect(result.lineageDocument.parseStatus, ParseStatus.parsed);
-    expect(
-      result.sections.map((section) => section.heading),
-      containsAll(<String?>['端侧测试', '功耗']),
-    );
-    expect(result.chunks, isNotEmpty);
-
-    final chunksById = <String, PgChunk>{
-      for (final chunk in result.document.chunks) chunk.id: chunk,
-    };
-    for (final lineageChunk in result.chunks) {
-      expect(lineageChunk.sectionId, isNotNull);
-      expect(lineageChunk.startOffset, isNotNull);
-      expect(lineageChunk.endOffset, isNotNull);
-      expect(
-        lineageChunk.boundaryReason,
-        isIn(const <String>{
-          'section_end',
-          'sentence_punctuation',
-          'hard_limit',
-        }),
-      );
-      final chunk = chunksById[lineageChunk.chunkId]!;
-      expect(
-        source.substring(
-          lineageChunk.startOffset!,
-          lineageChunk.endOffset!,
+      final importer = DocumentImporter(
+        chunker: const PgChunker(
+          targetChars: 16,
+          overlapChars: 4,
+          minChunkChars: 6,
         ),
-        chunk.text,
-        reason: 'exact lineage offsets must resolve to the real source span',
       );
-    }
-  });
+      final result = await importer.importPathWithLineage(file.path);
+
+      expect(result.lineageDocument.provenanceQuality, ProvenanceQuality.exact);
+      expect(result.lineageDocument.fileType, 'md');
+      expect(result.lineageDocument.parseStatus, ParseStatus.parsed);
+      expect(
+        result.sections.map((section) => section.heading),
+        containsAll(<String?>['端侧测试', '功耗']),
+      );
+      expect(result.chunks, isNotEmpty);
+
+      final chunksById = <String, PgChunk>{
+        for (final chunk in result.document.chunks) chunk.id: chunk,
+      };
+      for (final lineageChunk in result.chunks) {
+        expect(lineageChunk.sectionId, isNotNull);
+        expect(lineageChunk.startOffset, isNotNull);
+        expect(lineageChunk.endOffset, isNotNull);
+        expect(
+          lineageChunk.boundaryReason,
+          isIn(const <String>{
+            'section_end',
+            'sentence_punctuation',
+            'hard_limit',
+          }),
+        );
+        final chunk = chunksById[lineageChunk.chunkId]!;
+        expect(
+          source.substring(lineageChunk.startOffset!, lineageChunk.endOffset!),
+          chunk.text,
+          reason: 'exact lineage offsets must resolve to the real source span',
+        );
+      }
+    },
+  );
 
   test('empty text import reports an explicit zero-chunk diagnostic', () async {
     final tmp = await Directory.systemTemp.createTemp('pg-r46-empty-');
@@ -131,99 +126,109 @@ void main() {
     expect(result.sections.single.parseStatus, ParseStatus.empty);
   });
 
-  test('vector migration never downgrades exact import lineage to legacy',
-      () async {
-    final tmp = await Directory.systemTemp.createTemp('pg-r46-exact-');
-    addTearDown(() => tmp.delete(recursive: true));
-    final file = File('${tmp.path}/exact.txt');
-    await file.writeAsString('精确来源内容。');
-    final result = await DocumentImporter().importPathWithLineage(file.path);
+  test(
+    'vector migration never downgrades exact import lineage to legacy',
+    () async {
+      final tmp = await Directory.systemTemp.createTemp('pg-r46-exact-');
+      addTearDown(() => tmp.delete(recursive: true));
+      final file = File('${tmp.path}/exact.txt');
+      await file.writeAsString('精确来源内容。');
+      final result = await DocumentImporter().importPathWithLineage(file.path);
 
-    final lexicalDb = sqlite3.openInMemory();
-    final observationDb = sqlite3.openInMemory();
-    final lineageDb = sqlite3.openInMemory();
-    addTearDown(lexicalDb.close);
-    addTearDown(observationDb.close);
-    addTearDown(lineageDb.close);
-    final lexical = LexicalFtsStore(database: lexicalDb);
-    final observations = VectorObservationStore(database: observationDb);
-    final lineage = LineageStore(database: lineageDb);
-    await lexical.replaceDocument(result.document);
-    await lineage.replaceImportLineage(result);
+      final lexicalDb = sqlite3.openInMemory();
+      final observationDb = sqlite3.openInMemory();
+      final lineageDb = sqlite3.openInMemory();
+      addTearDown(lexicalDb.close);
+      addTearDown(observationDb.close);
+      addTearDown(lineageDb.close);
+      final lexical = LexicalFtsStore(database: lexicalDb);
+      final observations = VectorObservationStore(database: observationDb);
+      final lineage = LineageStore(database: lineageDb);
+      await lexical.replaceDocument(result.document);
+      await lineage.replaceImportLineage(result);
 
-    final migration = R45VectorMigration(
-      lexicalStore: lexical,
-      observationStore: observations,
-      lineageStore: lineage,
-      activeVectorIndex: NoopActiveVectorIndex(),
-      embeddingGenerator: (_) async => const [0.25, 0.75],
-    );
-    final report = await migration.migrateActiveBodyVectors(
-      activeModelIdentity: 'EmbeddingGemma-test',
-      expectedDimension: 2,
-    );
+      final migration = R45VectorMigration(
+        lexicalStore: lexical,
+        observationStore: observations,
+        lineageStore: lineage,
+        activeVectorIndex: NoopActiveVectorIndex(),
+        embeddingGenerator: (_) async => const [0.25, 0.75],
+      );
+      final report = await migration.migrateActiveBodyVectors(
+        activeModelIdentity: 'EmbeddingGemma-test',
+        expectedDimension: 2,
+      );
 
-    expect(report.failed, 0);
-    expect(
-      (await lineage.lineageDocumentById(result.document.documentId))!
-          .provenanceQuality,
-      ProvenanceQuality.exact,
-    );
-    expect(
-      (await lineage.lineageChunksForDocument(result.document.documentId))
-          .every((chunk) =>
-              chunk.startOffset != null && chunk.endOffset != null),
-      isTrue,
-    );
-  });
+      expect(report.failed, 0);
+      expect(
+        (await lineage.lineageDocumentById(
+          result.document.documentId,
+        ))!.provenanceQuality,
+        ProvenanceQuality.exact,
+      );
+      expect(
+        (await lineage.lineageChunksForDocument(
+          result.document.documentId,
+        )).every(
+          (chunk) => chunk.startOffset != null && chunk.endOffset != null,
+        ),
+        isTrue,
+      );
+    },
+  );
 
-  test('KnowledgeEngine commits lexical and exact lineage before vector work',
-      () async {
-    final tmp = await Directory.systemTemp.createTemp('pg-r46-engine-');
-    addTearDown(() => tmp.delete(recursive: true));
-    final file = File('${tmp.path}/notes.txt');
-    await file.writeAsString('第一条端侧知识。第二条端侧知识。');
+  test(
+    'KnowledgeEngine commits lexical and exact lineage before vector work',
+    () async {
+      final tmp = await Directory.systemTemp.createTemp('pg-r46-engine-');
+      addTearDown(() => tmp.delete(recursive: true));
+      final file = File('${tmp.path}/notes.txt');
+      await file.writeAsString('第一条端侧知识。第二条端侧知识。');
 
-    final lexicalDb = sqlite3.openInMemory();
-    final observationDb = sqlite3.openInMemory();
-    final lineageDb = sqlite3.openInMemory();
-    addTearDown(lexicalDb.close);
-    addTearDown(observationDb.close);
-    addTearDown(lineageDb.close);
+      final lexicalDb = sqlite3.openInMemory();
+      final observationDb = sqlite3.openInMemory();
+      final lineageDb = sqlite3.openInMemory();
+      addTearDown(lexicalDb.close);
+      addTearDown(observationDb.close);
+      addTearDown(lineageDb.close);
 
-    final lexical = LexicalFtsStore(database: lexicalDb);
-    final observations = VectorObservationStore(database: observationDb);
-    final lineage = LineageStore(database: lineageDb);
-    final semantic = TestSemanticStore(lexical, observations);
-    final engine = KnowledgeEngine(
-      lexicalStore: lexical,
-      semanticStore: semantic,
-      lineageStore: lineage,
-      activeVectorIndex: NoopActiveVectorIndex(),
-    );
+      final lexical = LexicalFtsStore(database: lexicalDb);
+      final observations = VectorObservationStore(database: observationDb);
+      final lineage = LineageStore(database: lineageDb);
+      final semantic = TestSemanticStore(lexical, observations);
+      final engine = KnowledgeEngine(
+        lexicalStore: lexical,
+        semanticStore: semantic,
+        lineageStore: lineage,
+        activeVectorIndex: NoopActiveVectorIndex(),
+      );
 
-    final document = await engine.importPath(file.path);
+      final document = await engine.importPath(file.path);
 
-    expect(await lexical.chunksForDocument(document.documentId), isNotEmpty);
-    final storedDocument =
-        await lineage.lineageDocumentById(document.documentId);
-    expect(storedDocument, isNotNull);
-    expect(storedDocument!.provenanceQuality, ProvenanceQuality.exact);
-    expect(
-      await lineage.lineageSectionsForDocument(document.documentId),
-      isNotEmpty,
-    );
-    expect(
-      await lineage.lineageChunksForDocument(document.documentId),
-      hasLength(document.chunks.length),
-    );
+      expect(await lexical.chunksForDocument(document.documentId), isNotEmpty);
+      final storedDocument = await lineage.lineageDocumentById(
+        document.documentId,
+      );
+      expect(storedDocument, isNotNull);
+      expect(storedDocument!.provenanceQuality, ProvenanceQuality.exact);
+      expect(
+        await lineage.lineageSectionsForDocument(document.documentId),
+        isNotEmpty,
+      );
+      expect(
+        await lineage.lineageChunksForDocument(document.documentId),
+        hasLength(document.chunks.length),
+      );
 
-    final job = await lineage.buildJobById(LineageIds.buildJobId(
-      document.documentId,
-      R45VectorMigration.activeStrategyId,
-    ));
-    expect(job, isNotNull);
-    expect(job!.checkpointJson, contains('lineage_committed'));
-    expect(job.status.name, isIn(<String>['pending', 'complete']));
-  });
+      final job = await lineage.buildJobById(
+        LineageIds.buildJobId(
+          document.documentId,
+          R45VectorMigration.activeStrategyId,
+        ),
+      );
+      expect(job, isNotNull);
+      expect(job!.checkpointJson, contains('lineage_committed'));
+      expect(job.status.name, isIn(<String>['pending', 'complete']));
+    },
+  );
 }

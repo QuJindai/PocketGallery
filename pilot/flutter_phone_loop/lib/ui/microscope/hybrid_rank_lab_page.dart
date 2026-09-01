@@ -50,10 +50,7 @@ class HybridRankLabPage extends StatelessWidget {
           children: [
             Row(
               children: [
-                CircleAvatar(
-                  radius: 16,
-                  child: Text('${hit.rank}'),
-                ),
+                CircleAvatar(radius: 16, child: Text('${hit.rank}')),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Column(
@@ -97,16 +94,16 @@ class HybridRankLabPage extends StatelessWidget {
   }
 
   Widget _row(String label, String value, String truth) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 2),
-        child: Row(
-          children: [
-            Expanded(child: Text(label)),
-            Text(value, style: const TextStyle(fontFeatures: [])),
-            const SizedBox(width: 8),
-            Text(truth, style: const TextStyle(fontSize: 11)),
-          ],
-        ),
-      );
+    padding: const EdgeInsets.symmetric(vertical: 2),
+    child: Row(
+      children: [
+        Expanded(child: Text(label)),
+        Text(value, style: const TextStyle(fontFeatures: [])),
+        const SizedBox(width: 8),
+        Text(truth, style: const TextStyle(fontSize: 11)),
+      ],
+    ),
+  );
 
   String _n(double? value) => value == null ? '—' : value.toStringAsFixed(6);
 }

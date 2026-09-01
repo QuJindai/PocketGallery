@@ -40,13 +40,19 @@ void main() {
   });
 
   test('real chat rebuilds a bounded native session for every turn', () async {
-    final source = await File('lib/services/gemma_chat_service.dart').readAsString();
-    final budgeter = await File('lib/chat/context_budgeter.dart').readAsString();
+    final source = await File(
+      'lib/services/gemma_chat_service.dart',
+    ).readAsString();
+    final budgeter = await File(
+      'lib/chat/context_budgeter.dart',
+    ).readAsString();
 
     expect(source, contains('_createTurnChat'));
     expect(
       source,
-      isNot(contains('if (_chat != null && _activeSessionId == sessionId) return;')),
+      isNot(
+        contains('if (_chat != null && _activeSessionId == sessionId) return;'),
+      ),
     );
     expect(source, contains('currentTurnTokens'));
     expect(source, contains('finally'));
@@ -55,29 +61,36 @@ void main() {
   });
 
   test('prompt evidence is bounded before native prefill', () async {
-    final source = await File('lib/services/gemma_chat_service.dart').readAsString();
+    final source = await File(
+      'lib/services/gemma_chat_service.dart',
+    ).readAsString();
     expect(source, contains('_boundedEvidenceContext'));
     expect(source, contains('evidenceReserveMax'));
   });
 
   test('Golden Test exercises the real chat orchestrator path', () async {
-    final source = await File('lib/services/golden_test_runner.dart').readAsString();
+    final source = await File(
+      'lib/services/golden_test_runner.dart',
+    ).readAsString();
     expect(source, contains('ChatOrchestrator'));
     expect(source, contains('GemmaChatService'));
     expect(source, contains('F7_CHAT_REALWORLD'));
   });
 
-  test('retrieval benchmark prepares and cleans temporary golden corpus', () async {
-    final page = await File(
-      'lib/ui/microscope/retrieval_benchmark_page.dart',
-    ).readAsString();
-    final fixture = File('lib/eval/retrieval_benchmark_fixture.dart');
+  test(
+    'retrieval benchmark prepares and cleans temporary golden corpus',
+    () async {
+      final page = await File(
+        'lib/ui/microscope/retrieval_benchmark_page.dart',
+      ).readAsString();
+      final fixture = File('lib/eval/retrieval_benchmark_fixture.dart');
 
-    expect(fixture.existsSync(), isTrue);
-    expect(page, contains('RetrievalBenchmarkFixture'));
-    expect(page, contains('cleanup'));
-    expect(page, contains('临时 Golden'));
-  });
+      expect(fixture.existsSync(), isTrue);
+      expect(page, contains('RetrievalBenchmarkFixture'));
+      expect(page, contains('cleanup'));
+      expect(page, contains('临时 Golden'));
+    },
+  );
 
   test('forced knowledge can reject weak semantic-only evidence', () async {
     final source = await File('lib/chat/chat_orchestrator.dart').readAsString();

@@ -47,12 +47,11 @@ class PgChunker {
     required String documentId,
     required String sourceName,
     required List<TextSection> sections,
-  }) =>
-      chunkSectionsWithLineage(
-        documentId: documentId,
-        sourceName: sourceName,
-        sections: sections,
-      ).map((slice) => slice.chunk).toList(growable: false);
+  }) => chunkSectionsWithLineage(
+    documentId: documentId,
+    sourceName: sourceName,
+    sections: sections,
+  ).map((slice) => slice.chunk).toList(growable: false);
 
   List<ChunkSlice> chunkSectionsWithLineage({
     required String documentId,
@@ -96,15 +95,18 @@ class PgChunker {
           final sourceEnd = section.startOffset == null
               ? null
               : section.startOffset! + mapped.rawEnds[trimmed.end - 1];
-          out.add(ChunkSlice(
-            chunk: chunk,
-            sectionId: section.sectionId,
-            startOffset: sourceStart,
-            endOffset: sourceEnd,
-            overlapFromPrevious:
-                previousEnd > trimmed.start ? previousEnd - trimmed.start : 0,
-            boundaryReason: boundaryReason,
-          ));
+          out.add(
+            ChunkSlice(
+              chunk: chunk,
+              sectionId: section.sectionId,
+              startOffset: sourceStart,
+              endOffset: sourceEnd,
+              overlapFromPrevious: previousEnd > trimmed.start
+                  ? previousEnd - trimmed.start
+                  : 0,
+              boundaryReason: boundaryReason,
+            ),
+          );
           ordinal++;
           previousEnd = trimmed.end;
         }

@@ -47,9 +47,7 @@ abstract final class RetrievalStrategies {
     id: 'active.r45-body-hybrid',
     label: 'ACTIVE · R4.5 body hybrid',
     lane: RetrievalLane.active,
-    representations: <EmbeddingRepresentation>{
-      EmbeddingRepresentation.body,
-    },
+    representations: <EmbeddingRepresentation>{EmbeddingRepresentation.body},
     candidatePolicy: ExperimentCandidatePolicy.bodyHybrid,
     fusionPolicy: ExperimentFusionPolicy.weightedRrf,
     rerankPolicy: ExperimentRerankPolicy.none,
@@ -94,9 +92,7 @@ abstract final class RetrievalStrategies {
     id: 'rerank.features-v1',
     label: 'SHADOW · Explainable feature reranker',
     lane: RetrievalLane.shadow,
-    representations: <EmbeddingRepresentation>{
-      EmbeddingRepresentation.body,
-    },
+    representations: <EmbeddingRepresentation>{EmbeddingRepresentation.body},
     candidatePolicy: ExperimentCandidatePolicy.bodyHybrid,
     fusionPolicy: ExperimentFusionPolicy.weightedRrf,
     rerankPolicy: ExperimentRerankPolicy.featuresV1,
@@ -126,9 +122,7 @@ abstract final class RetrievalStrategies {
     id: 'evidence.dynamic-v1',
     label: 'SHADOW · Dynamic Evidence',
     lane: RetrievalLane.shadow,
-    representations: <EmbeddingRepresentation>{
-      EmbeddingRepresentation.body,
-    },
+    representations: <EmbeddingRepresentation>{EmbeddingRepresentation.body},
     candidatePolicy: ExperimentCandidatePolicy.bodyHybrid,
     fusionPolicy: ExperimentFusionPolicy.weightedRrf,
     rerankPolicy: ExperimentRerankPolicy.none,

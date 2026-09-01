@@ -22,8 +22,8 @@ class BenchmarkCaseDetailPage extends StatelessWidget {
     final cited = result.citedChunkIds;
     final baselineIds = baseline?.hits.map((hit) => hit.chunkId).toList();
     final actualIds = result.hits.map((hit) => hit.chunkId).toList();
-    final rankingDiffers = baselineIds != null &&
-        !_sameRanking(baselineIds, actualIds);
+    final rankingDiffers =
+        baselineIds != null && !_sameRanking(baselineIds, actualIds);
     return Scaffold(
       key: const ValueKey<String>('benchmark-case-detail-page'),
       appBar: AppBar(title: const Text('Benchmark Case 详情')),
@@ -37,8 +37,10 @@ class BenchmarkCaseDetailPage extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(benchmark.question,
-                        style: Theme.of(context).textTheme.titleMedium),
+                    Text(
+                      benchmark.question,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
                     SelectableText(benchmark.id),
                     Text('tags · ${benchmark.tags.join(', ')}'),
                   ],
@@ -51,8 +53,10 @@ class BenchmarkCaseDetailPage extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Expected · 人工标签',
-                        style: Theme.of(context).textTheme.titleSmall),
+                    Text(
+                      'Expected · 人工标签',
+                      style: Theme.of(context).textTheme.titleSmall,
+                    ),
                     Text(
                       'documents · '
                       '${benchmark.expectedDocumentIds.isEmpty ? '未设置' : benchmark.expectedDocumentIds.join(', ')}',
@@ -75,14 +79,14 @@ class BenchmarkCaseDetailPage extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Actual ranks · REAL',
-                        style: Theme.of(context).textTheme.titleSmall),
+                    Text(
+                      'Actual ranks · REAL',
+                      style: Theme.of(context).textTheme.titleSmall,
+                    ),
                     if (result.hits.isEmpty)
                       const Text('没有实际候选。')
                     else
-                      for (var index = 0;
-                          index < result.hits.length;
-                          index++)
+                      for (var index = 0; index < result.hits.length; index++)
                         Text(
                           '#${index + 1} · ${result.hits[index].chunkId} · '
                           '${result.hits[index].documentId} · '
@@ -110,19 +114,21 @@ class BenchmarkCaseDetailPage extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Optional observations',
-                        style: Theme.of(context).textTheme.titleSmall),
+                    Text(
+                      'Optional observations',
+                      style: Theme.of(context).textTheme.titleSmall,
+                    ),
                     Text(
                       expectedRouter == null || actualRouter == null
                           ? 'Router Accuracy · 不可用'
                           : 'Router Accuracy · '
-                              '${expectedRouter == actualRouter ? 'PASS' : 'FAIL'}',
+                                '${expectedRouter == actualRouter ? 'PASS' : 'FAIL'}',
                     ),
                     Text(
                       benchmark.expectedChunkIds.isEmpty || cited == null
                           ? 'Citation Grounding · 不可用'
                           : 'Citation Grounding · '
-                              '${_grounding(cited).toStringAsFixed(1)}%',
+                                '${_grounding(cited).toStringAsFixed(1)}%',
                     ),
                   ],
                 ),

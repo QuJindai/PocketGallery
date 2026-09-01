@@ -20,15 +20,22 @@ void main() {
       semanticWeight: 1.15,
       dualChannelBonus: 0.035,
     );
-    final result = ranker.fuse(
-      query: '31 03 51 01 DSA 等待',
-      lexical: const [
-        RetrievalHit(chunk: chunk, score: 0.8, channel: 'fts5', rank: 1),
-      ],
-      semantic: const [
-        RetrievalHit(chunk: chunk, score: 0.625, channel: 'embedding', rank: 1),
-      ],
-    ).single;
+    final result = ranker
+        .fuse(
+          query: '31 03 51 01 DSA 等待',
+          lexical: const [
+            RetrievalHit(chunk: chunk, score: 0.8, channel: 'fts5', rank: 1),
+          ],
+          semantic: const [
+            RetrievalHit(
+              chunk: chunk,
+              score: 0.625,
+              channel: 'embedding',
+              rank: 1,
+            ),
+          ],
+        )
+        .single;
 
     expect(result.lexicalRank, 1);
     expect(result.semanticRank, 1);

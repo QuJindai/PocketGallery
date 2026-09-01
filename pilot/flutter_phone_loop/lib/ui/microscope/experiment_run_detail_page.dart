@@ -105,35 +105,35 @@ class _ExperimentRunDetailPageState extends State<ExperimentRunDetailPage> {
   }
 
   Widget _runCard(BuildContext context, ExperimentRunRecord record) => Card(
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    child: Padding(
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              Row(
-                children: [
-                  const Chip(label: Text('ACTIVE')),
-                  const SizedBox(width: 6),
-                  const Chip(label: Text('SHADOW')),
-                  const Spacer(),
-                  Text('${record.completedItems}/${record.totalItems}'),
-                ],
-              ),
-              SelectableText(record.experimentRunId),
-              Text(widget.strategyId),
-              Text(
-                record.status == ExperimentRunStatus.failed
-                    ? 'SHADOW FAILED · ${record.failureCode ?? '原因未捕获'}'
-                    : 'SHADOW ${record.status.name.toUpperCase()}',
-                style: const TextStyle(fontWeight: FontWeight.w600),
-              ),
-              if (record.failureDetail != null) Text(record.failureDetail!),
-              if (record.metricJson != null)
-                Text('metrics · ${_pretty(record.metricJson!)}'),
+              const Chip(label: Text('ACTIVE')),
+              const SizedBox(width: 6),
+              const Chip(label: Text('SHADOW')),
+              const Spacer(),
+              Text('${record.completedItems}/${record.totalItems}'),
             ],
           ),
-        ),
-      );
+          SelectableText(record.experimentRunId),
+          Text(widget.strategyId),
+          Text(
+            record.status == ExperimentRunStatus.failed
+                ? 'SHADOW FAILED · ${record.failureCode ?? '原因未捕获'}'
+                : 'SHADOW ${record.status.name.toUpperCase()}',
+            style: const TextStyle(fontWeight: FontWeight.w600),
+          ),
+          if (record.failureDetail != null) Text(record.failureDetail!),
+          if (record.metricJson != null)
+            Text('metrics · ${_pretty(record.metricJson!)}'),
+        ],
+      ),
+    ),
+  );
 
   Widget _comparisonCard(BuildContext context, TraceSnapshot data) {
     final active = data.candidatesFor(
@@ -150,32 +150,31 @@ class _ExperimentRunDetailPageState extends State<ExperimentRunDetailPage> {
     final shadowById = <String, CandidateRecord>{
       for (final candidate in shadow) candidate.chunkId: candidate,
     };
-    final added = shadowById.keys
-        .toSet()
-        .difference(activeById.keys.toSet())
-        .toList()
-      ..sort();
-    final removed = activeById.keys
-        .toSet()
-        .difference(shadowById.keys.toSet())
-        .toList()
-      ..sort();
-    final changed = activeById.keys
-        .where(
-          (id) =>
-              shadowById.containsKey(id) &&
-              activeById[id]!.finalRank != shadowById[id]!.finalRank,
-        )
-        .toList()
-      ..sort();
+    final added =
+        shadowById.keys.toSet().difference(activeById.keys.toSet()).toList()
+          ..sort();
+    final removed =
+        activeById.keys.toSet().difference(shadowById.keys.toSet()).toList()
+          ..sort();
+    final changed =
+        activeById.keys
+            .where(
+              (id) =>
+                  shadowById.containsKey(id) &&
+                  activeById[id]!.finalRank != shadowById[id]!.finalRank,
+            )
+            .toList()
+          ..sort();
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Candidate delta · DERIVED',
-                style: Theme.of(context).textTheme.titleSmall),
+            Text(
+              'Candidate delta · DERIVED',
+              style: Theme.of(context).textTheme.titleSmall,
+            ),
             Text(
               'added ${added.length} · removed ${removed.length} · '
               'rank changed ${changed.length}',
@@ -202,13 +201,11 @@ class _ExperimentRunDetailPageState extends State<ExperimentRunDetailPage> {
         .map((item) => item.chunkId)
         .toSet();
     final shadow = data
-        .evidenceFor(
-          strategyId: widget.strategyId,
-          lane: RetrievalLane.shadow,
-        )
+        .evidenceFor(strategyId: widget.strategyId, lane: RetrievalLane.shadow)
         .map((item) => item.chunkId)
         .toSet();
-    final changed = active.difference(shadow).isNotEmpty ||
+    final changed =
+        active.difference(shadow).isNotEmpty ||
         shadow.difference(active).isNotEmpty;
     return Card(
       child: Padding(
@@ -216,8 +213,10 @@ class _ExperimentRunDetailPageState extends State<ExperimentRunDetailPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Evidence delta · DERIVED',
-                style: Theme.of(context).textTheme.titleSmall),
+            Text(
+              'Evidence delta · DERIVED',
+              style: Theme.of(context).textTheme.titleSmall,
+            ),
             Text(changed ? 'Evidence changed' : 'Evidence unchanged'),
             Text('ACTIVE · ${active.join(', ')}'),
             Text('SHADOW · ${shadow.join(', ')}'),
@@ -229,84 +228,85 @@ class _ExperimentRunDetailPageState extends State<ExperimentRunDetailPage> {
   }
 
   Widget _featureCard(BuildContext context) => Card(
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Rerank contributions · DERIVED',
-                  style: Theme.of(context).textTheme.titleSmall),
-              if (features.isEmpty)
-                const Text('该策略未持久化特征重排贡献。')
-              else
-                for (final feature in features)
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: Text(feature.chunkId),
-                    subtitle: Text(_pretty(feature.contributionJson)),
-                    trailing: Text(feature.rerankScore.toStringAsFixed(3)),
-                  ),
-            ],
+    child: Padding(
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Rerank contributions · DERIVED',
+            style: Theme.of(context).textTheme.titleSmall,
           ),
-        ),
-      );
+          if (features.isEmpty)
+            const Text('该策略未持久化特征重排贡献。')
+          else
+            for (final feature in features)
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(feature.chunkId),
+                subtitle: Text(_pretty(feature.contributionJson)),
+                trailing: Text(feature.rerankScore.toStringAsFixed(3)),
+              ),
+        ],
+      ),
+    ),
+  );
 
   Widget _drillDownCard(BuildContext context, TraceSnapshot data) => Card(
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    child: Padding(
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('SHADOW 下钻', style: Theme.of(context).textTheme.titleSmall),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
             children: [
-              Text('SHADOW 下钻',
-                  style: Theme.of(context).textTheme.titleSmall),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  OutlinedButton(
-                    key: const ValueKey<String>('experiment-candidates'),
-                    onPressed: () => _push(
-                      CandidatePoolPage(
-                        snapshot: data,
-                        strategyId: widget.strategyId,
-                        lane: RetrievalLane.shadow,
-                      ),
-                    ),
-                    child: const Text('候选池'),
+              OutlinedButton(
+                key: const ValueKey<String>('experiment-candidates'),
+                onPressed: () => _push(
+                  CandidatePoolPage(
+                    snapshot: data,
+                    strategyId: widget.strategyId,
+                    lane: RetrievalLane.shadow,
                   ),
-                  OutlinedButton(
-                    key: const ValueKey<String>('experiment-ranks'),
-                    onPressed: () => _push(
-                      RankTrajectoryPage(
-                        snapshot: data,
-                        strategyId: widget.strategyId,
-                        lane: RetrievalLane.shadow,
-                      ),
-                    ),
-                    child: const Text('排名轨迹'),
+                ),
+                child: const Text('候选池'),
+              ),
+              OutlinedButton(
+                key: const ValueKey<String>('experiment-ranks'),
+                onPressed: () => _push(
+                  RankTrajectoryPage(
+                    snapshot: data,
+                    strategyId: widget.strategyId,
+                    lane: RetrievalLane.shadow,
                   ),
-                  OutlinedButton(
-                    key: const ValueKey<String>('experiment-evidence'),
-                    onPressed: () => _push(
-                      EvidenceContextPage(
-                        snapshot: data,
-                        strategyId: widget.strategyId,
-                        lane: RetrievalLane.shadow,
-                      ),
-                    ),
-                    child: const Text('Evidence'),
+                ),
+                child: const Text('排名轨迹'),
+              ),
+              OutlinedButton(
+                key: const ValueKey<String>('experiment-evidence'),
+                onPressed: () => _push(
+                  EvidenceContextPage(
+                    snapshot: data,
+                    strategyId: widget.strategyId,
+                    lane: RetrievalLane.shadow,
                   ),
-                ],
+                ),
+                child: const Text('Evidence'),
               ),
             ],
           ),
-        ),
-      );
+        ],
+      ),
+    ),
+  );
 
   Future<void> _push(Widget page) async {
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (_) => page),
-    );
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => page));
   }
 
   String _pretty(String value) {

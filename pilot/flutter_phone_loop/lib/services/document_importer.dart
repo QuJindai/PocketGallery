@@ -10,7 +10,8 @@ import '../lineage/import_lineage.dart';
 import '../lineage/lineage_ids.dart';
 
 class DocumentImporter {
-  DocumentImporter({PgChunker? chunker}) : chunker = chunker ?? const PgChunker();
+  DocumentImporter({PgChunker? chunker})
+    : chunker = chunker ?? const PgChunker();
   final PgChunker chunker;
 
   Future<List<String>> pickDocumentPaths() async {
@@ -33,8 +34,9 @@ class DocumentImporter {
     final file = File(path);
     if (!await file.exists()) throw StateError('File not found: $path');
     final hash = (await sha256.bind(file.openRead()).first).toString();
-    final sourceName =
-        file.uri.pathSegments.isEmpty ? path : file.uri.pathSegments.last;
+    final sourceName = file.uri.pathSegments.isEmpty
+        ? path
+        : file.uri.pathSegments.last;
     final documentId = hash.substring(0, 20);
     final ext = sourceName.toLowerCase().split('.').last;
     final stat = await file.stat();
@@ -73,8 +75,7 @@ class DocumentImporter {
         sizeBytes: stat.size,
         pageCount: parsed.pageCount,
         parseStatus: documentStatus,
-        parseErrorCode:
-            zeroText ? 'NO_EXTRACTED_TEXT' : parsed.parseErrorCode,
+        parseErrorCode: zeroText ? 'NO_EXTRACTED_TEXT' : parsed.parseErrorCode,
         parseErrorDetail: zeroText
             ? 'The parser produced no searchable text and therefore no chunks.'
             : parsed.parseErrorDetail,
@@ -85,42 +86,41 @@ class DocumentImporter {
       ),
       sections: parsed.lineageSections,
       chunks: chunkSlices
-          .map((slice) => LineageChunkRecord(
-                chunkId: slice.chunk.id,
-                documentId: slice.chunk.documentId,
-                sectionId: slice.sectionId,
-                locator: slice.chunk.locator,
-                ordinal: slice.chunk.ordinal,
-                startOffset: slice.startOffset,
-                endOffset: slice.endOffset,
-                charCount: slice.chunk.text.length,
-                tokenCount: null,
-                overlapFromPrevious: slice.overlapFromPrevious,
-                chunkStrategy: 'r46-char-window-v1',
-                boundaryReason: slice.boundaryReason,
-                provenanceQuality: ProvenanceQuality.exact,
-              ))
+          .map(
+            (slice) => LineageChunkRecord(
+              chunkId: slice.chunk.id,
+              documentId: slice.chunk.documentId,
+              sectionId: slice.sectionId,
+              locator: slice.chunk.locator,
+              ordinal: slice.chunk.ordinal,
+              startOffset: slice.startOffset,
+              endOffset: slice.endOffset,
+              charCount: slice.chunk.text.length,
+              tokenCount: null,
+              overlapFromPrevious: slice.overlapFromPrevious,
+              chunkStrategy: 'r46-char-window-v1',
+              boundaryReason: slice.boundaryReason,
+              provenanceQuality: ProvenanceQuality.exact,
+            ),
+          )
           .toList(growable: false),
     );
   }
 
-  Future<_ParsedDocument> _readText(
-    File file,
-    String documentId,
-  ) async {
+  Future<_ParsedDocument> _readText(File file, String documentId) async {
     final text = await file.readAsString();
     final status = text.trim().isEmpty ? ParseStatus.empty : ParseStatus.parsed;
     const locator = 'text';
-    final sectionId =
-        LineageIds.sectionId(documentId, locator, null, 0, text.length);
+    final sectionId = LineageIds.sectionId(
+      documentId,
+      locator,
+      null,
+      0,
+      text.length,
+    );
     return _ParsedDocument(
       sections: [
-        TextSection(
-          locator,
-          text,
-          sectionId: sectionId,
-          startOffset: 0,
-        ),
+        TextSection(locator, text, sectionId: sectionId, startOffset: 0),
       ],
       lineageSections: [
         LineageSectionRecord(
@@ -144,10 +144,7 @@ class DocumentImporter {
     );
   }
 
-  Future<_ParsedDocument> _readMarkdown(
-    File file,
-    String documentId,
-  ) async {
+  Future<_ParsedDocument> _readMarkdown(File file, String documentId) async {
     final text = await file.readAsString();
     final headings = RegExp(
       r'^(#{1,6})[ \t]+([^\r\n]+?)[ \t]*#*[ \t]*(?:\r)?$',
@@ -164,27 +161,37 @@ class DocumentImporter {
       required String sectionType,
     }) {
       final sectionText = text.substring(start, end);
-      final status =
-          sectionText.trim().isEmpty ? ParseStatus.empty : ParseStatus.parsed;
-      final sectionId =
-          LineageIds.sectionId(documentId, locator, null, start, end);
-      sections.add(TextSection(
+      final status = sectionText.trim().isEmpty
+          ? ParseStatus.empty
+          : ParseStatus.parsed;
+      final sectionId = LineageIds.sectionId(
+        documentId,
         locator,
-        sectionText,
-        sectionId: sectionId,
-        startOffset: start,
-      ));
-      records.add(LineageSectionRecord(
-        sectionId: sectionId,
-        documentId: documentId,
-        pageNo: null,
-        heading: heading,
-        sectionType: sectionType,
-        startOffset: start,
-        endOffset: end,
-        charCount: sectionText.length,
-        parseStatus: status,
-      ));
+        null,
+        start,
+        end,
+      );
+      sections.add(
+        TextSection(
+          locator,
+          sectionText,
+          sectionId: sectionId,
+          startOffset: start,
+        ),
+      );
+      records.add(
+        LineageSectionRecord(
+          sectionId: sectionId,
+          documentId: documentId,
+          pageNo: null,
+          heading: heading,
+          sectionType: sectionType,
+          startOffset: start,
+          endOffset: end,
+          charCount: sectionText.length,
+          parseStatus: status,
+        ),
+      );
     }
 
     if (headings.isEmpty) {
@@ -247,29 +254,34 @@ class DocumentImporter {
         final text = pageText?.fullText ?? '';
         final pageNo = i + 1;
         final locator = 'page $pageNo';
-        final status =
-            text.trim().isEmpty ? ParseStatus.empty : ParseStatus.parsed;
+        final status = text.trim().isEmpty
+            ? ParseStatus.empty
+            : ParseStatus.parsed;
         if (status == ParseStatus.empty) emptyPageCount++;
         extractedCharCount += text.length;
-        final sectionId =
-            LineageIds.sectionId(documentId, locator, pageNo, 0, text.length);
-        sections.add(TextSection(
+        final sectionId = LineageIds.sectionId(
+          documentId,
           locator,
-          text,
-          sectionId: sectionId,
-          startOffset: 0,
-        ));
-        records.add(LineageSectionRecord(
-          sectionId: sectionId,
-          documentId: documentId,
-          pageNo: pageNo,
-          heading: null,
-          sectionType: 'page',
-          startOffset: 0,
-          endOffset: text.length,
-          charCount: text.length,
-          parseStatus: status,
-        ));
+          pageNo,
+          0,
+          text.length,
+        );
+        sections.add(
+          TextSection(locator, text, sectionId: sectionId, startOffset: 0),
+        );
+        records.add(
+          LineageSectionRecord(
+            sectionId: sectionId,
+            documentId: documentId,
+            pageNo: pageNo,
+            heading: null,
+            sectionType: 'page',
+            startOffset: 0,
+            endOffset: text.length,
+            charCount: text.length,
+            parseStatus: status,
+          ),
+        );
       }
       return _ParsedDocument(
         sections: sections,

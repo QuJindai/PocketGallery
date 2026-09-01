@@ -75,10 +75,9 @@ class GemmaChatService implements ChatModelGateway {
     _chat = chat;
 
     for (final message in selectedHistory) {
-      await chat.addQueryChunk(Message.text(
-        text: message.text,
-        isUser: message.role == ChatRole.user,
-      ));
+      await chat.addQueryChunk(
+        Message.text(text: message.text, isUser: message.role == ChatRole.user),
+      );
     }
     return chat;
   }
@@ -99,7 +98,8 @@ class GemmaChatService implements ChatModelGateway {
         : '$marker\n\nUSER MESSAGE:\n$userText';
     final evidenceTokens = budgeter.estimateTokens(context);
     final systemTokens = budgeter.estimateTokens(_systemInstruction);
-    final currentTurnBudget = ContextBudgeter.modelMaxTokens -
+    final currentTurnBudget =
+        ContextBudgeter.modelMaxTokens -
         ContextBudgeter.outputReserve -
         ContextBudgeter.safetyReserve -
         systemTokens -
@@ -123,9 +123,7 @@ class GemmaChatService implements ChatModelGateway {
     );
     final chat = await _createTurnChat(contextSelection.history);
 
-    final payload = evidence.isEmpty
-        ? currentTurn
-        : '$context\n\n$currentTurn';
+    final payload = evidence.isEmpty ? currentTurn : '$context\n\n$currentTurn';
 
     try {
       await chat.addQueryChunk(Message.text(text: payload, isUser: true));

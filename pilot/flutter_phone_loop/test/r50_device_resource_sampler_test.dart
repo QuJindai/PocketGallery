@@ -111,8 +111,9 @@ void main() {
   });
 
   test('native resource reads have a bounded capture timeout', () async {
-    final source =
-        await File('lib/acceptance/device_resource_sampler.dart').readAsString();
+    final source = await File(
+      'lib/acceptance/device_resource_sampler.dart',
+    ).readAsString();
 
     expect(
       source,
@@ -120,29 +121,31 @@ void main() {
     );
   });
 
-  test('a hung native resource read fails closed within the capture bound',
-      () async {
-    final firstRead = Completer<DeviceResourceSample>();
-    final finalRead = Completer<DeviceResourceSample>();
-    final diagnostics = _FakeDiagnostics(<Object>[
-      firstRead.future,
-      finalRead.future,
-    ]);
-    final sampler = DeviceResourceSampler(
-      diagnostics: diagnostics,
-      interval: const Duration(days: 1),
-      captureTimeout: const Duration(milliseconds: 5),
-    );
+  test(
+    'a hung native resource read fails closed within the capture bound',
+    () async {
+      final firstRead = Completer<DeviceResourceSample>();
+      final finalRead = Completer<DeviceResourceSample>();
+      final diagnostics = _FakeDiagnostics(<Object>[
+        firstRead.future,
+        finalRead.future,
+      ]);
+      final sampler = DeviceResourceSampler(
+        diagnostics: diagnostics,
+        interval: const Duration(days: 1),
+        captureTimeout: const Duration(milliseconds: 5),
+      );
 
-    await sampler.start();
-    final summary = await sampler.stop();
+      await sampler.start();
+      final summary = await sampler.stop();
 
-    expect(summary.reasonCodes, contains('REQUIRED_EVIDENCE_UNAVAILABLE'));
-    expect(diagnostics.resourceReads, 2);
-    firstRead.complete(_sample());
-    finalRead.complete(_sample());
-    await Future<void>.delayed(Duration.zero);
-  });
+      expect(summary.reasonCodes, contains('REQUIRED_EVIDENCE_UNAVAILABLE'));
+      expect(diagnostics.resourceReads, 2);
+      firstRead.complete(_sample());
+      finalRead.complete(_sample());
+      await Future<void>.delayed(Duration.zero);
+    },
+  );
 }
 
 DeviceResourceSample _sample({

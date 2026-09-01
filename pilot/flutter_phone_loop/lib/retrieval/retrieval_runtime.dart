@@ -25,9 +25,9 @@ class RetrievalRuntime {
     HybridRanker? ranker,
     RouterPolicy? routerPolicy,
     EvidencePolicy? evidencePolicy,
-  })  : ranker = ranker ?? const HybridRanker(),
-        routerPolicy = routerPolicy ?? const RouterPolicy(),
-        evidencePolicy = evidencePolicy ?? const EvidencePolicy();
+  }) : ranker = ranker ?? const HybridRanker(),
+       routerPolicy = routerPolicy ?? const RouterPolicy(),
+       evidencePolicy = evidencePolicy ?? const EvidencePolicy();
 
   final LexicalFtsStore lexicalStore;
   final QueryEmbeddingRuntime queryEmbeddingRuntime;
@@ -139,12 +139,14 @@ class RetrievalRuntime {
         if (!scope.isAll && !scope.documentIds!.contains(chunk.documentId)) {
           continue;
         }
-        semantic.add(RetrievalHit(
-          chunk: chunk,
-          score: hit.similarity,
-          channel: 'embedding',
-          rank: hit.rank,
-        ));
+        semantic.add(
+          RetrievalHit(
+            chunk: chunk,
+            score: hit.similarity,
+            channel: 'embedding',
+            rank: hit.rank,
+          ),
+        );
       }
     } else {
       await recorder.event(
@@ -217,28 +219,29 @@ class RetrievalRuntime {
       traceId: execution.traceId,
       records: candidateRecords,
     );
-    await recorder.routerDecision(RouterDecisionRecord(
-      decisionId: LineageIds.routerDecisionId(
-        execution.traceId,
-        execution.strategyId,
-        execution.lane,
+    await recorder.routerDecision(
+      RouterDecisionRecord(
+        decisionId: LineageIds.routerDecisionId(
+          execution.traceId,
+          execution.strategyId,
+          execution.lane,
+        ),
+        traceId: execution.traceId,
+        strategyId: execution.strategyId,
+        lane: execution.lane,
+        ftsHitCount: requestedDecision.ftsHitCount,
+        top1Cosine: requestedDecision.top1Cosine,
+        top2Cosine: requestedDecision.top2Cosine,
+        top1Top2Gap: requestedDecision.top1Top2Gap,
+        dualChannel: requestedDecision.dualChannel,
+        lexicalGatePass: requestedDecision.lexicalGatePass,
+        semanticStrengthGatePass: requestedDecision.semanticStrengthGatePass,
+        semanticGapGatePass: requestedDecision.semanticGapGatePass,
+        finalUseKnowledge: requestedDecision.useKnowledge,
+        ruleProfile: requestedDecision.ruleProfile,
+        decisionReason: requestedDecision.reason,
       ),
-      traceId: execution.traceId,
-      strategyId: execution.strategyId,
-      lane: execution.lane,
-      ftsHitCount: requestedDecision.ftsHitCount,
-      top1Cosine: requestedDecision.top1Cosine,
-      top2Cosine: requestedDecision.top2Cosine,
-      top1Top2Gap: requestedDecision.top1Top2Gap,
-      dualChannel: requestedDecision.dualChannel,
-      lexicalGatePass: requestedDecision.lexicalGatePass,
-      semanticStrengthGatePass:
-          requestedDecision.semanticStrengthGatePass,
-      semanticGapGatePass: requestedDecision.semanticGapGatePass,
-      finalUseKnowledge: requestedDecision.useKnowledge,
-      ruleProfile: requestedDecision.ruleProfile,
-      decisionReason: requestedDecision.reason,
-    ));
+    );
     await recorder.evidence(
       traceId: execution.traceId,
       records: <EvidenceRecord>[
@@ -312,9 +315,7 @@ class RetrievalRuntime {
       for (var index = 0; index < hybridHits.length; index++)
         hybridHits[index].chunk.id: index + 1,
     };
-    final selectedIds = selection.evidence
-        .map((item) => item.chunk.id)
-        .toSet();
+    final selectedIds = selection.evidence.map((item) => item.chunk.id).toSet();
     final chunkIds = <String>{
       ...hybridHits.map((hit) => hit.chunk.id),
       ...inspectionHits.map((hit) => hit.chunk.id),
@@ -351,9 +352,9 @@ class RetrievalRuntime {
           dropReason: selectedIds.contains(chunkId)
               ? null
               : selection.dropReasonFor(chunkId) ??
-                  (hybridByChunk.containsKey(chunkId)
-                      ? 'not_selected'
-                      : 'fusion_limit'),
+                    (hybridByChunk.containsKey(chunkId)
+                        ? 'not_selected'
+                        : 'fusion_limit'),
         ),
     ];
   }

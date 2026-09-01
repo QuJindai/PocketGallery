@@ -69,8 +69,9 @@ class RetrievalEvaluator {
         rankingChanged += 1;
       }
       final currentTop1 = currentRanking.isEmpty ? null : currentRanking.first;
-      final alternateTop1 =
-          alternateRanking.isEmpty ? null : alternateRanking.first;
+      final alternateTop1 = alternateRanking.isEmpty
+          ? null
+          : alternateRanking.first;
       if (currentTop1 != alternateTop1) top1Changed += 1;
     }
 
@@ -108,7 +109,8 @@ class RetrievalEvaluator {
       if (hits.isNotEmpty && relevant(hits.first)) hit1 += 1;
       if (hits.take(3).any(relevant)) hit3 += 1;
 
-      final expectedCount = benchmark.expectedDocumentIds.length +
+      final expectedCount =
+          benchmark.expectedDocumentIds.length +
           benchmark.expectedChunkIds.length +
           benchmark.expectedSourceNames.length;
       if (expectedCount > 0) {
@@ -124,8 +126,7 @@ class RetrievalEvaluator {
             found.add('s:${hit.sourceName}');
           }
         }
-        recall5 +=
-            (found.length / expectedCount).clamp(0.0, 1.0).toDouble();
+        recall5 += (found.length / expectedCount).clamp(0.0, 1.0).toDouble();
       }
 
       final firstRelevant = hits.indexWhere(relevant);
@@ -147,9 +148,8 @@ class RetrievalEvaluator {
       if (benchmark.expectedChunkIds.isNotEmpty && cited != null) {
         citationDenominator++;
         if (cited.isNotEmpty) {
-          citationGrounding += cited
-                  .where(benchmark.expectedChunkIds.contains)
-                  .length /
+          citationGrounding +=
+              cited.where(benchmark.expectedChunkIds.contains).length /
               cited.length;
         }
       }
@@ -163,8 +163,9 @@ class RetrievalEvaluator {
       recallAt5: recall5 / n,
       mrr: reciprocalRank / n,
       contextPrecision: precision / n,
-      routerAccuracy:
-          routerDenominator == 0 ? null : routerCorrect / routerDenominator,
+      routerAccuracy: routerDenominator == 0
+          ? null
+          : routerCorrect / routerDenominator,
       citationGroundingRate: citationDenominator == 0
           ? null
           : citationGrounding / citationDenominator,

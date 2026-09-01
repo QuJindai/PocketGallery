@@ -1,8 +1,6 @@
 import 'package:flutter/scheduler.dart';
 
-typedef FrameTimingsCallbackRegistrar = void Function(
-  TimingsCallback callback,
-);
+typedef FrameTimingsCallbackRegistrar = void Function(TimingsCallback callback);
 
 class FrameTimingSummary {
   const FrameTimingSummary({
@@ -28,22 +26,18 @@ class FrameTimingSummary {
     final eligible = durations.skip(skipped).toList(growable: false)
       ..sort((left, right) => left.compareTo(right));
     final over16Point7 = eligible
-        .where(
-          (duration) =>
-              duration > const Duration(microseconds: 16700),
-        )
+        .where((duration) => duration > const Duration(microseconds: 16700))
         .length;
     final over32 = eligible
-        .where(
-          (duration) => duration > const Duration(milliseconds: 32),
-        )
+        .where((duration) => duration > const Duration(milliseconds: 32))
         .length;
     final count = eligible.length;
     final p95Index = count == 0 ? null : (count * 0.95).ceil() - 1;
     return FrameTimingSummary(
       available: count > 0,
-      sampleDuration:
-          sampleDuration.isNegative ? Duration.zero : sampleDuration,
+      sampleDuration: sampleDuration.isNegative
+          ? Duration.zero
+          : sampleDuration,
       rawFrameCount: durations.length,
       warmUpFrameCount: skipped,
       eligibleFrameCount: count,
@@ -83,11 +77,12 @@ class FrameTimingSampler {
     FrameTimingsCallbackRegistrar? addTimingsCallback,
     FrameTimingsCallbackRegistrar? removeTimingsCallback,
     this.warmUpFrames = 10,
-  })  : _clock = clock ?? DateTime.now,
-        _addTimingsCallback = addTimingsCallback ??
-            SchedulerBinding.instance.addTimingsCallback,
-        _removeTimingsCallback = removeTimingsCallback ??
-            SchedulerBinding.instance.removeTimingsCallback;
+  }) : _clock = clock ?? DateTime.now,
+       _addTimingsCallback =
+           addTimingsCallback ?? SchedulerBinding.instance.addTimingsCallback,
+       _removeTimingsCallback =
+           removeTimingsCallback ??
+           SchedulerBinding.instance.removeTimingsCallback;
 
   final DateTime Function() _clock;
   final FrameTimingsCallbackRegistrar _addTimingsCallback;
@@ -138,9 +133,7 @@ class FrameTimingSampler {
 
   void _recordTimings(List<FrameTiming> timings) {
     if (!isRunning) return;
-    _durations.addAll(
-      timings.map((timing) => timing.totalSpan),
-    );
+    _durations.addAll(timings.map((timing) => timing.totalSpan));
   }
 
   static const _emptySummary = FrameTimingSummary(

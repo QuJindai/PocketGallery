@@ -10,84 +10,89 @@ import 'package:pocketgallery_phone_pilot/services/lexical_fts_store.dart';
 import 'package:sqlite3/sqlite3.dart';
 
 void main() {
-  test('real four-dimensional trace produces truthful three-dimensional evidence', () async {
-    final artifact = await _seedArtifact();
+  test(
+    'real four-dimensional trace produces truthful three-dimensional evidence',
+    () async {
+      final artifact = await _seedArtifact();
 
-    final result = VectorTruthVerifier.verify(artifact);
+      final result = VectorTruthVerifier.verify(artifact);
 
-    expect(result.passed, isTrue);
-    expect(result.reasonCodes, isEmpty);
-    expect(artifact.vectorSpace.originalDimension, 4);
-    expect(artifact.vectorSpace.effectiveComponentCount, 3);
-    expect(artifact.vectorSpace.points.where((point) => point.isQuery), hasLength(1));
-    expect(
-      artifact.vectorSpace.points.where((point) => !point.isQuery),
-      hasLength(3),
-    );
-  });
-
-  test('truth verifier rejects synthetic, flat, incomplete, or non-finite evidence', () async {
-    final valid = await _seedArtifact();
-    final query = valid.vectorSpace.points.singleWhere((point) => point.isQuery);
-    final candidate = valid.vectorSpace.points.firstWhere(
-      (point) => !point.isQuery,
-    );
-    final cases = <String, VectorAcceptanceArtifact>{
-      'ORIGINAL_DIMENSION_NOT_HIGH': _withSpace(
-        valid,
-        originalDimension: 3,
-      ),
-      'PCA_THREE_COMPONENTS_UNAVAILABLE': _withSpace(
-        valid,
-        effectiveComponentCount: 2,
-        explainedVarianceRatios: const <double>[0.7, 0.3],
-      ),
-      'CAPTURED_QUERY_NOT_USED': _withSpace(
-        valid,
-        usedCapturedQuery: false,
-      ),
-      'NON_FINITE_COORDINATE': _withSpace(
-        valid,
-        points: <TraceVectorPoint>[
-          _point(candidate, x: double.nan),
-          ...valid.vectorSpace.points.where(
-            (point) => point.embeddingId != candidate.embeddingId,
-          ),
-        ],
-      ),
-      'QUERY_EMBEDDING_ID_MISMATCH': _withSpace(
-        valid,
-        queryEmbeddingId: 'not-the-captured-query',
-      ),
-      'NON_QUERY_POINT_MISSING': _withSpace(
-        valid,
-        points: <TraceVectorPoint>[query],
-        neighbors: const <TraceVectorPoint>[],
-      ),
-      'CANDIDATE_EXPLANATION_MISSING': _withSpace(
-        valid,
-        points: <TraceVectorPoint>[
-          _point(
-            candidate,
-            selectedForEvidence: true,
-            selectionReason: null,
-            dropReason: null,
-          ),
-          ...valid.vectorSpace.points.where(
-            (point) => point.embeddingId != candidate.embeddingId,
-          ),
-        ],
-      ),
-    };
-
-    for (final entry in cases.entries) {
+      expect(result.passed, isTrue);
+      expect(result.reasonCodes, isEmpty);
+      expect(artifact.vectorSpace.originalDimension, 4);
+      expect(artifact.vectorSpace.effectiveComponentCount, 3);
       expect(
-        VectorTruthVerifier.verify(entry.value).reasonCodes,
-        contains(entry.key),
-        reason: entry.key,
+        artifact.vectorSpace.points.where((point) => point.isQuery),
+        hasLength(1),
       );
-    }
-  });
+      expect(
+        artifact.vectorSpace.points.where((point) => !point.isQuery),
+        hasLength(3),
+      );
+    },
+  );
+
+  test(
+    'truth verifier rejects synthetic, flat, incomplete, or non-finite evidence',
+    () async {
+      final valid = await _seedArtifact();
+      final query = valid.vectorSpace.points.singleWhere(
+        (point) => point.isQuery,
+      );
+      final candidate = valid.vectorSpace.points.firstWhere(
+        (point) => !point.isQuery,
+      );
+      final cases = <String, VectorAcceptanceArtifact>{
+        'ORIGINAL_DIMENSION_NOT_HIGH': _withSpace(valid, originalDimension: 3),
+        'PCA_THREE_COMPONENTS_UNAVAILABLE': _withSpace(
+          valid,
+          effectiveComponentCount: 2,
+          explainedVarianceRatios: const <double>[0.7, 0.3],
+        ),
+        'CAPTURED_QUERY_NOT_USED': _withSpace(valid, usedCapturedQuery: false),
+        'NON_FINITE_COORDINATE': _withSpace(
+          valid,
+          points: <TraceVectorPoint>[
+            _point(candidate, x: double.nan),
+            ...valid.vectorSpace.points.where(
+              (point) => point.embeddingId != candidate.embeddingId,
+            ),
+          ],
+        ),
+        'QUERY_EMBEDDING_ID_MISMATCH': _withSpace(
+          valid,
+          queryEmbeddingId: 'not-the-captured-query',
+        ),
+        'NON_QUERY_POINT_MISSING': _withSpace(
+          valid,
+          points: <TraceVectorPoint>[query],
+          neighbors: const <TraceVectorPoint>[],
+        ),
+        'CANDIDATE_EXPLANATION_MISSING': _withSpace(
+          valid,
+          points: <TraceVectorPoint>[
+            _point(
+              candidate,
+              selectedForEvidence: true,
+              selectionReason: null,
+              dropReason: null,
+            ),
+            ...valid.vectorSpace.points.where(
+              (point) => point.embeddingId != candidate.embeddingId,
+            ),
+          ],
+        ),
+      };
+
+      for (final entry in cases.entries) {
+        expect(
+          VectorTruthVerifier.verify(entry.value).reasonCodes,
+          contains(entry.key),
+          reason: entry.key,
+        );
+      }
+    },
+  );
 }
 
 Future<VectorAcceptanceArtifact> _seedArtifact() async {
@@ -186,11 +191,7 @@ Future<VectorAcceptanceArtifact> _seedArtifact() async {
         taskMode: 'retrieval_document',
       ),
     );
-    final candidateId = LineageIds.candidateId(
-      traceId,
-      strategyId,
-      chunk.id,
-    );
+    final candidateId = LineageIds.candidateId(traceId, strategyId, chunk.id);
     await lineage.putCandidate(
       CandidateRecord(
         candidateId: candidateId,
@@ -216,11 +217,7 @@ Future<VectorAcceptanceArtifact> _seedArtifact() async {
     if (index == 0) {
       await lineage.putEvidence(
         EvidenceRecord(
-          evidenceId: LineageIds.evidenceId(
-            traceId,
-            strategyId,
-            chunk.id,
-          ),
+          evidenceId: LineageIds.evidenceId(traceId, strategyId, chunk.id),
           traceId: traceId,
           strategyId: strategyId,
           lane: RetrievalLane.active,
@@ -236,10 +233,7 @@ Future<VectorAcceptanceArtifact> _seedArtifact() async {
     }
   }
 
-  final engine = KnowledgeEngine(
-    lexicalStore: lexical,
-    lineageStore: lineage,
-  );
+  final engine = KnowledgeEngine(lexicalStore: lexical, lineageStore: lineage);
   return const VectorAcceptanceCapture().capture(engine, traceId);
 }
 
@@ -297,8 +291,7 @@ TraceVectorPoint _point(
     text: source.text,
     candidateId: source.candidateId,
     sourceChannels: source.sourceChannels,
-    selectedForEvidence:
-        selectedForEvidence ?? source.selectedForEvidence,
+    selectedForEvidence: selectedForEvidence ?? source.selectedForEvidence,
     selectionReason: selectionReason,
     dropReason: dropReason,
     ftsRank: source.ftsRank,

@@ -43,14 +43,13 @@ class HfOAuthDeviceService {
     http.Client? client,
     FlutterSecureStorage? storage,
     DateTime Function()? now,
-  })  : _client = client ?? http.Client(),
-        _storage = storage ?? const FlutterSecureStorage(),
-        _now = now ?? DateTime.now;
+  }) : _client = client ?? http.Client(),
+       _storage = storage ?? const FlutterSecureStorage(),
+       _now = now ?? DateTime.now;
 
   static const endpoint = 'https://huggingface.co';
   static const deviceClientId = '26be6b09-91c5-47da-9861-d2d2bb7a7e36';
-  static const deviceGrantType =
-      'urn:ietf:params:oauth:grant-type:device_code';
+  static const deviceGrantType = 'urn:ietf:params:oauth:grant-type:device_code';
   static const embeddingLicenseUrl =
       'https://huggingface.co/litert-community/embeddinggemma-300m';
 
@@ -60,8 +59,7 @@ class HfOAuthDeviceService {
 
   static const _pendingDeviceCodeKey = 'hf_oauth_pending_device_code';
   static const _pendingUserCodeKey = 'hf_oauth_pending_user_code';
-  static const _pendingVerificationUriKey =
-      'hf_oauth_pending_verification_uri';
+  static const _pendingVerificationUriKey = 'hf_oauth_pending_verification_uri';
   static const _pendingVerificationCompleteKey =
       'hf_oauth_pending_verification_complete';
   static const _pendingIntervalKey = 'hf_oauth_pending_interval_seconds';
@@ -133,10 +131,7 @@ class HfOAuthDeviceService {
   Future<HfDeviceAuthorization> requestDeviceCode() async {
     final response = await _client.post(
       Uri.parse('$endpoint/oauth/device'),
-      body: const {
-        'client_id': deviceClientId,
-        'scope': 'gated-repos',
-      },
+      body: const {'client_id': deviceClientId, 'scope': 'gated-repos'},
     );
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw StateError(
@@ -232,8 +227,9 @@ class HfOAuthDeviceService {
     }
 
     var interval = pending.intervalSeconds;
-    final pendingDeadline =
-        DateTime.fromMillisecondsSinceEpoch(pendingExpiryMs);
+    final pendingDeadline = DateTime.fromMillisecondsSinceEpoch(
+      pendingExpiryMs,
+    );
     final localDeadline = DateTime.now().add(maxWait);
     final deadline = pendingDeadline.isBefore(localDeadline)
         ? pendingDeadline
@@ -344,10 +340,12 @@ class HfOAuthDeviceService {
   Future<HfDeviceAuthorization?> _loadPendingAuthorization() async {
     final deviceCode = await _storage.read(key: _pendingDeviceCodeKey);
     final userCode = await _storage.read(key: _pendingUserCodeKey);
-    final verificationUri =
-        await _storage.read(key: _pendingVerificationUriKey);
-    final verificationUriComplete =
-        await _storage.read(key: _pendingVerificationCompleteKey);
+    final verificationUri = await _storage.read(
+      key: _pendingVerificationUriKey,
+    );
+    final verificationUriComplete = await _storage.read(
+      key: _pendingVerificationCompleteKey,
+    );
     final interval = int.tryParse(
       await _storage.read(key: _pendingIntervalKey) ?? '',
     );

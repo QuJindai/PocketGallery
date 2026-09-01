@@ -161,31 +161,33 @@ class _RagLineageDashboardPageState extends State<RagLineageDashboardPage> {
   }
 
   Widget _identityCard(BuildContext context) => Card(
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    child: Padding(
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'R4.6-B/C · 完整运行显微镜',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: 6),
+          const Text('Chunk ≠ Vector · Chunk → Embedding → index entry'),
+          const SizedBox(height: 8),
+          const Wrap(
+            spacing: 6,
+            runSpacing: 6,
             children: [
-              Text('R4.6-B/C · 完整运行显微镜',
-                  style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 6),
-              const Text('Chunk ≠ Vector · Chunk → Embedding → index entry'),
-              const SizedBox(height: 8),
-              const Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: [
-                  Chip(label: Text('REAL · 已捕获运行事实')),
-                  Chip(label: Text('DERIVED · 由事实计算')),
-                  Chip(label: Text('ACTIVE · 当前回答路径')),
-                  Chip(label: Text('SHADOW · 隔离实验')),
-                ],
-              ),
-              const Text('未捕获就是未捕获；backend 未暴露时不猜测。'),
+              Chip(label: Text('REAL · 已捕获运行事实')),
+              Chip(label: Text('DERIVED · 由事实计算')),
+              Chip(label: Text('ACTIVE · 当前回答路径')),
+              Chip(label: Text('SHADOW · 隔离实验')),
             ],
           ),
-        ),
-      );
+          const Text('未捕获就是未捕获；backend 未暴露时不猜测。'),
+        ],
+      ),
+    ),
+  );
 
   Widget _traceHeader(BuildContext context, TraceSnapshot data) {
     final trace = data.trace;
@@ -213,8 +215,10 @@ class _RagLineageDashboardPageState extends State<RagLineageDashboardPage> {
                 ],
                 onChanged: loading ? null : _load,
               ),
-            Text(trace.queryText,
-                style: Theme.of(context).textTheme.titleMedium),
+            Text(
+              trace.queryText,
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
             const SizedBox(height: 5),
             SelectableText('Trace ID: ${trace.traceId}'),
             Text(
@@ -235,23 +239,23 @@ class _RagLineageDashboardPageState extends State<RagLineageDashboardPage> {
   }
 
   Widget _stageStrip(TraceSnapshot data) => SingleChildScrollView(
-        key: const ValueKey<String>('rag-stage-strip'),
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: [
-            for (final stage in RagStage.values)
-              Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: ActionChip(
-                  key: ValueKey<String>('rag-stage-${stage.number}'),
-                  avatar: CircleAvatar(child: Text('${stage.number}')),
-                  label: Text('${stage.number} ${stage.title}'),
-                  onPressed: () => _openStage(data, stage),
-                ),
-              ),
-          ],
-        ),
-      );
+    key: const ValueKey<String>('rag-stage-strip'),
+    scrollDirection: Axis.horizontal,
+    child: Row(
+      children: [
+        for (final stage in RagStage.values)
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: ActionChip(
+              key: ValueKey<String>('rag-stage-${stage.number}'),
+              avatar: CircleAvatar(child: Text('${stage.number}')),
+              label: Text('${stage.number} ${stage.title}'),
+              onPressed: () => _openStage(data, stage),
+            ),
+          ),
+      ],
+    ),
+  );
 
   Widget _stageSummaryCard(
     BuildContext context,
@@ -312,15 +316,12 @@ class _RagLineageDashboardPageState extends State<RagLineageDashboardPage> {
   }
 
   List<String> _badgesForStage(RagStage stage) => switch (stage) {
-        RagStage.rank => const <String>['DERIVED', 'ACTIVE'],
-        RagStage.evidence => const <String>['REAL', 'DERIVED', 'ACTIVE'],
-        _ => const <String>['REAL', 'ACTIVE'],
-      };
+    RagStage.rank => const <String>['DERIVED', 'ACTIVE'],
+    RagStage.evidence => const <String>['REAL', 'DERIVED', 'ACTIVE'],
+    _ => const <String>['REAL', 'ACTIVE'],
+  };
 
-  List<TraceEventRecord> _eventsForStage(
-    TraceSnapshot data,
-    RagStage stage,
-  ) {
+  List<TraceEventRecord> _eventsForStage(TraceSnapshot data, RagStage stage) {
     final stages = switch (stage) {
       RagStage.documentParse => const <String>{'document', 'import', 'parse'},
       RagStage.chunk => const <String>{'chunk'},
@@ -344,48 +345,52 @@ class _RagLineageDashboardPageState extends State<RagLineageDashboardPage> {
         .where((candidate) => candidate.lane == RetrievalLane.active)
         .toList(growable: false);
     return switch (stage) {
-      RagStage.documentParse => data.documentsById.isEmpty
-          ? '本轮聊天不执行文档解析 · 导入阶段事实按关联来源显示'
-          : '${data.documentsById.length} 文档 · ${data.sectionsById.length} sections',
-      RagStage.chunk => data.chunksById.isEmpty
-          ? '本轮聊天不执行切片 · 使用已持久化 Chunk'
-          : '${data.chunksById.length} 个关联 Chunk',
-      RagStage.fts => events.isEmpty
-          ? 'FTS5 运行数据未捕获'
-          : '${events.length} 条 FTS5 事件',
-      RagStage.embedding => data.queryEmbedding == null
-          ? 'Query Embedding 未捕获'
-          : '${data.queryEmbedding!.dimension} dims · '
-              '${data.queryEmbedding!.generationMs} ms · REAL',
-      RagStage.vectorSpace => activeCandidates
-              .where((candidate) => candidate.vectorRank != null)
-              .isEmpty
-          ? 'ACTIVE vector search 未捕获'
-          : '${activeCandidates.where((candidate) => candidate.vectorRank != null).length} vector hits',
+      RagStage.documentParse =>
+        data.documentsById.isEmpty
+            ? '本轮聊天不执行文档解析 · 导入阶段事实按关联来源显示'
+            : '${data.documentsById.length} 文档 · ${data.sectionsById.length} sections',
+      RagStage.chunk =>
+        data.chunksById.isEmpty
+            ? '本轮聊天不执行切片 · 使用已持久化 Chunk'
+            : '${data.chunksById.length} 个关联 Chunk',
+      RagStage.fts =>
+        events.isEmpty ? 'FTS5 运行数据未捕获' : '${events.length} 条 FTS5 事件',
+      RagStage.embedding =>
+        data.queryEmbedding == null
+            ? 'Query Embedding 未捕获'
+            : '${data.queryEmbedding!.dimension} dims · '
+                  '${data.queryEmbedding!.generationMs} ms · REAL',
+      RagStage.vectorSpace =>
+        activeCandidates
+                .where((candidate) => candidate.vectorRank != null)
+                .isEmpty
+            ? 'ACTIVE vector search 未捕获'
+            : '${activeCandidates.where((candidate) => candidate.vectorRank != null).length} vector hits',
       RagStage.candidates =>
         '${activeCandidates.length} candidates · selected '
             '${activeCandidates.where((item) => item.selectedForEvidence).length} · '
             'dropped ${activeCandidates.where((item) => item.dropReason != null).length}',
-      RagStage.rank => events.isEmpty
-          ? '融合/重排事件未捕获'
-          : '${events.length} 条融合/重排事件',
-      RagStage.router => data.activeRouter == null
-          ? '路由决策未捕获'
-          : '${data.activeRouter!.finalUseKnowledge ? '使用知识库' : '不使用知识库'} · '
-              '${data.activeRouter!.decisionReason} · '
-              'FTS ${data.activeRouter!.ftsHitCount} · '
-              'top1 ${formatNumber(data.activeRouter!.top1Cosine)}',
-      RagStage.evidence => data.budget == null
-          ? '${data.evidence.length} evidence · prompt budget 未捕获'
-          : '${data.evidence.length} evidence · prefill '
-              '${data.budget!.totalPrefillTokens}/${data.budget!.modelContextLimit} · '
-              'reserve ${data.budget!.outputReserveTokens} · '
-              'trimmed history ${data.budget!.trimmedHistoryMessages} / '
-              'evidence ${data.budget!.trimmedEvidenceItems}',
+      RagStage.rank =>
+        events.isEmpty ? '融合/重排事件未捕获' : '${events.length} 条融合/重排事件',
+      RagStage.router =>
+        data.activeRouter == null
+            ? '路由决策未捕获'
+            : '${data.activeRouter!.finalUseKnowledge ? '使用知识库' : '不使用知识库'} · '
+                  '${data.activeRouter!.decisionReason} · '
+                  'FTS ${data.activeRouter!.ftsHitCount} · '
+                  'top1 ${formatNumber(data.activeRouter!.top1Cosine)}',
+      RagStage.evidence =>
+        data.budget == null
+            ? '${data.evidence.length} evidence · prompt budget 未捕获'
+            : '${data.evidence.length} evidence · prefill '
+                  '${data.budget!.totalPrefillTokens}/${data.budget!.modelContextLimit} · '
+                  'reserve ${data.budget!.outputReserveTokens} · '
+                  'trimmed history ${data.budget!.trimmedHistoryMessages} / '
+                  'evidence ${data.budget!.trimmedEvidenceItems}',
       RagStage.generation => formatGenerationSummary(
-          data.generation,
-          citationCount: data.citations.length,
-        ),
+        data.generation,
+        citationCount: data.citations.length,
+      ),
     };
   }
 
@@ -394,29 +399,35 @@ class _RagLineageDashboardPageState extends State<RagLineageDashboardPage> {
       RagStage.documentParse => DocumentParseMicroscopePage(snapshot: data),
       RagStage.chunk => ChunkLineagePage(engine: widget.engine, snapshot: data),
       RagStage.fts => FtsLineagePage(snapshot: data),
-      RagStage.embedding =>
-        EmbeddingMicroscopePage(engine: widget.engine, snapshot: data),
-      RagStage.vectorSpace =>
-        VectorSpacePage(engine: widget.engine, snapshot: data),
+      RagStage.embedding => EmbeddingMicroscopePage(
+        engine: widget.engine,
+        snapshot: data,
+      ),
+      RagStage.vectorSpace => VectorSpacePage(
+        engine: widget.engine,
+        snapshot: data,
+      ),
       RagStage.candidates => CandidatePoolPage(snapshot: data),
       RagStage.rank => RankTrajectoryPage(snapshot: data),
       RagStage.router => RouterDecisionPage(snapshot: data),
       RagStage.evidence => EvidenceContextPage(snapshot: data),
       RagStage.generation => GenerationCitationPage(snapshot: data),
     };
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (_) => page),
-    );
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => page));
   }
 
   Future<void> _openExperiments(TraceSnapshot data) async {
-    await Navigator.of(context).push(MaterialPageRoute<void>(
-      builder: (_) => RetrievalExperimentCenterPage(
-        store: widget.lineageStore,
-        experimentEngine: widget.engine.experimentEngine,
-        traceId: data.trace.traceId,
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => RetrievalExperimentCenterPage(
+          store: widget.lineageStore,
+          experimentEngine: widget.engine.experimentEngine,
+          traceId: data.trace.traceId,
+        ),
       ),
-    ));
+    );
     await _load(data.trace.traceId);
   }
 
@@ -499,9 +510,9 @@ class _RagLineageDashboardPageState extends State<RagLineageDashboardPage> {
   }
 
   void _showMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 }
 

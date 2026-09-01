@@ -73,8 +73,7 @@ class TraceWaterfallCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Trace 时间瀑布',
-                style: Theme.of(context).textTheme.titleSmall),
+            Text('Trace 时间瀑布', style: Theme.of(context).textTheme.titleSmall),
             const SizedBox(height: 8),
             if (model.entries.isEmpty)
               const Text('当前 Trace 没有可展示的阶段事件。')
@@ -84,10 +83,7 @@ class TraceWaterfallCard extends StatelessWidget {
                   children: [
                     SizedBox(
                       width: 78,
-                      child: Text(
-                        entry.stage,
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                      child: Text(entry.stage, overflow: TextOverflow.ellipsis),
                     ),
                     Expanded(
                       child: entry.fractionOfKnownDuration == null
@@ -103,9 +99,9 @@ class TraceWaterfallCard extends StatelessWidget {
                               child: Container(
                                 height: 12,
                                 decoration: BoxDecoration(
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .primaryContainer,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.primaryContainer,
                                   borderRadius: BorderRadius.circular(6),
                                 ),
                               ),
@@ -139,7 +135,8 @@ class LineageGraphCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final hasSource = snapshot.documentsById.isNotEmpty;
     final hasChunk = snapshot.chunksById.isNotEmpty;
-    final hasEmbedding = snapshot.queryEmbedding != null ||
+    final hasEmbedding =
+        snapshot.queryEmbedding != null ||
         snapshot.candidates.any((candidate) => candidate.embeddingId != null);
     final nodes = <({String label, bool captured})>[
       (label: '文档/页', captured: hasSource),
@@ -156,8 +153,7 @@ class LineageGraphCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Lineage 血缘图',
-                style: Theme.of(context).textTheme.titleSmall),
+            Text('Lineage 血缘图', style: Theme.of(context).textTheme.titleSmall),
             const SizedBox(height: 8),
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
@@ -215,8 +211,10 @@ class ActiveShadowSummaryCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('ACTIVE vs SHADOW',
-                style: Theme.of(context).textTheme.titleSmall),
+            Text(
+              'ACTIVE vs SHADOW',
+              style: Theme.of(context).textTheme.titleSmall,
+            ),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,

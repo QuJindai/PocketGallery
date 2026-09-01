@@ -9,14 +9,7 @@ enum HandsetRunPhase {
   completed,
 }
 
-enum HandsetGateStatus {
-  pending,
-  running,
-  passed,
-  failed,
-  timedOut,
-  blocked,
-}
+enum HandsetGateStatus { pending, running, passed, failed, timedOut, blocked }
 
 enum AcceptanceVerdict { pass, fail, blocked }
 
@@ -24,13 +17,12 @@ enum EvidenceMethod { measured, observed, derived, userAction }
 
 extension HandsetGateStatusTerminal on HandsetGateStatus {
   bool get isTerminal => switch (this) {
-        HandsetGateStatus.passed ||
-        HandsetGateStatus.failed ||
-        HandsetGateStatus.timedOut ||
-        HandsetGateStatus.blocked =>
-          true,
-        HandsetGateStatus.pending || HandsetGateStatus.running => false,
-      };
+    HandsetGateStatus.passed ||
+    HandsetGateStatus.failed ||
+    HandsetGateStatus.timedOut ||
+    HandsetGateStatus.blocked => true,
+    HandsetGateStatus.pending || HandsetGateStatus.running => false,
+  };
 }
 
 const Map<String, int> handsetGateWeights = <String, int>{
@@ -68,15 +60,15 @@ class AcceptanceEvidence {
   final String detail;
 
   Map<String, Object?> toJson() => <String, Object?>{
-        'code': code,
-        'method': method.name,
-        'source': source,
-        'actual': _jsonScalar(actual, 'actual'),
-        'threshold': _jsonScalar(threshold, 'threshold'),
-        'unit': unit,
-        'available': available,
-        'detail': detail,
-      };
+    'code': code,
+    'method': method.name,
+    'source': source,
+    'actual': _jsonScalar(actual, 'actual'),
+    'threshold': _jsonScalar(threshold, 'threshold'),
+    'unit': unit,
+    'available': available,
+    'detail': detail,
+  };
 
   factory AcceptanceEvidence.fromJson(Map<String, dynamic> json) {
     return AcceptanceEvidence(
@@ -123,17 +115,15 @@ class HandsetGateSnapshot {
   }
 
   Map<String, Object?> toJson() => <String, Object?>{
-        'name': name,
-        'label': label,
-        'status': status.name,
-        'detail': detail,
-        'evidence': evidence
-            .map((item) => item.toJson())
-            .toList(growable: false),
-        'startedAt': startedAt?.toUtc().toIso8601String(),
-        'finishedAt': finishedAt?.toUtc().toIso8601String(),
-        'durationMs': duration?.inMilliseconds,
-      };
+    'name': name,
+    'label': label,
+    'status': status.name,
+    'detail': detail,
+    'evidence': evidence.map((item) => item.toJson()).toList(growable: false),
+    'startedAt': startedAt?.toUtc().toIso8601String(),
+    'finishedAt': finishedAt?.toUtc().toIso8601String(),
+    'durationMs': duration?.inMilliseconds,
+  };
 
   factory HandsetGateSnapshot.fromJson(Map<String, dynamic> json) {
     final rawEvidence = json['evidence'];
@@ -149,12 +139,14 @@ class HandsetGateSnapshot {
         'status',
       ),
       detail: _requiredString(json, 'detail'),
-      evidence: rawEvidence.map((item) {
-        if (item is! Map) {
-          throw const FormatException('evidence item must be an object');
-        }
-        return AcceptanceEvidence.fromJson(Map<String, dynamic>.from(item));
-      }).toList(growable: false),
+      evidence: rawEvidence
+          .map((item) {
+            if (item is! Map) {
+              throw const FormatException('evidence item must be an object');
+            }
+            return AcceptanceEvidence.fromJson(Map<String, dynamic>.from(item));
+          })
+          .toList(growable: false),
       startedAt: _optionalDateTime(json, 'startedAt'),
       finishedAt: _optionalDateTime(json, 'finishedAt'),
     );
@@ -191,14 +183,16 @@ class HandsetAcceptanceSnapshot {
   int get schemaVersion => currentSchemaVersion;
 
   AcceptanceVerdict get verdict {
-    final hasFailure = cleanupError != null ||
+    final hasFailure =
+        cleanupError != null ||
         gates.any(
           (gate) =>
               gate.status == HandsetGateStatus.failed ||
               gate.status == HandsetGateStatus.timedOut,
         );
     if (hasFailure) return AcceptanceVerdict.fail;
-    final incomplete = phase != HandsetRunPhase.completed ||
+    final incomplete =
+        phase != HandsetRunPhase.completed ||
         gates.isEmpty ||
         gates.any((gate) => gate.status != HandsetGateStatus.passed);
     return incomplete ? AcceptanceVerdict.blocked : AcceptanceVerdict.pass;
@@ -221,20 +215,20 @@ class HandsetAcceptanceSnapshot {
   }
 
   Map<String, Object?> toJson() => <String, Object?>{
-        'schemaVersion': schemaVersion,
-        'runId': runId,
-        'phase': phase.name,
-        'startedAt': startedAt.toUtc().toIso8601String(),
-        'updatedAt': updatedAt.toUtc().toIso8601String(),
-        'percent': percent,
-        'verdict': verdict.name,
-        'gates': gates.map((gate) => gate.toJson()).toList(growable: false),
-        'nestedGolden': nestedGolden?.toJson(),
-        'cleanupError': cleanupError,
-        'reportPath': reportPath,
-        'baselineVersionCode': baselineVersionCode,
-        'mergeCandidate': mergeCandidate,
-      };
+    'schemaVersion': schemaVersion,
+    'runId': runId,
+    'phase': phase.name,
+    'startedAt': startedAt.toUtc().toIso8601String(),
+    'updatedAt': updatedAt.toUtc().toIso8601String(),
+    'percent': percent,
+    'verdict': verdict.name,
+    'gates': gates.map((gate) => gate.toJson()).toList(growable: false),
+    'nestedGolden': nestedGolden?.toJson(),
+    'cleanupError': cleanupError,
+    'reportPath': reportPath,
+    'baselineVersionCode': baselineVersionCode,
+    'mergeCandidate': mergeCandidate,
+  };
 
   factory HandsetAcceptanceSnapshot.fromJson(Map<String, dynamic> json) {
     final schemaVersion = _requiredInt(json, 'schemaVersion');
@@ -257,12 +251,16 @@ class HandsetAcceptanceSnapshot {
       ),
       startedAt: DateTime.parse(_requiredString(json, 'startedAt')),
       updatedAt: DateTime.parse(_requiredString(json, 'updatedAt')),
-      gates: rawGates.map((gate) {
-        if (gate is! Map) {
-          throw const FormatException('gate must be an object');
-        }
-        return HandsetGateSnapshot.fromJson(Map<String, dynamic>.from(gate));
-      }).toList(growable: false),
+      gates: rawGates
+          .map((gate) {
+            if (gate is! Map) {
+              throw const FormatException('gate must be an object');
+            }
+            return HandsetGateSnapshot.fromJson(
+              Map<String, dynamic>.from(gate),
+            );
+          })
+          .toList(growable: false),
       nestedGolden: rawNested == null
           ? null
           : GoldenTestSnapshot.fromJson(

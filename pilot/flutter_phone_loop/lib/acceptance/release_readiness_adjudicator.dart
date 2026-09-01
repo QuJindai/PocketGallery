@@ -27,10 +27,7 @@ final class DeviceAcceptanceEvidence {
       );
     }
     final identity = _requiredMap(json, 'identity');
-    final baselineVersionCode = _nullableInt(
-      json,
-      'baselineVersionCode',
-    );
+    final baselineVersionCode = _nullableInt(json, 'baselineVersionCode');
     final nestedValue = json['nestedGolden'];
     final nestedGolden = nestedValue == null
         ? null
@@ -44,10 +41,7 @@ final class DeviceAcceptanceEvidence {
       baselineVersionCode: baselineVersionCode,
       signerSha256: _sha256(identity, 'signerSha256'),
       apkSha256: _sha256(identity, 'apkSha256'),
-      phoneFunctionLoop: _releaseStatus(
-        json,
-        'PHONE_FUNCTION_LOOP',
-      ),
+      phoneFunctionLoop: _releaseStatus(json, 'PHONE_FUNCTION_LOOP'),
       deviceAcceptance: _releaseStatus(json, 'DEVICE_ACCEPTANCE'),
       mergeCandidate: _requiredBool(json, 'MERGE_CANDIDATE'),
       gateStatuses: _gateStatuses(
@@ -93,25 +87,17 @@ final class AutomatedReleaseEvidence {
   factory AutomatedReleaseEvidence.fromJson(Map<String, dynamic> json) {
     final schema = _requiredString(json, 'schema');
     if (schema != 'pocketgallery.r50.automated-evidence.v1') {
-      throw FormatException(
-        'Unsupported automated evidence schema: $schema',
-      );
+      throw FormatException('Unsupported automated evidence schema: $schema');
     }
     return AutomatedReleaseEvidence._(
       sourceCommit: _sourceCommit(json, 'sourceCommit'),
-      automatedGatesPassed: _requiredBool(
-        json,
-        'automatedGatesPassed',
-      ),
+      automatedGatesPassed: _requiredBool(json, 'automatedGatesPassed'),
       packageName: _requiredString(json, 'packageName'),
       baselineVersionCode: _requiredInt(json, 'baselineVersionCode'),
       versionCode: _requiredInt(json, 'versionCode'),
       signerSha256: _sha256(json, 'signerSha256'),
       apkSha256: _sha256(json, 'apkSha256'),
-      workflowIdentity: _requiredNonEmptyString(
-        json,
-        'workflowIdentity',
-      ),
+      workflowIdentity: _requiredNonEmptyString(json, 'workflowIdentity'),
     );
   }
 
@@ -141,13 +127,13 @@ final class ReleaseReadinessDecision {
   final String apkSha256;
 
   Map<String, Object?> toJson() => <String, Object?>{
-        'schema': 'pocketgallery.r50.merge-readiness.v1',
-        'mergeReady': mergeReady,
-        'reasons': reasons,
-        'sourceCommit': sourceCommit,
-        'versionCode': versionCode,
-        'apkSha256': apkSha256,
-      };
+    'schema': 'pocketgallery.r50.merge-readiness.v1',
+    'mergeReady': mergeReady,
+    'reasons': reasons,
+    'sourceCommit': sourceCommit,
+    'versionCode': versionCode,
+    'apkSha256': apkSha256,
+  };
 }
 
 abstract final class ReleaseReadinessAdjudicator {
@@ -156,10 +142,7 @@ abstract final class ReleaseReadinessAdjudicator {
     AutomatedReleaseEvidence automatedEvidence,
     String sidecarSha256,
   ) {
-    final normalizedSidecar = _normalizeSha256(
-      sidecarSha256,
-      'sidecarSha256',
-    );
+    final normalizedSidecar = _normalizeSha256(sidecarSha256, 'sidecarSha256');
     final reasons = <String>[];
 
     if (deviceReport.sourceCommit != automatedEvidence.sourceCommit) {
@@ -244,9 +227,7 @@ final class _NestedGoldenEvidence {
     }
     final cleanupValue = json['cleanupError'];
     if (cleanupValue != null && cleanupValue is! String) {
-      throw const FormatException(
-        'cleanupError must be a string or null',
-      );
+      throw const FormatException('cleanupError must be a string or null');
     }
     return _NestedGoldenEvidence._(
       phase: phase,

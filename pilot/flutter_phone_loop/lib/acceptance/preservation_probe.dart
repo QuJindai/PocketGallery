@@ -22,15 +22,15 @@ final class PreservationProbe {
   final bool Function() hasActiveModel;
   final bool Function() hasActiveEmbedder;
 
-  Future<PreservationSnapshot> capture(
-    DeviceIdentitySnapshot identity,
-  ) async {
+  Future<PreservationSnapshot> capture(DeviceIdentitySnapshot identity) async {
     final documents = await engine.listDocuments();
-    documents.sort((left, right) => left.documentId.compareTo(right.documentId));
+    documents.sort(
+      (left, right) => left.documentId.compareTo(right.documentId),
+    );
     final sessions = await chatStore.listSessions();
     sessions.sort((left, right) => left.id.compareTo(right.id));
-    final vectorIdentities =
-        await engine.semanticStore.observationStore.listIdentities();
+    final vectorIdentities = await engine.semanticStore.observationStore
+        .listIdentities();
     final traceIds = await engine.lineageStore.traceIds();
     final oauthState = await oauth.inspectCredentialState();
 
@@ -140,21 +140,21 @@ final class PreservationSnapshot {
     required Map<String, int> chatMessageCounts,
     required Map<String, String> vectorStates,
     required Map<String, String> lineageStates,
-  })  : knowledgeStates = Map<String, String>.unmodifiable(
-          _sortStringMap(knowledgeStates),
-        ),
-        chatStates = Map<String, String>.unmodifiable(
-          _sortStringMap(chatStates),
-        ),
-        chatMessageCounts = Map<String, int>.unmodifiable(
-          _sortIntMap(chatMessageCounts),
-        ),
-        vectorStates = Map<String, String>.unmodifiable(
-          _sortStringMap(vectorStates),
-        ),
-        lineageStates = Map<String, String>.unmodifiable(
-          _sortStringMap(lineageStates),
-        ) {
+  }) : knowledgeStates = Map<String, String>.unmodifiable(
+         _sortStringMap(knowledgeStates),
+       ),
+       chatStates = Map<String, String>.unmodifiable(
+         _sortStringMap(chatStates),
+       ),
+       chatMessageCounts = Map<String, int>.unmodifiable(
+         _sortIntMap(chatMessageCounts),
+       ),
+       vectorStates = Map<String, String>.unmodifiable(
+         _sortStringMap(vectorStates),
+       ),
+       lineageStates = Map<String, String>.unmodifiable(
+         _sortStringMap(lineageStates),
+       ) {
     if (schemaVersion != currentSchemaVersion) {
       throw FormatException('Unsupported preservation schema: $schemaVersion');
     }
@@ -216,53 +216,51 @@ final class PreservationSnapshot {
   final Map<String, String> vectorStates;
   final Map<String, String> lineageStates;
 
-  int get chatMessageCount => chatMessageCounts.values.fold<int>(
-        0,
-        (sum, count) => sum + count,
-      );
+  int get chatMessageCount =>
+      chatMessageCounts.values.fold<int>(0, (sum, count) => sum + count);
 
   Map<String, Object?> get reportSummary => <String, Object?>{
-        'schemaVersion': schemaVersion,
-        'versionCode': versionCode,
-        'packageName': packageName,
-        'signerSha256': signerSha256,
-        'hasActiveModel': hasActiveModel,
-        'hasActiveEmbedder': hasActiveEmbedder,
-        'oauthAccessPresent': oauthAccessPresent,
-        'oauthRefreshPresent': oauthRefreshPresent,
-        'oauthExpiry': oauthExpiry.name,
-        'knowledgeCount': knowledgeStates.length,
-        'knowledgeDigest': _digestStateMap(knowledgeStates),
-        'chatSessionCount': chatStates.length,
-        'chatMessageCount': chatMessageCount,
-        'chatDigest': _digestStateMap(chatStates),
-        'embeddingObservationCount': vectorStates.length,
-        'embeddingObservationDigest': _digestStateMap(vectorStates),
-        'lineageTraceCount': lineageStates.length,
-        'lineageDigest': _digestStateMap(lineageStates),
-      };
+    'schemaVersion': schemaVersion,
+    'versionCode': versionCode,
+    'packageName': packageName,
+    'signerSha256': signerSha256,
+    'hasActiveModel': hasActiveModel,
+    'hasActiveEmbedder': hasActiveEmbedder,
+    'oauthAccessPresent': oauthAccessPresent,
+    'oauthRefreshPresent': oauthRefreshPresent,
+    'oauthExpiry': oauthExpiry.name,
+    'knowledgeCount': knowledgeStates.length,
+    'knowledgeDigest': _digestStateMap(knowledgeStates),
+    'chatSessionCount': chatStates.length,
+    'chatMessageCount': chatMessageCount,
+    'chatDigest': _digestStateMap(chatStates),
+    'embeddingObservationCount': vectorStates.length,
+    'embeddingObservationDigest': _digestStateMap(vectorStates),
+    'lineageTraceCount': lineageStates.length,
+    'lineageDigest': _digestStateMap(lineageStates),
+  };
 
   Map<String, Object?> toJson() => <String, Object?>{
-        'schemaVersion': schemaVersion,
-        'versionCode': versionCode,
-        'packageName': packageName,
-        'signerSha256': signerSha256,
-        'hasActiveModel': hasActiveModel,
-        'hasActiveEmbedder': hasActiveEmbedder,
-        'oauthAccessPresent': oauthAccessPresent,
-        'oauthRefreshPresent': oauthRefreshPresent,
-        'oauthExpiry': oauthExpiry.name,
-        'knowledgeStates': knowledgeStates,
-        'chatStates': chatStates,
-        'chatMessageCounts': chatMessageCounts,
-        'vectorStates': vectorStates,
-        'lineageStates': lineageStates,
-      };
+    'schemaVersion': schemaVersion,
+    'versionCode': versionCode,
+    'packageName': packageName,
+    'signerSha256': signerSha256,
+    'hasActiveModel': hasActiveModel,
+    'hasActiveEmbedder': hasActiveEmbedder,
+    'oauthAccessPresent': oauthAccessPresent,
+    'oauthRefreshPresent': oauthRefreshPresent,
+    'oauthExpiry': oauthExpiry.name,
+    'knowledgeStates': knowledgeStates,
+    'chatStates': chatStates,
+    'chatMessageCounts': chatMessageCounts,
+    'vectorStates': vectorStates,
+    'lineageStates': lineageStates,
+  };
 }
 
 final class PreservationComparison {
   PreservationComparison._(Set<String> reasonCodes)
-      : reasonCodes = List<String>.unmodifiable(reasonCodes);
+    : reasonCodes = List<String>.unmodifiable(reasonCodes);
 
   factory PreservationComparison.compare({
     required PreservationSnapshot baseline,
@@ -398,10 +396,7 @@ Map<String, int> _sortIntMap(Map<String, int> value) {
   return <String, int>{for (final key in keys) key: value[key]!};
 }
 
-Map<String, String> _decodeDigestMap(
-  Map<String, Object?> value,
-  String key,
-) {
+Map<String, String> _decodeDigestMap(Map<String, Object?> value, String key) {
   final raw = value[key];
   if (raw is! Map) throw FormatException('$key must be a map');
   final decoded = <String, String>{};
@@ -419,17 +414,17 @@ Map<String, String> _decodeDigestMap(
   return decoded;
 }
 
-Map<String, int> _decodeCountMap(
-  Map<String, Object?> value,
-  String key,
-) {
+Map<String, int> _decodeCountMap(Map<String, Object?> value, String key) {
   final raw = value[key];
   if (raw is! Map) throw FormatException('$key must be a map');
   final decoded = <String, int>{};
   for (final entry in raw.entries) {
     final identity = entry.key;
     final count = entry.value;
-    if (identity is! String || !_isSha256(identity) || count is! int || count < 0) {
+    if (identity is! String ||
+        !_isSha256(identity) ||
+        count is! int ||
+        count < 0) {
       throw FormatException('$key contains an invalid count entry');
     }
     decoded[identity] = count;
