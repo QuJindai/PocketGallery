@@ -306,14 +306,14 @@ git commit -m "feat(r49): ship readable rotatable vector space"
 
 **Interfaces:**
 - Consumes: Tasks 1–4 and all existing R2–R4.8 regression gates.
-- Produces: version `0.4.18+21`, passing analysis/tests, arm64 debug APK and verifiable hashes.
+- Produces: version `0.4.17+21`, Android versionCode `2021`, passing analysis/tests, arm64 debug APK and verifiable hashes.
 
 - [ ] **Step 1: Add the release contract and bump version**
 
 Update `pubspec.yaml` to:
 
 ```yaml
-version: 0.4.18+21
+version: 0.4.17+21
 ```
 
 Update the release matrix with: exact captured vector, 128-point cap, actual PCA variance, 3D rotation, pinch zoom, point selection, readable evidence sheet, 360 px layout and no fixed oblique projection.
@@ -343,7 +343,7 @@ bash scripts/bootstrap_android.sh
 flutter build apk --debug --target-platform android-arm64 --split-per-abi
 ```
 
-Verify package `com.qujindai.pocketgallery_phone_pilot.r3`, versionCode `21`, ABI `arm64-v8a`, APK non-empty and SHA-256 recorded.
+Verify package `com.qujindai.pocketgallery_phone_pilot.r3`, versionCode `2021`, ABI `arm64-v8a`, APK non-empty and SHA-256 recorded.
 
 - [ ] **Step 4: Commit release evidence**
 

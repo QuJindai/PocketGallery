@@ -106,7 +106,8 @@ jobs:
       - name: Build arm64 debug APK
         working-directory: pilot/flutter_phone_loop
         run: |
-          flutter build apk --debug --target-platform android-arm64 --split-per-abi
+          ANDROID_VERSION_CODE="$(bash scripts/android_version_code.sh)"
+          flutter build apk --debug --target-platform android-arm64 --split-per-abi --build-number="$ANDROID_VERSION_CODE"
           cp build/app/outputs/flutter-apk/app-arm64-v8a-debug.apk build/app/outputs/flutter-apk/app-debug.apk
 
       - name: Verify package, version, ABI and canonical signing certificate

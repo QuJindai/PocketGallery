@@ -38,3 +38,34 @@ jobs:
       - name: Full Flutter regression suite
         working-directory: pilot/flutter_phone_loop
         run: flutter test
+      - name: Bootstrap Android scaffold
+        working-directory: pilot/flutter_phone_loop
+        run: bash scripts/bootstrap_android.sh
+      - name: Build R4.9 arm64 debug APK
+        working-directory: pilot/flutter_phone_loop
+        shell: bash
+        run: |
+          set -euo pipefail
+          ANDROID_VERSION_CODE="$(bash scripts/android_version_code.sh)"
+          flutter build apk --debug --target-platform android-arm64 --split-per-abi --build-number="$ANDROID_VERSION_CODE"
+          APK=build/app/outputs/flutter-apk/app-arm64-v8a-debug.apk
+          test -s "$APK"
+          ABIS="$(unzip -Z1 "$APK" | grep -E '^lib/[^/]+/.*\.so$' | sed -E 's#^lib/([^/]+)/.*#\1#' | sort -u | paste -sd, -)"
+          test "$ABIS" = "arm64-v8a"
+          AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)"
+          BADGING="$($AAPT dump badging "$APK")"
+          PKG="$(printf '%s\n' "$BADGING" | sed -n "s/^package: name='\([^']*\)'.*/\1/p" | head -1)"
+          VERSION_CODE="$(printf '%s\n' "$BADGING" | sed -n "s/^package:.*versionCode='\([^']*\)'.*/\1/p" | head -1)"
+          test "$PKG" = "com.qujindai.pocketgallery_phone_pilot.r3"
+          test "$VERSION_CODE" = "$ANDROID_VERSION_CODE"
+          cp "$APK" build/app/outputs/flutter-apk/PocketGallery-R49-rotatable-3d-debug.apk
+          sha256sum build/app/outputs/flutter-apk/PocketGallery-R49-rotatable-3d-debug.apk > build/app/outputs/flutter-apk/PocketGallery-R49-rotatable-3d-debug.apk.sha256
+      - name: Upload R4.9 debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: PocketGallery-R49-rotatable-3d-debug-apk
+          path: |
+            pilot/flutter_phone_loop/build/app/outputs/flutter-apk/PocketGallery-R49-rotatable-3d-debug.apk
+            pilot/flutter_phone_loop/build/app/outputs/flutter-apk/PocketGallery-R49-rotatable-3d-debug.apk.sha256
+          if-no-files-found: error
+          retention-days: 14
