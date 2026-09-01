@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
 import '../../acceptance/vector_interaction_evidence.dart';
@@ -224,6 +225,8 @@ class _InteractiveVectorPlotState extends State<InteractiveVectorPlot> {
   VectorCamera camera = _defaultCamera;
   VectorCamera gestureStartCamera = _defaultCamera;
   Offset gestureStartFocalPoint = Offset.zero;
+  Offset gestureStartLocalFocalPoint = Offset.zero;
+  Size plotSize = Size.zero;
   bool twoPointersObserved = false;
   String? selectedId;
 
@@ -284,17 +287,27 @@ class _InteractiveVectorPlotState extends State<InteractiveVectorPlot> {
                 constraints.maxWidth.isFinite ? constraints.maxWidth : 1,
                 constraints.maxHeight.isFinite ? constraints.maxHeight : 1,
               );
+              plotSize = size;
               return Semantics(
                 container: true,
                 image: true,
                 label: '三维向量图：单指旋转，双指缩放，点按查看证据',
-                child: GestureDetector(
+                child: RawGestureDetector(
                   key: const ValueKey<String>('vector-3d-gesture-surface'),
                   behavior: HitTestBehavior.opaque,
-                  onScaleStart: _handleScaleStart,
-                  onScaleUpdate: _handleScaleUpdate,
-                  onScaleEnd: _handleScaleEnd,
-                  onTapUp: (details) => _handleTap(details.localPosition, size),
+                  gestures: <Type, GestureRecognizerFactory>{
+                    _EagerScaleGestureRecognizer:
+                        GestureRecognizerFactoryWithHandlers<
+                            _EagerScaleGestureRecognizer>(
+                      _EagerScaleGestureRecognizer.new,
+                      (recognizer) {
+                        recognizer
+                          ..onStart = _handleScaleStart
+                          ..onUpdate = _handleScaleUpdate
+                          ..onEnd = _handleScaleEnd;
+                      },
+                    ),
+                  },
                   child: CustomPaint(
                     key: const ValueKey<String>('vector-3d-canvas'),
                     painter: VectorSpace3dPainter(
@@ -357,6 +370,7 @@ class _InteractiveVectorPlotState extends State<InteractiveVectorPlot> {
   void _handleScaleStart(ScaleStartDetails details) {
     gestureStartCamera = camera;
     gestureStartFocalPoint = details.focalPoint;
+    gestureStartLocalFocalPoint = details.localFocalPoint;
     twoPointersObserved = details.pointerCount >= 2;
   }
 
@@ -404,7 +418,9 @@ class _InteractiveVectorPlotState extends State<InteractiveVectorPlot> {
           pointId: null,
         ),
       );
+      return;
     }
+    _handleTap(gestureStartLocalFocalPoint, plotSize);
   }
 
   void _handleTap(Offset localPosition, Size size) {
@@ -433,6 +449,14 @@ class _InteractiveVectorPlotState extends State<InteractiveVectorPlot> {
         pointId: closest.point.id,
       ),
     );
+  }
+}
+
+class _EagerScaleGestureRecognizer extends ScaleGestureRecognizer {
+  @override
+  void addAllowedPointer(PointerDownEvent event) {
+    super.addAllowedPointer(event);
+    resolve(GestureDisposition.accepted);
   }
 }
 
