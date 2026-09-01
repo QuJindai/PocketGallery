@@ -63,8 +63,9 @@ class ChatOrchestrator {
 
   Future<ChatMessage> sendMessage(String sessionId, String text) async {
     final clean = text.trim();
-    if (clean.isEmpty)
+    if (clean.isEmpty) {
       throw ArgumentError.value(text, 'text', 'Message is empty');
+    }
 
     var session = await store.getSession(sessionId);
     if (session == null) throw StateError('Unknown chat session: $sessionId');
