@@ -36,9 +36,11 @@ abstract final class GoldenReasonCodeContract {
     if (reasonCode is! String || !_stableReasonCode.hasMatch(reasonCode)) {
       return false;
     }
-    return reasonCode.split('|').every(
-      (code) =>
-          !_genericReasonCodes.contains(code) || code == expectedGeneric,
-    );
+    return reasonCode
+        .split('|')
+        .every(
+          (code) =>
+              !_genericReasonCodes.contains(code) || code == expectedGeneric,
+        );
   }
 }

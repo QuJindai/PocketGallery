@@ -178,10 +178,9 @@ class GoldenGateExecutor {
     GoldenCleanupCallback callback,
     String timeoutCode,
   ) {
-    return Future<void>.sync(callback).timeout(
-      cleanupTimeout,
-      onTimeout: () => throw StateError(timeoutCode),
-    );
+    return Future<void>.sync(
+      callback,
+    ).timeout(cleanupTimeout, onTimeout: () => throw StateError(timeoutCode));
   }
 
   GoldenTestSnapshot _replaceGate(

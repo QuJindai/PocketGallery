@@ -52,13 +52,7 @@ jobs:
         run: flutter pub get
       - name: Verify Dart formatting
         working-directory: pilot/flutter_phone_loop
-        run: |
-          set -euo pipefail
-          if ! dart format --output=none --set-exit-if-changed lib test tool; then
-            dart format lib test tool
-            git diff -- lib/acceptance/golden_reason_code_contract.dart lib/acceptance/handset_report_exporter.dart lib/acceptance/release_readiness_adjudicator.dart lib/services/golden_gate_executor.dart lib/services/golden_test_runner.dart test/r50_handset_report_redaction_test.dart
-            exit 1
-          fi
+        run: dart format --output=none --set-exit-if-changed lib test tool
       - name: Analyze R5.0
         working-directory: pilot/flutter_phone_loop
         run: flutter analyze
