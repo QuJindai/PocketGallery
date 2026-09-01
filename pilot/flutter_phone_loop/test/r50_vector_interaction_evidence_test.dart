@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pocketgallery_phone_pilot/acceptance/vector_interaction_evidence.dart';
-import 'package:pocketgallery_phone_pilot/core/models.dart';
 import 'package:pocketgallery_phone_pilot/lineage/lineage_models.dart';
 import 'package:pocketgallery_phone_pilot/observability/trace_vector_space_service.dart';
 import 'package:pocketgallery_phone_pilot/ui/microscope/vector_space_3d.dart';
