@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:pocketgallery_phone_pilot/acceptance/handset_acceptance_models.dart';
 import 'package:pocketgallery_phone_pilot/acceptance/handset_report_exporter.dart';
 import 'package:pocketgallery_phone_pilot/acceptance/pocketgallery_build_identity.dart';
+import 'package:pocketgallery_phone_pilot/acceptance/release_readiness_adjudicator.dart';
 import 'package:pocketgallery_phone_pilot/services/golden_test_state.dart';
 
 void main() {
@@ -134,7 +135,68 @@ void main() {
       expect(encoded, isNot(contains('hf_secret_private')));
     },
   );
+
+  test('exported stable Golden reasons round-trip through adjudication', () {
+    final startedAt = DateTime.utc(2026, 9, 1, 2);
+    final nestedGolden = GoldenTestSnapshot(
+      runId: 'golden-reason-round-trip',
+      phase: GoldenRunPhase.completed,
+      startedAt: startedAt,
+      updatedAt: startedAt.add(const Duration(seconds: 1)),
+      gates: <GoldenGateSnapshot>[
+        for (var index = 0; index < _goldenGateNames.length; index += 1)
+          GoldenGateSnapshot(
+            name: _goldenGateNames[index],
+            label: _goldenGateNames[index],
+            timeout: const Duration(seconds: 1),
+            status: index == 5
+                ? GoldenGateStatus.blocked
+                : GoldenGateStatus.passed,
+            detail: index == 5
+                ? 'PROCESS_INTERRUPTED|USER_CANCELLED'
+                : 'pass',
+            startedAt: startedAt,
+            finishedAt: startedAt.add(const Duration(seconds: 1)),
+          ),
+      ],
+    );
+    final report =
+        jsonDecode(
+              utf8.decode(
+                HandsetReportExporter.encodeRedacted(
+                  _terminalSnapshot(
+                    h4Status: HandsetGateStatus.blocked,
+                    nestedGolden: nestedGolden,
+                  ),
+                ),
+              ),
+            )
+            as Map<String, dynamic>;
+
+    final evidence = DeviceAcceptanceEvidence.fromJson(report);
+    final nested = report['nestedGolden'] as Map<String, dynamic>;
+    final gates = nested['gates'] as List<dynamic>;
+
+    expect(evidence.nestedGoldenPassed, isFalse);
+    expect(
+      (gates[5] as Map<String, dynamic>)['reasonCode'],
+      'PROCESS_INTERRUPTED|USER_CANCELLED',
+    );
+  });
 }
+
+const List<String> _goldenGateNames = <String>[
+  'F1_IMPORT_CHUNK',
+  'F2_FTS5',
+  'F3_EMBEDDING',
+  'F4_HYBRID_RERANK',
+  'F5_EVIDENCE',
+  'F6_GEMMA_CITATION',
+  'F7_CHAT_REALWORLD',
+  'F8_RUNTIME_LINEAGE',
+  'F9_QUERY_VECTOR_IDENTITY',
+  'F10_CONTEXT_BUDGET',
+];
 
 HandsetAcceptanceSnapshot _terminalSnapshot({
   required HandsetGateStatus h4Status,

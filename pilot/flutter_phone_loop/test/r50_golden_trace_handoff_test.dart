@@ -183,6 +183,58 @@ void main() {
   );
 
   test(
+    'interrupt close timeout is latched across terminal cleanup',
+    () async {
+      var closeCount = 0;
+      final firstNativeClose = Completer<void>();
+      final control = GoldenRunControl(
+        closeActiveModel: () {
+          closeCount += 1;
+          if (closeCount == 1) return firstNativeClose.future;
+          return Future<void>.value();
+        },
+      );
+
+      final snapshot = await _compressTimer(
+        const Duration(seconds: 5),
+        () async {
+          await expectLater(
+            control.interrupt('USER_CANCELLED'),
+            throwsA(
+              isA<StateError>().having(
+                (error) => error.message,
+                'message',
+                'GOLDEN_MODEL_CLOSE_TIMEOUT',
+              ),
+            ),
+          );
+          await Future<void>.delayed(Duration.zero);
+          return GoldenGateExecutor().execute(
+            runId: 'golden-close-timeout-latched',
+            gates: <GoldenGateSpec>[
+              GoldenGateSpec(
+                name: 'F1_IMPORT_CHUNK',
+                label: 'fixture',
+                timeout: const Duration(seconds: 1),
+                run: () async =>
+                    const GateResult('F1_IMPORT_CHUNK', true, 'pass'),
+              ),
+            ],
+            cleanup: control.closeActiveModel,
+          );
+        },
+      );
+      firstNativeClose.complete();
+      await Future<void>.delayed(Duration.zero);
+
+      expect(closeCount, 1);
+      expect(snapshot.phase, GoldenRunPhase.completed);
+      expect(snapshot.cleanupError, contains('GOLDEN_MODEL_CLOSE_TIMEOUT'));
+      expect(control.reasonCode, 'USER_CANCELLED');
+    },
+  );
+
+  test(
     'late interruption preserves terminal failure and cleanup evidence',
     () async {
       final startedAt = DateTime.utc(2026, 9, 1);
@@ -257,6 +309,24 @@ void main() {
     expect(source, contains('if (_closed)'));
     expect(source, contains('await acquired.close()'));
   });
+}
+
+Future<T> _compressTimer<T>(
+  Duration target,
+  Future<T> Function() action,
+) {
+  return runZoned(
+    action,
+    zoneSpecification: ZoneSpecification(
+      createTimer: (self, parent, zone, duration, callback) {
+        return parent.createTimer(
+          zone,
+          duration == target ? Duration.zero : duration,
+          callback,
+        );
+      },
+    ),
+  );
 }
 
 final class _SnapshotExecutor extends GoldenGateExecutor {

@@ -174,6 +174,85 @@ void main() {
       expect(result.passed, isFalse);
     });
 
+    test('a hung gate-timeout cleanup has a terminal boundary', () async {
+      final gateOperation = Completer<GateResult>();
+      final timeoutCleanup = Completer<void>();
+      final execution = _compressTimer(
+        const Duration(seconds: 12),
+        () => GoldenGateExecutor().execute(
+          runId: 'r50-timeout-cleanup-boundary',
+          gates: <GoldenGateSpec>[
+            GoldenGateSpec(
+              name: 'F1_IMPORT_CHUNK',
+              label: 'Import and chunk fixture',
+              timeout: const Duration(milliseconds: 5),
+              run: () => gateOperation.future,
+            ),
+          ],
+          onGateTimeout: (_) => timeoutCleanup.future,
+        ),
+      );
+
+      final outcome = await Future.any<Object>(<Future<Object>>[
+        execution,
+        Future<Object>.delayed(
+          const Duration(milliseconds: 250),
+          () => 'WATCHDOG_EXPIRED',
+        ),
+      ]);
+      if (!timeoutCleanup.isCompleted) timeoutCleanup.complete();
+      if (!gateOperation.isCompleted) {
+        gateOperation.complete(
+          const GateResult('F1_IMPORT_CHUNK', true, 'late completion'),
+        );
+      }
+      await execution;
+
+      expect(outcome, isA<GoldenTestSnapshot>());
+      final snapshot = outcome as GoldenTestSnapshot;
+      expect(snapshot.phase, GoldenRunPhase.completed);
+      expect(
+        snapshot.gates.single.detail,
+        contains('GOLDEN_GATE_TIMEOUT_CLEANUP_TIMEOUT'),
+      );
+    });
+
+    test('a hung final cleanup has a terminal evidence boundary', () async {
+      final finalCleanup = Completer<void>();
+      final execution = _compressTimer(
+        const Duration(seconds: 12),
+        () => GoldenGateExecutor().execute(
+          runId: 'r50-final-cleanup-boundary',
+          gates: <GoldenGateSpec>[
+            GoldenGateSpec(
+              name: 'F1_IMPORT_CHUNK',
+              label: 'Import and chunk fixture',
+              timeout: const Duration(seconds: 1),
+              run: () async =>
+                  const GateResult('F1_IMPORT_CHUNK', true, 'pass'),
+            ),
+          ],
+          cleanup: () => finalCleanup.future,
+        ),
+      );
+
+      final outcome = await Future.any<Object>(<Future<Object>>[
+        execution,
+        Future<Object>.delayed(
+          const Duration(milliseconds: 250),
+          () => 'WATCHDOG_EXPIRED',
+        ),
+      ]);
+      if (!finalCleanup.isCompleted) finalCleanup.complete();
+      await execution;
+
+      expect(outcome, isA<GoldenTestSnapshot>());
+      final snapshot = outcome as GoldenTestSnapshot;
+      expect(snapshot.phase, GoldenRunPhase.completed);
+      expect(snapshot.cleanupError, contains('GOLDEN_CLEANUP_TIMEOUT'));
+      expect(snapshot.passed, isFalse);
+    });
+
     test('snapshot JSON round-trip preserves terminal gate evidence', () {
       final startedAt = DateTime.utc(2026, 8, 29, 12);
       final finishedAt = startedAt.add(const Duration(seconds: 3));
@@ -521,6 +600,24 @@ void main() {
       expect(int.parse(match!.group(1)!), greaterThanOrEqualTo(18));
     });
   });
+}
+
+Future<T> _compressTimer<T>(
+  Duration target,
+  Future<T> Function() action,
+) {
+  return runZoned(
+    action,
+    zoneSpecification: ZoneSpecification(
+      createTimer: (self, parent, zone, duration, callback) {
+        return parent.createTimer(
+          zone,
+          duration == target ? Duration.zero : duration,
+          callback,
+        );
+      },
+    ),
+  );
 }
 
 final class _R48QuietModelSetupService extends ModelSetupService {
