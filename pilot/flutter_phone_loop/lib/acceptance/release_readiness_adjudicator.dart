@@ -12,8 +12,9 @@ final class DeviceAcceptanceEvidence {
     required this.deviceAcceptance,
     required this.mergeCandidate,
     required Map<String, String> gateStatuses,
-    required this.nestedGolden,
-  }) : gateStatuses = Map<String, String>.unmodifiable(gateStatuses);
+    required _NestedGoldenEvidence? nestedGolden,
+  })  : gateStatuses = Map<String, String>.unmodifiable(gateStatuses),
+        _nestedGolden = nestedGolden;
 
   factory DeviceAcceptanceEvidence.fromJson(Map<String, dynamic> json) {
     final schema = _requiredString(json, 'schema');
@@ -70,12 +71,12 @@ final class DeviceAcceptanceEvidence {
   final String deviceAcceptance;
   final bool mergeCandidate;
   final Map<String, String> gateStatuses;
-  final _NestedGoldenEvidence? nestedGolden;
+  final _NestedGoldenEvidence? _nestedGolden;
 
   bool get allHandsetGatesPassed =>
       _handsetGateNames.every((name) => gateStatuses[name] == 'PASSED');
 
-  bool get nestedGoldenPassed => nestedGolden?.passedForRelease ?? false;
+  bool get nestedGoldenPassed => _nestedGolden?.passedForRelease ?? false;
 }
 
 final class AutomatedReleaseEvidence {
