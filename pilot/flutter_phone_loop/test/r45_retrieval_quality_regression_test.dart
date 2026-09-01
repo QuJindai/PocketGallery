@@ -9,6 +9,8 @@ import 'package:pocketgallery_phone_pilot/core/models.dart';
 import 'package:pocketgallery_phone_pilot/services/knowledge_retriever.dart';
 import 'package:pocketgallery_phone_pilot/services/lexical_fts_store.dart';
 
+import 'support/release_version.dart';
+
 void main() {
   test('long CJK query recalls a semantically aligned phrase through trigram windows',
       () async {
@@ -154,11 +156,11 @@ void main() {
 
   test('R4.5 advances install version for in-place update', () async {
     final pubspec = await File('pubspec.yaml').readAsString();
-    final match = RegExp(
-      r'^version:\s*0\.4\.\d+\+(\d+)\s*$',
-      multiLine: true,
-    ).firstMatch(pubspec);
-    expect(match, isNotNull);
-    expect(int.parse(match!.group(1)!), greaterThanOrEqualTo(15));
+    final version = parseReleaseVersion(pubspec);
+    expect(
+      isReleaseVersionAtLeast(version, major: 0, minor: 4, patch: 0),
+      isTrue,
+    );
+    expect(version.build, greaterThanOrEqualTo(15));
   });
 }

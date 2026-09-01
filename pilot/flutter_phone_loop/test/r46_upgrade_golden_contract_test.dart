@@ -10,6 +10,8 @@ import 'package:pocketgallery_phone_pilot/lineage/lineage_store.dart';
 import 'package:pocketgallery_phone_pilot/lineage/runtime_lineage_recorder.dart';
 import 'package:pocketgallery_phone_pilot/services/golden_test_runner.dart';
 
+import 'support/release_version.dart';
+
 void main() {
   test('integrated R4.6/R4.7 release advances identity and CI guards',
       () async {
@@ -24,13 +26,12 @@ void main() {
         await File('lib/services/model_setup_service.dart').readAsString();
     final bootstrap = await File('scripts/bootstrap_android.sh').readAsString();
 
-    final version = RegExp(
-      r'^version:\s*0\.4\.(\d+)\+(\d+)\s*$',
-      multiLine: true,
-    ).firstMatch(pubspec);
-    expect(version, isNotNull);
-    expect(int.parse(version!.group(1)!), greaterThanOrEqualTo(17));
-    expect(int.parse(version.group(2)!), greaterThanOrEqualTo(18));
+    final version = parseReleaseVersion(pubspec);
+    expect(
+      isReleaseVersionAtLeast(version, major: 0, minor: 4, patch: 17),
+      isTrue,
+    );
+    expect(version.build, greaterThanOrEqualTo(18));
     expect(phoneWorkflow,
         contains('feature/phone-pilot-r46-runtime-lineage'));
     expect(phoneWorkflow, contains(r'test "$VERSION_CODE" -ge 2020'));

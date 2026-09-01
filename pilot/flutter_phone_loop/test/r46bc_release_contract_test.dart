@@ -2,6 +2,8 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
+import 'support/release_version.dart';
+
 void main() {
   const applicationId = 'com.qujindai.pocketgallery_phone_pilot.r3';
   const signerSha256 =
@@ -15,12 +17,12 @@ void main() {
     ).readAsString();
     final bootstrap = await File('scripts/bootstrap_android.sh').readAsString();
 
-    final version = RegExp(
-      r'^version:\s*0\.4\.17\+(\d+)\s*$',
-      multiLine: true,
-    ).firstMatch(pubspec);
-    expect(version, isNotNull);
-    expect(int.parse(version!.group(1)!), greaterThanOrEqualTo(20));
+    final version = parseReleaseVersion(pubspec);
+    expect(
+      isReleaseVersionAtLeast(version, major: 0, minor: 4, patch: 17),
+      isTrue,
+    );
+    expect(version.build, greaterThanOrEqualTo(20));
     expect(bootstrap, contains(applicationId));
     expect(workflow, contains(signerSha256));
     expect(workflow, contains('android-arm64 --split-per-abi'));

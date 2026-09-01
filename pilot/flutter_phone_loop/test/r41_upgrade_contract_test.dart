@@ -2,16 +2,20 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
+import 'support/release_version.dart';
+
 void main() {
   test('R4.x remains an in-place R3-signed upgrade without model redownload', () async {
     final pubspec = await File('pubspec.yaml').readAsString();
     final bootstrap = await File('scripts/bootstrap_android.sh').readAsString();
     final setup = await File('lib/services/model_setup_service.dart').readAsString();
 
-    final version = RegExp(r'^version:\s*0\.4\.\d+\+(\d+)\s*$', multiLine: true)
-        .firstMatch(pubspec);
-    expect(version, isNotNull);
-    expect(int.parse(version!.group(1)!), greaterThanOrEqualTo(11));
+    final version = parseReleaseVersion(pubspec);
+    expect(
+      isReleaseVersionAtLeast(version, major: 0, minor: 4, patch: 0),
+      isTrue,
+    );
+    expect(version.build, greaterThanOrEqualTo(11));
     expect(bootstrap, contains('com.qujindai.pocketgallery_phone_pilot.r3'));
     expect(setup, contains('if (!FlutterGemma.hasActiveModel())'));
     expect(setup, contains('if (!FlutterGemma.hasActiveEmbedder())'));

@@ -2,6 +2,8 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
+import 'support/release_version.dart';
+
 void main() {
   test('missing-vector repair filters existing observations before embedding', () async {
     final engine = await File('lib/services/knowledge_engine.dart').readAsString();
@@ -51,9 +53,11 @@ void main() {
 
   test('R4.4+ keeps a monotonic install version for in-place update', () async {
     final pubspec = await File('pubspec.yaml').readAsString();
-    final match = RegExp(r'^version:\s*0\.4\.\d+\+(\d+)\s*$', multiLine: true)
-        .firstMatch(pubspec);
-    expect(match, isNotNull);
-    expect(int.parse(match!.group(1)!), greaterThanOrEqualTo(14));
+    final version = parseReleaseVersion(pubspec);
+    expect(
+      isReleaseVersionAtLeast(version, major: 0, minor: 4, patch: 0),
+      isTrue,
+    );
+    expect(version.build, greaterThanOrEqualTo(14));
   });
 }

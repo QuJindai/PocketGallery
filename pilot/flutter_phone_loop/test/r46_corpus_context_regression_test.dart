@@ -8,6 +8,8 @@ import 'package:pocketgallery_phone_pilot/services/lexical_fts_store.dart';
 import 'package:pocketgallery_phone_pilot/services/semantic_store.dart';
 import 'package:sqlite3/sqlite3.dart';
 
+import 'support/release_version.dart';
+
 void main() {
   test('corpus summary preserves one evidence item for each of six documents',
       () async {
@@ -205,12 +207,12 @@ void main() {
 
   test('R4.7 advances the in-place update build number beyond R4.6', () async {
     final pubspec = await File('pubspec.yaml').readAsString();
-    final match = RegExp(
-      r'^version:\s*0\.4\.\d+\+(\d+)\s*$',
-      multiLine: true,
-    ).firstMatch(pubspec);
+    final version = parseReleaseVersion(pubspec);
 
-    expect(match, isNotNull);
-    expect(int.parse(match!.group(1)!), greaterThanOrEqualTo(17));
+    expect(
+      isReleaseVersionAtLeast(version, major: 0, minor: 4, patch: 0),
+      isTrue,
+    );
+    expect(version.build, greaterThanOrEqualTo(17));
   });
 }
