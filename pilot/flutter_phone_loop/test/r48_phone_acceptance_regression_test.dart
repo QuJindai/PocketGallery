@@ -448,11 +448,11 @@ void main() {
     test('build number advances beyond the R4.7 APK', () async {
       final pubspec = await File('pubspec.yaml').readAsString();
       final match = RegExp(
-        r'^version:\s*0\.4\.17\+(\d+)\s*$',
+        r'^version:\s*[0-9]+\.[0-9]+\.[0-9]+\+(\d+)\s*$',
         multiLine: true,
       ).firstMatch(pubspec);
 
-      expect(match, isNotNull, reason: 'R4.8 must use version 0.4.17');
+      expect(match, isNotNull, reason: 'release version must include a build');
       expect(int.parse(match!.group(1)!), greaterThanOrEqualTo(18));
     });
   });

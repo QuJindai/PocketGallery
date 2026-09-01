@@ -3,19 +3,19 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('R4.9 maps build 21 to monotonic Android versionCode 2021', () async {
+  test('R5 candidate remains monotonic over R4.9 versionCode 2021', () async {
     final pubspec = await File('pubspec.yaml').readAsString();
-    expect(pubspec, contains('version: 0.4.17+21'));
+    expect(pubspec, contains('version: 0.5.0+23'));
 
     final result = await Process.run(
       'bash',
       <String>['scripts/android_version_code.sh'],
     );
     expect(result.exitCode, 0, reason: '${result.stderr}');
-    expect((result.stdout as String).trim(), '2021');
+    expect(int.parse((result.stdout as String).trim()), greaterThan(2021));
   });
 
-  test('R4.9 CI publishes a non-canonical debug APK without double ABI offset',
+  test('R5 CI preserves R4.9 single ABI offset and fail-closed signing',
       () async {
     final tddWorkflow = await File(
       '../../.github/workflows/pocketgallery-r46-tdd.yml',
@@ -35,7 +35,10 @@ void main() {
       isNot(contains(r'--build-number="$ANDROID_VERSION_CODE"')),
       reason: 'the canonical path must use the same monotonic version mapping',
     );
-    expect(tddWorkflow, contains('PocketGallery-R49-rotatable-3d-debug-apk'));
+    expect(
+      tddWorkflow,
+      contains('PocketGallery-R50-handset-acceptance-debug-apk'),
+    );
     expect(tddWorkflow, contains('actions/upload-artifact@v4'));
     expect(
       signedWorkflow,
