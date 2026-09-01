@@ -162,9 +162,17 @@ void main() {
         find.byKey(const ValueKey<String>('vector-3d-gesture-surface'));
     await tester.ensureVisible(surface);
     await tester.pumpAndSettle();
+    expect(surface.hitTestable(), findsOneWidget);
+    expect(
+      tester.widget<InteractiveVectorPlot>(find.byType(InteractiveVectorPlot))
+          .onInteraction,
+      isNotNull,
+    );
+    final before = _painter(tester).camera;
     await tester.drag(surface, const Offset(72, 0));
     await tester.pump();
 
+    expect(_painter(tester).camera.yaw, isNot(before.yaw));
     expect(events, hasLength(1));
     expect(events.single.type, VectorInteractionType.rotation);
   });
@@ -207,6 +215,14 @@ Future<void> _pumpPlot(
     ),
   );
   await tester.pump();
+}
+
+VectorSpace3dPainter _painter(WidgetTester tester) {
+  return tester
+      .widget<CustomPaint>(
+        find.byKey(const ValueKey<String>('vector-3d-canvas')),
+      )
+      .painter! as VectorSpace3dPainter;
 }
 
 const _traceData = TraceVectorSpaceSnapshot(
