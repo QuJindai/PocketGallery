@@ -39,6 +39,40 @@ class GemmaService {
     return response.toString().trim();
   }
 
+  Future<String> experimentalAnswer({
+    required String question,
+    required List<EvidenceItem> evidence,
+    required bool groundedOnly,
+  }) async {
+    await ensureLoaded();
+    final context = const EvidencePackBuilder().toPromptContext(evidence);
+    final systemInstruction = groundedOnly
+        ? 'You are PocketGallery OKF Mobile Lab. This is a controlled local-model experiment. '
+            'Use only the supplied EVIDENCE. Cite every factual claim with [E#]. '
+            'When evidence conflicts, prefer evidence that explicitly states it is current. '
+            'If evidence is insufficient, say so and do not guess.'
+        : 'You are PocketGallery OKF Mobile Lab running the BARE local-model control lane. '
+            'No external knowledge is supplied. Answer only from the model itself. '
+            'The benchmark contains fictional identifiers that may not exist in training data. '
+            'If you do not know a fact, say that it is unknown instead of inventing it.';
+    final userText = groundedOnly
+        ? 'EVIDENCE:\n$context\nQUESTION:\n$question'
+        : 'QUESTION:\n$question';
+
+    final chat = await _model!.createChat(
+      modelType: ModelType.gemma4,
+      temperature: 0.05,
+      topK: 20,
+      topP: 0.85,
+      maxOutputTokens: 260,
+      systemInstruction: systemInstruction,
+    );
+    await chat.addQueryChunk(Message.text(text: userText, isUser: true));
+    final response = await chat.generateChatResponse();
+    if (response is TextResponse) return response.token.trim();
+    return response.toString().trim();
+  }
+
   Future<void> close() async {
     await _model?.close();
     _model = null;
