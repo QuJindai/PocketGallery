@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -312,6 +313,20 @@ void main() {
     expect(result.verdict, AcceptanceVerdict.fail);
     expect(result.mergeCandidate, isFalse);
     expect(harness.persistence.finalReports, hasLength(1));
+  });
+
+  test('runtime cleanup gives both native shutdown calls a hard timeout',
+      () async {
+    final source =
+        await File('lib/acceptance/handset_acceptance_runner.dart')
+            .readAsString();
+
+    expect(
+      RegExp(r'\.timeout\(runtimeCleanupTimeout\)')
+          .allMatches(source)
+          .length,
+      greaterThanOrEqualTo(2),
+    );
   });
 
   test('nested Golden progress maps monotonically into the H4 55 percent window',
