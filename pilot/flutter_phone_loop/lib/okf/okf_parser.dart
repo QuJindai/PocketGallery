@@ -146,7 +146,7 @@ class OkfParser {
   }
 
   String? _scalar(List<String> lines, String key) {
-    final pattern = RegExp('^${RegExp.escape(key)}:\\s*(.*)\$');
+    final pattern = RegExp('^${RegExp.escape(key)}: *(.*)\$');
     for (final line in lines) {
       if (line.startsWith(' ') || line.startsWith('\t')) continue;
       final match = pattern.firstMatch(line);
