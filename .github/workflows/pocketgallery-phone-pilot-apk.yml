@@ -128,6 +128,7 @@ jobs:
           echo "APK_VERSION_CODE=$VERSION_CODE"
           echo "EXPECTED_VERSION_CODE=$EXPECTED_VERSION_CODE"
           test "$PKG" = "com.qujindai.pocketgallery_phone_pilot.r3"
+          test "$VERSION_CODE" -ge 2020
           test "$VERSION_CODE" = "$EXPECTED_VERSION_CODE"
 
           APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
