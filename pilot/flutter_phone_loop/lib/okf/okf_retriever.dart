@@ -65,9 +65,8 @@ class OkfLabRetriever {
     required this.bundle,
     required this.ordinaryChunks,
     DateTime Function()? clock,
-    OkfParser parser = const OkfParser(),
-  })  : _clock = clock ?? DateTime.now,
-        _parser = parser;
+    this._parser = const OkfParser(),
+  }) : _clock = clock ?? DateTime.now;
 
   final OkfBundle bundle;
   final List<OkfOrdinaryChunk> ordinaryChunks;
