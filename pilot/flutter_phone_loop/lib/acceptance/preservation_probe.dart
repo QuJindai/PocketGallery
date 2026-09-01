@@ -9,34 +9,30 @@ import 'device_diagnostics.dart';
 
 final class PreservationProbe {
   const PreservationProbe({
-    required KnowledgeEngine engine,
-    required ChatSessionStore chatStore,
-    required HfOAuthDeviceService oauth,
-    required bool Function() hasActiveModel,
-    required bool Function() hasActiveEmbedder,
-  })  : _engine = engine,
-        _chatStore = chatStore,
-        _oauth = oauth,
-        _hasActiveModel = hasActiveModel,
-        _hasActiveEmbedder = hasActiveEmbedder;
+    required this.engine,
+    required this.chatStore,
+    required this.oauth,
+    required this.hasActiveModel,
+    required this.hasActiveEmbedder,
+  });
 
-  final KnowledgeEngine _engine;
-  final ChatSessionStore _chatStore;
-  final HfOAuthDeviceService _oauth;
-  final bool Function() _hasActiveModel;
-  final bool Function() _hasActiveEmbedder;
+  final KnowledgeEngine engine;
+  final ChatSessionStore chatStore;
+  final HfOAuthDeviceService oauth;
+  final bool Function() hasActiveModel;
+  final bool Function() hasActiveEmbedder;
 
   Future<PreservationSnapshot> capture(
     DeviceIdentitySnapshot identity,
   ) async {
-    final documents = await _engine.listDocuments();
+    final documents = await engine.listDocuments();
     documents.sort((left, right) => left.documentId.compareTo(right.documentId));
-    final sessions = await _chatStore.listSessions();
+    final sessions = await chatStore.listSessions();
     sessions.sort((left, right) => left.id.compareTo(right.id));
     final vectorIdentities =
-        await _engine.semanticStore.observationStore.listIdentities();
-    final traceIds = await _engine.lineageStore.traceIds();
-    final oauthState = await _oauth.inspectCredentialState();
+        await engine.semanticStore.observationStore.listIdentities();
+    final traceIds = await engine.lineageStore.traceIds();
+    final oauthState = await oauth.inspectCredentialState();
 
     final knowledgeStates = <String, String>{};
     for (final document in documents) {
@@ -54,7 +50,7 @@ final class PreservationProbe {
     final chatStates = <String, String>{};
     final chatMessageCounts = <String, int>{};
     for (final session in sessions) {
-      final messages = await _chatStore.messages(session.id);
+      final messages = await chatStore.messages(session.id);
       messages.sort((left, right) {
         final byTime = left.createdAt.compareTo(right.createdAt);
         return byTime == 0 ? left.id.compareTo(right.id) : byTime;
@@ -114,8 +110,8 @@ final class PreservationProbe {
       versionCode: identity.versionCode,
       packageName: identity.packageName,
       signerSha256: identity.signerSha256,
-      hasActiveModel: _hasActiveModel(),
-      hasActiveEmbedder: _hasActiveEmbedder(),
+      hasActiveModel: hasActiveModel(),
+      hasActiveEmbedder: hasActiveEmbedder(),
       oauthAccessPresent: oauthState.accessPresent,
       oauthRefreshPresent: oauthState.refreshPresent,
       oauthExpiry: oauthState.expiry,
