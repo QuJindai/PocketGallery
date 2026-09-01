@@ -158,10 +158,11 @@ void main() {
     );
     await tester.pump();
 
-    await tester.drag(
-      find.byKey(const ValueKey<String>('vector-3d-gesture-surface')),
-      const Offset(72, 0),
-    );
+    final surface =
+        find.byKey(const ValueKey<String>('vector-3d-gesture-surface'));
+    await tester.ensureVisible(surface);
+    await tester.pumpAndSettle();
+    await tester.drag(surface, const Offset(72, 0));
     await tester.pump();
 
     expect(events, hasLength(1));
