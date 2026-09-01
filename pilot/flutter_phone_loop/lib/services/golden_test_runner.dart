@@ -93,6 +93,8 @@ class GoldenTraceHandoff {
 }
 
 class GoldenRunControl {
+  static const Duration _modelCloseTimeout = Duration(seconds: 5);
+
   factory GoldenRunControl({
     required Future<void> Function() closeActiveModel,
   }) {
@@ -114,7 +116,10 @@ class GoldenRunControl {
   Future<void> closeActiveModel() {
     final active = _closeFuture;
     if (active != null) return active;
-    final future = Future<void>.sync(_closeActiveModel);
+    final future = Future<void>.sync(_closeActiveModel).timeout(
+      _modelCloseTimeout,
+      onTimeout: () => throw StateError('GOLDEN_MODEL_CLOSE_TIMEOUT'),
+    );
     _closeFuture = future;
     future.then<void>(
       (_) => _clearCloseFuture(future),

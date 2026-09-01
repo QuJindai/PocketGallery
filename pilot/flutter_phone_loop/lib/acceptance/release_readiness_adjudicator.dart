@@ -233,12 +233,7 @@ final class _NestedGoldenEvidence {
       phase: phase,
       passed: _requiredBool(json, 'passed'),
       cleanupError: cleanupValue as String?,
-      gateStatuses: _gateStatuses(
-        json,
-        'gates',
-        _goldenGateNames,
-        _goldenGateStatuses,
-      ),
+      gateStatuses: _nestedGoldenGateStatuses(json),
     );
   }
 
@@ -252,6 +247,31 @@ final class _NestedGoldenEvidence {
       passed &&
       cleanupError == null &&
       _goldenGateNames.every((name) => gateStatuses[name] == 'PASSED');
+}
+
+Map<String, String> _nestedGoldenGateStatuses(Map<String, dynamic> json) {
+  final statuses = _gateStatuses(
+    json,
+    'gates',
+    _goldenGateNames,
+    _goldenGateStatuses,
+  );
+  final raw = json['gates'] as List<dynamic>;
+  for (final item in raw) {
+    final gate = _mapValue(item, 'gates item');
+    final status = _requiredString(gate, 'status');
+    if (!gate.containsKey('reasonCode')) {
+      throw const FormatException('Missing reasonCode');
+    }
+    final reasonCode = gate['reasonCode'];
+    final allowed = _goldenReasonCodesByStatus[status];
+    if (allowed == null || !allowed.contains(reasonCode)) {
+      throw FormatException(
+        'Invalid nested Golden reasonCode for status $status: $reasonCode',
+      );
+    }
+  }
+  return statuses;
 }
 
 Map<String, String> _gateStatuses(
@@ -367,6 +387,20 @@ const Set<String> _handsetGateStatuses = <String>{
   'BLOCKED',
 };
 const Set<String> _goldenGateStatuses = _handsetGateStatuses;
+const Map<String, Set<Object?>> _goldenReasonCodesByStatus =
+    <String, Set<Object?>>{
+      'PENDING': <Object?>{'GATE_INCOMPLETE'},
+      'RUNNING': <Object?>{'GATE_INCOMPLETE'},
+      'PASSED': <Object?>{null},
+      'FAILED': <Object?>{'GATE_FAILED'},
+      'TIMEDOUT': <Object?>{'GATE_TIMEOUT'},
+      'BLOCKED': <Object?>{
+        'GATE_BLOCKED',
+        'USER_CANCELLED',
+        'APP_BACKGROUND_INTERRUPTION',
+        'INTERRUPTED',
+      },
+    };
 const Set<String> _goldenPhases = <String>{
   'PREPARING',
   'RUNNING',
