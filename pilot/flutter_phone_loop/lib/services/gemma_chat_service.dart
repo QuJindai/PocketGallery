@@ -20,16 +20,27 @@ class GemmaChatService implements ChatModelGateway {
   final ContextBudgeter budgeter;
   InferenceModel? _model;
   InferenceChat? _chat;
+  bool _closed = false;
 
   Future<void> _ensureModel() async {
+    if (_closed) throw StateError('Gemma service is closed');
     if (_model != null) return;
     if (!FlutterGemma.hasActiveModel()) {
       throw StateError('Gemma 4 尚未就绪');
     }
-    _model = await FlutterGemma.getActiveModel(
+    final acquired = await FlutterGemma.getActiveModel(
       maxTokens: ContextBudgeter.modelMaxTokens,
       preferredBackend: PreferredBackend.gpu,
     );
+    if (_closed) {
+      try {
+        await acquired.close();
+      } catch (_) {
+        // Closing is best-effort after a concurrent service shutdown.
+      }
+      throw StateError('Gemma service is closed');
+    }
+    _model = acquired;
   }
 
   EvidenceContextSelection _boundedEvidenceContext(
@@ -166,8 +177,10 @@ class GemmaChatService implements ChatModelGateway {
 
   @override
   Future<void> close() async {
+    _closed = true;
     await _closeNativeChat();
-    await _model?.close();
+    final model = _model;
     _model = null;
+    await model?.close();
   }
 }

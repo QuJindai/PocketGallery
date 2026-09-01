@@ -239,6 +239,9 @@ final class _NestedGoldenEvidence {
     if (!_goldenPhases.contains(phase)) {
       throw FormatException('Unknown nested Golden phase: $phase');
     }
+    if (!json.containsKey('cleanupError')) {
+      throw const FormatException('Missing cleanupError');
+    }
     final cleanupValue = json['cleanupError'];
     if (cleanupValue != null && cleanupValue is! String) {
       throw const FormatException(

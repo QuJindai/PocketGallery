@@ -135,11 +135,13 @@ final class DeviceResourceSampler implements DeviceResourceSampling {
   DeviceResourceSampler({
     required this.diagnostics,
     this.interval = const Duration(seconds: 1),
+    this.captureTimeout = const Duration(seconds: 5),
     DateTime Function()? clock,
   }) : _clock = clock ?? DateTime.now;
 
   final DeviceDiagnosticsGateway diagnostics;
   final Duration interval;
+  final Duration captureTimeout;
   final DateTime Function() _clock;
   final List<DeviceResourceSample> _samples = <DeviceResourceSample>[];
   Timer? _timer;
@@ -204,7 +206,9 @@ final class DeviceResourceSampler implements DeviceResourceSampling {
 
   Future<void> _capture() async {
     try {
-      _samples.add(await diagnostics.readResources());
+      _samples.add(
+        await diagnostics.readResources().timeout(captureTimeout),
+      );
     } catch (_) {
       _readFailed = true;
     }

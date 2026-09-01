@@ -112,7 +112,19 @@ class GoldenRunControl {
   }
 
   Future<void> closeActiveModel() {
-    return _closeFuture ??= Future<void>.sync(_closeActiveModel);
+    final active = _closeFuture;
+    if (active != null) return active;
+    final future = Future<void>.sync(_closeActiveModel);
+    _closeFuture = future;
+    future.then<void>(
+      (_) => _clearCloseFuture(future),
+      onError: (Object _, StackTrace __) => _clearCloseFuture(future),
+    );
+    return future;
+  }
+
+  void _clearCloseFuture(Future<void> completed) {
+    if (identical(_closeFuture, completed)) _closeFuture = null;
   }
 
   Future<void> cleanup(Future<void> Function() action) {
@@ -475,22 +487,26 @@ class GoldenTestRunner {
     String reasonCode,
   ) {
     final now = DateTime.now();
-    var blockedAny = false;
     final gates = <GoldenGateSnapshot>[
       for (final gate in snapshot.gates)
-        if (gate.status == GoldenGateStatus.passed)
-          gate
-        else
+        if (gate.status == GoldenGateStatus.pending ||
+            gate.status == GoldenGateStatus.running)
           gate.copyWith(
             status: GoldenGateStatus.blocked,
             detail: reasonCode,
             finishedAt: gate.finishedAt ?? now,
-          ),
+          )
+        else
+          gate,
     ];
-    blockedAny = gates.any(
-      (gate) => gate.status == GoldenGateStatus.blocked,
+    final mappedAnActiveGate = snapshot.gates.any(
+      (gate) =>
+          gate.status == GoldenGateStatus.pending ||
+          gate.status == GoldenGateStatus.running,
     );
-    if (!blockedAny && gates.isNotEmpty) {
+    final allPassed = gates.isNotEmpty &&
+        gates.every((gate) => gate.status == GoldenGateStatus.passed);
+    if (!mappedAnActiveGate && allPassed) {
       gates[gates.length - 1] = gates.last.copyWith(
         status: GoldenGateStatus.blocked,
         detail: reasonCode,
@@ -501,7 +517,6 @@ class GoldenTestRunner {
       phase: GoldenRunPhase.completed,
       updatedAt: now,
       gates: gates,
-      cleanupError: null,
     );
   }
 }

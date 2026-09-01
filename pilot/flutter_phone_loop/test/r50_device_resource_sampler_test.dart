@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -118,6 +119,30 @@ void main() {
       contains('diagnostics.readResources().timeout(captureTimeout)'),
     );
   });
+
+  test('a hung native resource read fails closed within the capture bound',
+      () async {
+    final firstRead = Completer<DeviceResourceSample>();
+    final finalRead = Completer<DeviceResourceSample>();
+    final diagnostics = _FakeDiagnostics(<Object>[
+      firstRead.future,
+      finalRead.future,
+    ]);
+    final sampler = DeviceResourceSampler(
+      diagnostics: diagnostics,
+      interval: const Duration(days: 1),
+      captureTimeout: const Duration(milliseconds: 5),
+    );
+
+    await sampler.start();
+    final summary = await sampler.stop();
+
+    expect(summary.reasonCodes, contains('REQUIRED_EVIDENCE_UNAVAILABLE'));
+    expect(diagnostics.resourceReads, 2);
+    firstRead.complete(_sample());
+    finalRead.complete(_sample());
+    await Future<void>.delayed(Duration.zero);
+  });
 }
 
 DeviceResourceSample _sample({
@@ -156,6 +181,7 @@ final class _FakeDiagnostics implements DeviceDiagnosticsGateway {
   Future<DeviceResourceSample> readResources() async {
     final outcome = outcomes[resourceReads++];
     if (outcome is DeviceResourceSample) return outcome;
+    if (outcome is Future<DeviceResourceSample>) return outcome;
     throw outcome;
   }
 

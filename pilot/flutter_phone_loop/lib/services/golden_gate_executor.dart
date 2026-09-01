@@ -45,6 +45,7 @@ class GoldenGateExecutor {
     GoldenCleanupCallback? cleanup,
   }) async {
     final startedAt = _clock();
+    final timedOutOperations = <_TrackedGateOperation>[];
     var snapshot = GoldenTestSnapshot(
       runId: runId,
       phase: GoldenRunPhase.preparing,
@@ -98,13 +99,15 @@ class GoldenGateExecutor {
 
       GoldenGateStatus status;
       String detail;
+      final operation = _TrackedGateOperation(spec.name, spec.run);
       try {
-        final result = await spec.run().timeout(spec.timeout);
+        final result = await operation.future.timeout(spec.timeout);
         status = result.passed
             ? GoldenGateStatus.passed
             : GoldenGateStatus.failed;
         detail = result.detail;
       } on TimeoutException {
+        timedOutOperations.add(operation);
         status = GoldenGateStatus.timedOut;
         detail = 'timeout=${spec.timeout.inMilliseconds}ms';
         try {
@@ -141,6 +144,19 @@ class GoldenGateExecutor {
     } catch (error, stackTrace) {
       cleanupError = '$error\n$stackTrace';
     }
+    final unresolvedOperations = timedOutOperations
+        .where((operation) => !operation.settled)
+        .map(
+          (operation) =>
+              'GATE_OPERATION_STILL_ACTIVE:${operation.gateName}',
+        )
+        .toList(growable: false);
+    if (unresolvedOperations.isNotEmpty) {
+      cleanupError = <String>[
+        if (cleanupError != null) cleanupError,
+        ...unresolvedOperations,
+      ].join('; ');
+    }
 
     snapshot = snapshot.copyWith(
       phase: GoldenRunPhase.completed,
@@ -169,4 +185,19 @@ class GoldenGateExecutor {
     await onCheckpoint?.call(snapshot);
     onProgress?.call(snapshot);
   }
+}
+
+final class _TrackedGateOperation {
+  _TrackedGateOperation(
+    this.gateName,
+    Future<GateResult> Function() run,
+  ) {
+    future = Future<GateResult>.sync(run).whenComplete(() {
+      settled = true;
+    });
+  }
+
+  final String gateName;
+  late final Future<GateResult> future;
+  bool settled = false;
 }
