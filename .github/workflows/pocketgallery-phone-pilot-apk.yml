@@ -31,56 +31,82 @@ jobs:
           key: pocketgallery-r3-signing-v1
           save-always: true
 
-      - name: Prepare persistent R3 signing identity
+      - name: Prepare canonical R3 signing identity
         shell: bash
+        env:
+          POCKETGALLERY_SIGNING_KEYSTORE_B64: ${{ secrets.POCKETGALLERY_SIGNING_KEYSTORE_B64 }}
+          POCKETGALLERY_SIGNING_STORE_PASSWORD: ${{ secrets.POCKETGALLERY_SIGNING_STORE_PASSWORD }}
+          POCKETGALLERY_SIGNING_KEY_PASSWORD: ${{ secrets.POCKETGALLERY_SIGNING_KEY_PASSWORD }}
+          POCKETGALLERY_SIGNING_KEY_ALIAS: ${{ secrets.POCKETGALLERY_SIGNING_KEY_ALIAS }}
         run: |
           set -euo pipefail
-          SIGN_DIR="$HOME/.android/pocketgallery-r3-signing"
-          KEYSTORE="$SIGN_DIR/r3.keystore"
-          PASSFILE="$SIGN_DIR/password"
-          ALIAS="pocketgallery-r3"
+          CACHE_SIGN_DIR="$HOME/.android/pocketgallery-r3-signing"
+          CACHE_KEYSTORE="$CACHE_SIGN_DIR/r3.keystore"
+          CACHE_PASSFILE="$CACHE_SIGN_DIR/password"
+          CACHE_ALIAS="pocketgallery-r3"
+          SECRET_KEYSTORE="$RUNNER_TEMP/pocketgallery-r3-signing/r3.keystore"
           CANONICAL_SIGNER_SHA256=81af4a5ef94c236774f0e193b2a4b248805b36c14cc36e2a56df8e451a712541
           echo "CANONICAL_SIGNER_SHA256=$CANONICAL_SIGNER_SHA256" >> "$GITHUB_ENV"
 
-          # A missing signing cache is a release blocker. Never manufacture a
-          # new key in CI: that would make Android reject in-place upgrades and
-          # force users to uninstall, which also destroys OAuth/model state.
-          if [[ ! -s "$KEYSTORE" || ! -s "$PASSFILE" ]]; then
+          if [[ -s "$CACHE_KEYSTORE" && -s "$CACHE_PASSFILE" ]]; then
+            KEYSTORE="$CACHE_KEYSTORE"
+            STORE_PASS="$(cat "$CACHE_PASSFILE")"
+            KEY_PASS="$STORE_PASS"
+            ALIAS="$CACHE_ALIAS"
+            SIGNING_SOURCE="cache"
+          elif [[ -n "$POCKETGALLERY_SIGNING_KEYSTORE_B64" && \
+                  -n "$POCKETGALLERY_SIGNING_STORE_PASSWORD" && \
+                  -n "$POCKETGALLERY_SIGNING_KEY_PASSWORD" && \
+                  -n "$POCKETGALLERY_SIGNING_KEY_ALIAS" ]]; then
+            mkdir -p "$(dirname "$SECRET_KEYSTORE")"
+            if ! printf '%s' "$POCKETGALLERY_SIGNING_KEYSTORE_B64" | base64 --decode > "$SECRET_KEYSTORE"; then
+              echo "::error::SIGNING_IDENTITY_MISSING: provisioned canonical keystore is not valid base64"
+              exit 74
+            fi
+            chmod 600 "$SECRET_KEYSTORE"
+            KEYSTORE="$SECRET_KEYSTORE"
+            STORE_PASS="$POCKETGALLERY_SIGNING_STORE_PASSWORD"
+            KEY_PASS="$POCKETGALLERY_SIGNING_KEY_PASSWORD"
+            ALIAS="$POCKETGALLERY_SIGNING_KEY_ALIAS"
+            SIGNING_SOURCE="provisioned-secret"
+          else
             echo "::error::SIGNING_IDENTITY_MISSING: canonical PocketGallery pilot key is unavailable; refusing to rotate signing identity"
             exit 74
           fi
 
-          PASS="$(cat "$PASSFILE")"
-          echo "::add-mask::$PASS"
-
+          echo "::add-mask::$STORE_PASS"
+          echo "::add-mask::$KEY_PASS"
+          echo "::add-mask::$ALIAS"
+          CERT_FILE="$RUNNER_TEMP/pocketgallery-r3-cert.der"
           keytool -exportcert \
             -keystore "$KEYSTORE" \
-            -storepass "$PASS" \
+            -storepass "$STORE_PASS" \
             -alias "$ALIAS" \
-            -file /tmp/pocketgallery-r3-cert.der >/dev/null
-          KEY_CERT="$(sha256sum /tmp/pocketgallery-r3-cert.der | awk '{print $1}')"
+            -file "$CERT_FILE" >/dev/null
+          KEY_CERT="$(sha256sum "$CERT_FILE" | awk '{print $1}')"
           echo "CANONICAL_SIGNER_EXPECTED=$CANONICAL_SIGNER_SHA256"
           echo "RESTORED_SIGNER_SHA256=$KEY_CERT"
+          echo "SIGNING_SOURCE=$SIGNING_SOURCE"
           if [[ "$KEY_CERT" != "$CANONICAL_SIGNER_SHA256" ]]; then
-            echo "::error::SIGNING_IDENTITY_MISMATCH: refusing to publish an APK that cannot update the installed R4.1 pilot"
+            echo "::error::SIGNING_IDENTITY_MISMATCH: refusing to publish an APK that cannot update the installed pilot"
             exit 75
           fi
 
           {
-            echo "POCKETGALLERY_SIGNING_KEYSTORE=$KEYSTORE"
-            echo "POCKETGALLERY_SIGNING_STORE_PASSWORD=$PASS"
-            echo "POCKETGALLERY_SIGNING_KEY_PASSWORD=$PASS"
-            echo "POCKETGALLERY_SIGNING_KEY_ALIAS=$ALIAS"
+            printf 'POCKETGALLERY_SIGNING_KEYSTORE=%s\n' "$KEYSTORE"
+            printf 'POCKETGALLERY_SIGNING_STORE_PASSWORD=%s\n' "$STORE_PASS"
+            printf 'POCKETGALLERY_SIGNING_KEY_PASSWORD=%s\n' "$KEY_PASS"
+            printf 'POCKETGALLERY_SIGNING_KEY_ALIAS=%s\n' "$ALIAS"
           } >> "$GITHUB_ENV"
 
       - name: Record source integrity snapshot
         run: |
           git diff --exit-code
           cd pilot/flutter_phone_loop
-          bash scripts/generate_manifests.sh inner | tee /tmp/pg-inner.sha256
-          bash scripts/generate_manifests.sh outer | tee /tmp/pg-outer.sha256
-          test -s /tmp/pg-inner.sha256
-          test -s /tmp/pg-outer.sha256
+          bash scripts/generate_manifests.sh inner | tee "$RUNNER_TEMP/pg-inner.sha256"
+          bash scripts/generate_manifests.sh outer | tee "$RUNNER_TEMP/pg-outer.sha256"
+          test -s "$RUNNER_TEMP/pg-inner.sha256"
+          test -s "$RUNNER_TEMP/pg-outer.sha256"
 
       - uses: subosito/flutter-action@v2
         with:
@@ -103,53 +129,118 @@ jobs:
         working-directory: pilot/flutter_phone_loop
         run: flutter test
 
-      - name: Build arm64 debug APK
-        working-directory: pilot/flutter_phone_loop
-        run: |
-          flutter build apk --debug --target-platform android-arm64 --split-per-abi
-          cp build/app/outputs/flutter-apk/app-arm64-v8a-debug.apk build/app/outputs/flutter-apk/app-debug.apk
-
-      - name: Verify package, version, ABI and canonical signing certificate
+      - name: Build same-source R5.0 canonical upgrade pair
         working-directory: pilot/flutter_phone_loop
         shell: bash
         run: |
           set -euo pipefail
-          APK=build/app/outputs/flutter-apk/app-debug.apk
-          ABIS="$(unzip -Z1 "$APK" | grep -E '^lib/[^/]+/.*\.so$' | sed -E 's#^lib/([^/]+)/.*#\1#' | sort -u | paste -sd, -)"
-          echo "APK_ABIS=$ABIS"
-          test "$ABIS" = "arm64-v8a"
+          SOURCE_COMMIT="$(git rev-parse HEAD)"
+          ARTIFACT_DIR="build/app/outputs/flutter-apk"
+          BASELINE_APK="$ARTIFACT_DIR/PocketGallery-R50-baseline-v2022.apk"
+          CANDIDATE_APK="$ARTIFACT_DIR/PocketGallery-R50-candidate-v2023.apk"
 
-          AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)"
-          BADGING="$($AAPT dump badging "$APK")"
-          PKG="$(printf '%s\n' "$BADGING" | sed -n "s/^package: name='\([^']*\)'.*/\1/p" | head -1)"
-          VERSION_CODE="$(printf '%s\n' "$BADGING" | sed -n "s/^package:.*versionCode='\([^']*\)'.*/\1/p" | head -1)"
-          EXPECTED_VERSION_CODE="$(bash scripts/android_version_code.sh)"
-          echo "APK_PACKAGE=$PKG"
-          echo "APK_VERSION_CODE=$VERSION_CODE"
-          echo "EXPECTED_VERSION_CODE=$EXPECTED_VERSION_CODE"
-          test "$PKG" = "com.qujindai.pocketgallery_phone_pilot.r3"
-          test "$VERSION_CODE" -ge 2020
-          test "$VERSION_CODE" = "$EXPECTED_VERSION_CODE"
+          flutter build apk --debug --target-platform android-arm64 --split-per-abi \
+            --build-name=0.5.0 \
+            --build-number=22 \
+            --dart-define=POCKETGALLERY_SOURCE_COMMIT="$SOURCE_COMMIT"
+          cp "$ARTIFACT_DIR/app-arm64-v8a-debug.apk" "$BASELINE_APK"
 
-          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
-          "$APKSIGNER" verify --verbose --print-certs "$APK" 2>&1 | tee /tmp/apksigner.txt
-          APK_CERT="$(grep -i 'certificate.*sha-256.*digest' /tmp/apksigner.txt | head -1 | sed -E 's/.*[Dd]igest:[[:space:]]*//' | tr -d '[:space:]:' | tr '[:upper:]' '[:lower:]')"
-          echo "APK_SIGNER_SHA256=$APK_CERT"
-          echo "CANONICAL_SIGNER_SHA256=$CANONICAL_SIGNER_SHA256"
-          test -n "$APK_CERT"
-          test "$APK_CERT" = "$CANONICAL_SIGNER_SHA256"
+          flutter build apk --debug --target-platform android-arm64 --split-per-abi \
+            --build-name=0.5.0 \
+            --build-number=23 \
+            --dart-define=POCKETGALLERY_SOURCE_COMMIT="$SOURCE_COMMIT"
+          cp "$ARTIFACT_DIR/app-arm64-v8a-debug.apk" "$CANDIDATE_APK"
 
-      - name: Hash APK
+          {
+            echo "SOURCE_COMMIT=$SOURCE_COMMIT"
+            echo "ARTIFACT_DIR=$ARTIFACT_DIR"
+            echo "BASELINE_APK=$BASELINE_APK"
+            echo "CANDIDATE_APK=$CANDIDATE_APK"
+          } >> "$GITHUB_ENV"
+
+      - name: Verify canonical R5.0 upgrade pair
         working-directory: pilot/flutter_phone_loop
+        shell: bash
         run: |
-          sha256sum build/app/outputs/flutter-apk/app-debug.apk | tee build/app/outputs/flutter-apk/app-debug.apk.sha256
+          set -euo pipefail
+          AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)"
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
 
-      - uses: actions/upload-artifact@v4
+          verify_apk() {
+            local apk="$1"
+            local expected_version_code="$2"
+            test -s "$apk"
+            local abis
+            abis="$(unzip -Z1 "$apk" | grep -E '^lib/[^/]+/.*\.so$' | sed -E 's#^lib/([^/]+)/.*#\1#' | sort -u | paste -sd, -)"
+            ABIS="$abis"
+            echo "APK_ABIS=$ABIS"
+            test "$ABIS" = "arm64-v8a"
+
+            local badging pkg version_code signer_output apk_cert
+            badging="$($AAPT dump badging "$apk")"
+            pkg="$(printf '%s\n' "$badging" | sed -n "s/^package: name='\([^']*\)'.*/\1/p" | head -1)"
+            version_code="$(printf '%s\n' "$badging" | sed -n "s/^package:.*versionCode='\([^']*\)'.*/\1/p" | head -1)"
+            PKG="$pkg"
+            VERSION_CODE="$version_code"
+            echo "APK_PACKAGE=$PKG"
+            echo "APK_VERSION_CODE=$VERSION_CODE"
+            test "$PKG" = "com.qujindai.pocketgallery_phone_pilot.r3"
+            test "$VERSION_CODE" -ge 2020
+            test "$VERSION_CODE" = "$expected_version_code"
+
+            signer_output="$RUNNER_TEMP/apksigner-$expected_version_code.txt"
+            "$APKSIGNER" verify --verbose --print-certs "$apk" 2>&1 | tee "$signer_output"
+            apk_cert="$(grep -i 'certificate.*sha-256.*digest' "$signer_output" | head -1 | sed -E 's/.*[Dd]igest:[[:space:]]*//' | tr -d '[:space:]:' | tr '[:upper:]' '[:lower:]')"
+            APK_CERT="$apk_cert"
+            echo "APK_SIGNER_SHA256=$APK_CERT"
+            test -n "$APK_CERT"
+            test "$APK_CERT" = "$CANONICAL_SIGNER_SHA256"
+          }
+
+          verify_apk "$BASELINE_APK" 2022
+          verify_apk "$CANDIDATE_APK" 2023
+
+      - name: Hash canonical R5.0 upgrade pair
+        working-directory: pilot/flutter_phone_loop
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha256sum "$BASELINE_APK" | tee "$BASELINE_APK.sha256"
+          sha256sum "$CANDIDATE_APK" | tee "$CANDIDATE_APK.sha256"
+
+      - name: Emit automated release evidence
+        working-directory: pilot/flutter_phone_loop
+        shell: bash
+        run: |
+          set -euo pipefail
+          CANDIDATE_SHA256="$(awk '{print $1}' "$CANDIDATE_APK.sha256")"
+          AUTOMATED_EVIDENCE="$ARTIFACT_DIR/PG_AUTOMATED_EVIDENCE.json"
+          cat > "$AUTOMATED_EVIDENCE" <<JSON
+          {
+            "schema": "pocketgallery.r50.automated-evidence.v1",
+            "sourceCommit": "$SOURCE_COMMIT",
+            "automatedGatesPassed": true,
+            "packageName": "com.qujindai.pocketgallery_phone_pilot.r3",
+            "baselineVersionCode": 2022,
+            "versionCode": 2023,
+            "signerSha256": "$CANONICAL_SIGNER_SHA256",
+            "apkSha256": "$CANDIDATE_SHA256",
+            "workflowIdentity": "$GITHUB_WORKFLOW/$GITHUB_RUN_ID/$GITHUB_RUN_ATTEMPT"
+          }
+          JSON
+          test -s "$AUTOMATED_EVIDENCE"
+          echo "AUTOMATED_EVIDENCE=$AUTOMATED_EVIDENCE" >> "$GITHUB_ENV"
+
+      - name: Upload canonical R5.0 upgrade pair and evidence
+        uses: actions/upload-artifact@v4
         with:
-          name: PocketGallery-Phone-Pilot-R3-debug-apk
+          name: PocketGallery-R50-canonical-upgrade-pair
           path: |
-            pilot/flutter_phone_loop/build/app/outputs/flutter-apk/app-debug.apk
-            pilot/flutter_phone_loop/build/app/outputs/flutter-apk/app-debug.apk.sha256
+            pilot/flutter_phone_loop/build/app/outputs/flutter-apk/PocketGallery-R50-baseline-v2022.apk
+            pilot/flutter_phone_loop/build/app/outputs/flutter-apk/PocketGallery-R50-baseline-v2022.apk.sha256
+            pilot/flutter_phone_loop/build/app/outputs/flutter-apk/PocketGallery-R50-candidate-v2023.apk
+            pilot/flutter_phone_loop/build/app/outputs/flutter-apk/PocketGallery-R50-candidate-v2023.apk.sha256
+            pilot/flutter_phone_loop/build/app/outputs/flutter-apk/PG_AUTOMATED_EVIDENCE.json
           if-no-files-found: error
           retention-days: 14
 
