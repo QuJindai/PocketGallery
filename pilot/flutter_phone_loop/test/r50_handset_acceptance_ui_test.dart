@@ -118,9 +118,14 @@ void main() {
       );
       expect(startButton.onPressed, isNull);
 
-      await tester.ensureVisible(find.text('Phone Golden Test · F1–F10'));
+      await tester.scrollUntilVisible(
+        find.text('Phone Golden Test · F1–F10'),
+        240,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Phone Golden Test · F1–F10'));
-      await tester.pump();
+      await tester.pumpAndSettle();
       expect(find.text('F1 · Golden gate 1'), findsOneWidget);
       expect(find.text('F10 · Golden gate 10'), findsOneWidget);
 
