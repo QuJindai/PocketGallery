@@ -44,6 +44,19 @@ typedef HandsetProgressCallback = void Function(
   HandsetAcceptanceSnapshot snapshot,
 );
 
+abstract interface class HandsetAcceptanceController {
+  ValueListenable<String?> get interruption;
+
+  Future<HandsetAcceptanceSnapshot?> recoverInterruptedCheckpoint();
+
+  Future<HandsetAcceptanceSnapshot> run({
+    HandsetProgressCallback? onProgress,
+    required VectorInteractionRun runInteraction,
+  });
+
+  Future<void> interrupt(String reasonCode);
+}
+
 abstract interface class HandsetAcceptancePersistence {
   Future<HandsetAcceptanceSnapshot?> readLast();
 
@@ -143,7 +156,7 @@ final class VectorInteractionResult {
       frameTiming.available;
 }
 
-final class HandsetAcceptanceRunner {
+final class HandsetAcceptanceRunner implements HandsetAcceptanceController {
   HandsetAcceptanceRunner({
     required this.diagnostics,
     required this.persistence,
@@ -171,6 +184,7 @@ final class HandsetAcceptanceRunner {
   final DeviceResourceSampling resources;
   final DateTime Function() _clock;
   final String Function()? runIdFactory;
+  @override
   final ValueNotifier<String?> interruption = ValueNotifier<String?>(null);
 
   HandsetAcceptanceSnapshot? _current;
@@ -193,10 +207,12 @@ final class HandsetAcceptanceRunner {
   String? _vectorCaptureError;
   VectorInteractionResult? _interactionResult;
 
+  @override
   Future<HandsetAcceptanceSnapshot?> recoverInterruptedCheckpoint() {
     return _recoveryFuture ??= _recoverInterruptedCheckpoint();
   }
 
+  @override
   Future<void> interrupt(String reasonCode) {
     final normalized = reasonCode.trim().isEmpty
         ? 'INTERRUPTED'
@@ -214,6 +230,7 @@ final class HandsetAcceptanceRunner {
     return _interruptFuture ?? Future<void>.value();
   }
 
+  @override
   Future<HandsetAcceptanceSnapshot> run({
     HandsetProgressCallback? onProgress,
     required VectorInteractionRun runInteraction,

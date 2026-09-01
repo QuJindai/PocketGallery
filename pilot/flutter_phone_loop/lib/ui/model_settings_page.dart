@@ -3,15 +3,31 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 
+import '../acceptance/handset_acceptance_composition.dart';
+import '../acceptance/handset_acceptance_models.dart';
+import '../chat/chat_session_store.dart';
 import '../services/golden_test_runner.dart';
 import '../services/golden_test_state.dart';
 import '../services/knowledge_engine.dart';
 import '../services/model_setup_service.dart';
+import 'handset_acceptance_page.dart';
+import 'handset_acceptance_widgets.dart';
 
 class ModelSettingsPage extends StatefulWidget {
-  const ModelSettingsPage({super.key, required this.engine});
+  const ModelSettingsPage({
+    super.key,
+    required this.engine,
+    required this.store,
+    this.setupService,
+    this.acceptanceSnapshotLoader,
+    this.acceptancePageBuilder,
+  });
 
   final KnowledgeEngine engine;
+  final ChatSessionStore store;
+  final ModelSetupService? setupService;
+  final HandsetAcceptanceSnapshotLoader? acceptanceSnapshotLoader;
+  final WidgetBuilder? acceptancePageBuilder;
 
   @override
   State<ModelSettingsPage> createState() => _ModelSettingsPageState();
@@ -19,7 +35,7 @@ class ModelSettingsPage extends StatefulWidget {
 
 class _ModelSettingsPageState extends State<ModelSettingsPage>
     with WidgetsBindingObserver {
-  final setup = ModelSetupService();
+  late final ModelSetupService setup;
 
   ModelSetupSnapshot modelState = const ModelSetupSnapshot(
     phase: ModelSetupPhase.checking,
@@ -31,12 +47,39 @@ class _ModelSettingsPageState extends State<ModelSettingsPage>
   GoldenTestReport? report;
   GoldenTestSnapshot? diagnosticSnapshot;
   String diagnosticStatus = '诊断未运行';
+  int acceptanceGeneration = 0;
 
   @override
   void initState() {
     super.initState();
+    setup = widget.setupService ?? ModelSetupService();
     WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) => _bootstrapModelState());
+  }
+
+  Future<HandsetAcceptanceSnapshot?> _loadAcceptanceSnapshot() {
+    final loader = widget.acceptanceSnapshotLoader;
+    if (loader != null) return loader();
+    return HandsetAcceptanceComposition.create(
+      widget.engine,
+      widget.store,
+    ).runner.recoverInterruptedCheckpoint();
+  }
+
+  Future<void> _openHandsetAcceptance() async {
+    final customBuilder = widget.acceptancePageBuilder;
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        fullscreenDialog: true,
+        builder: customBuilder ??
+            (context) => HandsetAcceptancePage(
+                  engine: widget.engine,
+                  store: widget.store,
+                ),
+      ),
+    );
+    if (!mounted) return;
+    setState(() => acceptanceGeneration += 1);
   }
 
   Future<void> _bootstrapModelState() async {
@@ -238,6 +281,14 @@ class _ModelSettingsPageState extends State<ModelSettingsPage>
                   ],
                 ),
               ),
+            ),
+            const SizedBox(height: 10),
+            HandsetAcceptanceEntryCard(
+              key: ValueKey<String>(
+                'handset-acceptance-entry-generation-$acceptanceGeneration',
+              ),
+              recoverLatest: _loadAcceptanceSnapshot,
+              onOpen: () => unawaited(_openHandsetAcceptance()),
             ),
             if (modelState.authorizationRequired) ...[
               const SizedBox(height: 10),
