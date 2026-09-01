@@ -602,10 +602,7 @@ void main() {
   });
 }
 
-Future<T> _compressTimer<T>(
-  Duration target,
-  Future<T> Function() action,
-) {
+Future<T> _compressTimer<T>(Duration target, Future<T> Function() action) {
   return runZoned(
     action,
     zoneSpecification: ZoneSpecification(

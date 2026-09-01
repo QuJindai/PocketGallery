@@ -152,9 +152,7 @@ void main() {
             status: index == 5
                 ? GoldenGateStatus.blocked
                 : GoldenGateStatus.passed,
-            detail: index == 5
-                ? 'PROCESS_INTERRUPTED|USER_CANCELLED'
-                : 'pass',
+            detail: index == 5 ? 'PROCESS_INTERRUPTED|USER_CANCELLED' : 'pass',
             startedAt: startedAt,
             finishedAt: startedAt.add(const Duration(seconds: 1)),
           ),
