@@ -32,21 +32,83 @@ jobs:
         working-directory: pilot/flutter_phone_loop
         run: flutter pub get
 
-      - name: Analyze
+      - name: Analyze and capture diagnostics
+        id: analyze
         working-directory: pilot/flutter_phone_loop
-        run: flutter analyze
-
-      - name: OKF focused tests
-        working-directory: pilot/flutter_phone_loop
+        shell: bash
         run: |
+          set +e
+          flutter analyze 2>&1 | tee /tmp/okf-analyze.log
+          CODE=${PIPESTATUS[0]}
+          echo "exit_code=$CODE" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: OKF focused tests and capture diagnostics
+        id: focused
+        working-directory: pilot/flutter_phone_loop
+        shell: bash
+        run: |
+          set +e
           flutter test \
             test/okf_parser_test.dart \
             test/okf_retriever_test.dart \
-            test/okf_mobile_lab_page_test.dart
+            test/okf_mobile_lab_page_test.dart 2>&1 | tee /tmp/okf-focused.log
+          CODE=${PIPESTATUS[0]}
+          echo "exit_code=$CODE" >> "$GITHUB_OUTPUT"
+          exit 0
 
-      - name: Full Flutter regression suite
+      - name: Full Flutter regression and capture diagnostics
+        id: full
         working-directory: pilot/flutter_phone_loop
-        run: flutter test
+        shell: bash
+        run: |
+          set +e
+          flutter test 2>&1 | tee /tmp/okf-full.log
+          CODE=${PIPESTATUS[0]}
+          echo "exit_code=$CODE" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Publish failure diagnostics
+        if: steps.analyze.outputs.exit_code != '0' || steps.focused.outputs.exit_code != '0' || steps.full.outputs.exit_code != '0'
+        working-directory: pilot/flutter_phone_loop
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          DIAG=/tmp/okf-mobile-lab-diagnostics.txt
+          {
+            echo "run_id=$GITHUB_RUN_ID"
+            echo "sha=$GITHUB_SHA"
+            echo "analyze_exit=${{ steps.analyze.outputs.exit_code }}"
+            echo "focused_exit=${{ steps.focused.outputs.exit_code }}"
+            echo "full_exit=${{ steps.full.outputs.exit_code }}"
+            echo
+            echo "===== FLUTTER ANALYZE ====="
+            cat /tmp/okf-analyze.log
+            echo
+            echo "===== OKF FOCUSED TESTS ====="
+            cat /tmp/okf-focused.log
+            echo
+            echo "===== FULL FLUTTER TESTS ====="
+            cat /tmp/okf-full.log
+          } > "$DIAG"
+          TAG="okf-mobile-lab-diag-${GITHUB_RUN_ID}"
+          gh release create "$TAG" \
+            "$DIAG#okf-mobile-lab-diagnostics.txt" \
+            --target "$GITHUB_SHA" \
+            --title "OKF Mobile Lab diagnostics ${GITHUB_RUN_ID}" \
+            --notes "Automated Flutter analyze/test diagnostics for failed run ${GITHUB_RUN_ID}." \
+            --prerelease
+
+      - name: Enforce Flutter green gate
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${{ steps.analyze.outputs.exit_code }}" = "0"
+          test "${{ steps.focused.outputs.exit_code }}" = "0"
+          test "${{ steps.full.outputs.exit_code }}" = "0"
 
       - name: Restore persistent R3 signing identity
         uses: actions/cache@v5
@@ -141,13 +203,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          TAG="okf-mobile-lab-${GITHUB_RUN_NUMBER}"
+          TAG="okf-mobile-lab-${GITHUB_RUN_ID}"
           APK="build/app/outputs/flutter-apk/PocketGallery-OKF-Mobile-Lab-arm64.apk"
           SHA="$APK.sha256"
           gh release create "$TAG" \
             "$APK#PocketGallery-OKF-Mobile-Lab-arm64.apk" \
             "$SHA#PocketGallery-OKF-Mobile-Lab-arm64.apk.sha256" \
             --target "$GITHUB_SHA" \
-            --title "PocketGallery OKF Mobile Lab #${GITHUB_RUN_NUMBER}" \
+            --title "PocketGallery OKF Mobile Lab ${GITHUB_RUN_ID}" \
             --notes "Signed arm64 prerelease. A-F local-model OKF knowledge-layer experiment. Commit ${GITHUB_SHA}." \
             --prerelease
