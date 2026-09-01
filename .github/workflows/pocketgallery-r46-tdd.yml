@@ -50,9 +50,22 @@ jobs:
       - name: Resolve dependencies
         working-directory: pilot/flutter_phone_loop
         run: flutter pub get
-      - name: Verify Dart formatting
+      - name: Capture Dart formatting patch
         working-directory: pilot/flutter_phone_loop
-        run: dart format --output=none --set-exit-if-changed lib test tool
+        run: |
+          set -euo pipefail
+          dart format lib test tool
+          git diff --binary -- lib test tool > "$RUNNER_TEMP/dart-format.patch"
+          dart format --output=none --set-exit-if-changed lib test tool
+          git diff --quiet --exit-code -- lib test tool
+      - name: Upload Dart formatting patch
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pocketgallery-r50-dart-format-patch
+          path: ${{ runner.temp }}/dart-format.patch
+          if-no-files-found: error
+          retention-days: 1
       - name: Analyze R5.0
         working-directory: pilot/flutter_phone_loop
         run: flutter analyze
