@@ -36,6 +36,7 @@
 | H10 | 脱敏报告完整性与原子持久化 |
 
 App 只输出 `DEVICE_ACCEPTANCE` 与 `MERGE_CANDIDATE`，绝不自行宣称 `MERGE_READY`。最终结果必须在仓库侧用设备报告、`PG_AUTOMATED_EVIDENCE.json` 和 candidate APK SHA-256 sidecar 做同提交裁决。
+设备报告只在用户点击导出后保存到用户选定的位置，App 不会自动上传。
 
 ## Phone Golden Test F1–F10
 
