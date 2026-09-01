@@ -262,6 +262,71 @@ void main() {
       await tester.pumpAndSettle();
     });
 
+    testWidgets('active run exposes one visible cancel-and-cleanup action',
+        (tester) async {
+      _setPhoneSize(tester);
+      final controller = _FakeHandsetController(
+        progress: <HandsetAcceptanceSnapshot>[_runningH4Snapshot()],
+        holdRun: true,
+      );
+      await _pumpAcceptancePage(tester, controller);
+      await tester.tap(find.text('开始手机一键验收'));
+      await tester.pump();
+
+      final cancel = find.byKey(
+        const ValueKey<String>('handset-acceptance-cancel'),
+      );
+      expect(cancel, findsOneWidget);
+      expect(find.text('取消并清理'), findsOneWidget);
+      await tester.tap(cancel);
+      await tester.pump();
+
+      expect(controller.interruptReasons, <String>['USER_CANCELLED']);
+      controller.complete(_terminalSnapshot(AcceptanceVerdict.blocked));
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('system back interrupts and retains an active acceptance route',
+        (tester) async {
+      _setPhoneSize(tester);
+      final controller = _FakeHandsetController(
+        progress: <HandsetAcceptanceSnapshot>[_runningH4Snapshot()],
+        holdRun: true,
+      );
+      await _pumpAcceptancePage(tester, controller);
+      await tester.tap(find.text('开始手机一键验收'));
+      await tester.pump();
+
+      await tester.binding.handlePopRoute();
+      await tester.pump();
+
+      expect(controller.interruptReasons, <String>['USER_CANCELLED']);
+      expect(find.text('手机一键验收'), findsOneWidget);
+      controller.complete(_terminalSnapshot(AcceptanceVerdict.blocked));
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('disposing an active page performs best-effort interruption',
+        (tester) async {
+      _setPhoneSize(tester);
+      final controller = _FakeHandsetController(
+        progress: <HandsetAcceptanceSnapshot>[_runningH4Snapshot()],
+        holdRun: true,
+      );
+      await _pumpAcceptancePage(tester, controller);
+      await tester.tap(find.text('开始手机一键验收'));
+      await tester.pump();
+
+      await tester.pumpWidget(
+        const MaterialApp(home: SizedBox.shrink()),
+      );
+      await tester.pump();
+
+      expect(controller.interruptReasons, <String>['USER_CANCELLED']);
+      controller.complete(_terminalSnapshot(AcceptanceVerdict.blocked));
+      await tester.pump();
+    });
+
     testWidgets('export saves exact allow-listed bytes and never renders a token',
         (tester) async {
       _setPhoneSize(tester);

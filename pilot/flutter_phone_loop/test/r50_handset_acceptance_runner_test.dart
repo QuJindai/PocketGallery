@@ -58,6 +58,8 @@ void main() {
     expect(harness.persistence.savedBaselines.single.versionCode, 2022);
     expect(events.indexOf('preservation:after'), lessThan(events.indexOf('resources:stop')));
     expect(events.indexOf('resources:stop'), lessThan(events.indexOf('baseline:save')));
+    expect(events, contains('screen:off'));
+    expect(events.indexOf('screen:off'), lessThan(events.indexOf('baseline:save')));
   });
 
   test('non-target or non-canonical helper never establishes a baseline',
@@ -175,6 +177,143 @@ void main() {
     expect(diagnostics.keepScreenOnValues, <bool>[true, false]);
   });
 
+  test('interrupt after awaited H9 capture blocks terminal merge', () async {
+    final enteredAfterCapture = Completer<void>();
+    final releaseAfterCapture = Completer<void>();
+    var captureCount = 0;
+    final harness = _Harness(
+      preservationCapture: (identity) async {
+        captureCount += 1;
+        if (captureCount == 2) {
+          enteredAfterCapture.complete();
+          await releaseAfterCapture.future;
+        }
+        return _preservation(versionCode: identity.versionCode ?? 2023);
+      },
+    );
+
+    final run = harness.runner.run(
+      runInteraction: harness.runPassingInteraction,
+    );
+    await enteredAfterCapture.future;
+    await harness.runner.interrupt('APP_BACKGROUND_INTERRUPTION');
+    releaseAfterCapture.complete();
+    final result = await run;
+
+    expect(
+      _gate(result, 'H9_DATA_PRESERVATION').status,
+      HandsetGateStatus.blocked,
+    );
+    expect(
+      _gate(result, 'H9_DATA_PRESERVATION').detail,
+      'APP_BACKGROUND_INTERRUPTION',
+    );
+    expect(result.mergeCandidate, isFalse);
+    expect(result.verdict, AcceptanceVerdict.blocked);
+  });
+
+  test('interrupt while H8 stop is awaited cannot publish PASS', () async {
+    final enteredStop = Completer<void>();
+    final releaseStop = Completer<void>();
+    final resources = _FakeResourceSampler(
+      _passingResourceSummary(),
+      stopEntered: enteredStop,
+      stopBarrier: releaseStop,
+    );
+    final harness = _Harness(resourceSampler: resources);
+
+    final run = harness.runner.run(
+      runInteraction: harness.runPassingInteraction,
+    );
+    await enteredStop.future;
+    await harness.runner.interrupt('APP_BACKGROUND_INTERRUPTION');
+    releaseStop.complete();
+    final result = await run;
+
+    expect(
+      _gate(result, 'H8_MEMORY_THERMAL').status,
+      HandsetGateStatus.blocked,
+    );
+    expect(_gate(result, 'H8_MEMORY_THERMAL').detail,
+        'APP_BACKGROUND_INTERRUPTION');
+    expect(result.mergeCandidate, isFalse);
+    expect(result.verdict, AcceptanceVerdict.blocked);
+  });
+
+  test('cleanup boundary closes before H10 report persistence', () async {
+    final events = <String>[];
+    final reportEntered = Completer<void>();
+    final releaseReport = Completer<void>();
+    final diagnostics = _FakeDiagnostics(
+      identity: _identity(),
+      events: events,
+    );
+    final persistence = _MemoryPersistence(
+      baseline: _baseline(),
+      events: events,
+      finalReportEntered: reportEntered,
+      finalReportBarrier: releaseReport,
+    );
+    final harness = _Harness(
+      diagnostics: diagnostics,
+      persistence: persistence,
+      events: events,
+    );
+
+    final run = harness.runner.run(
+      runInteraction: harness.runPassingInteraction,
+    );
+    await reportEntered.future;
+
+    final screenReleasedBeforeReport = events.contains('screen:off') &&
+        events.indexOf('screen:off') < events.indexOf('report:save');
+    await harness.runner.interrupt('USER_CANCELLED');
+    final lateInterruptIgnored = harness.runner.interruption.value == null;
+
+    releaseReport.complete();
+    final result = await run;
+    expect(screenReleasedBeforeReport, isTrue);
+    expect(lateInterruptIgnored, isTrue);
+    expect(result.verdict, AcceptanceVerdict.pass);
+    expect(result.mergeCandidate, isTrue);
+  });
+
+  test('screen release failure is terminal FAIL evidence, never a thrown PASS',
+      () async {
+    final diagnostics = _FakeDiagnostics(
+      identity: _identity(),
+      throwWhenDisablingScreen: true,
+    );
+    final harness = _Harness(diagnostics: diagnostics);
+
+    final result = await harness.runner.run(
+      runInteraction: harness.runPassingInteraction,
+    );
+
+    expect(result.cleanupError, 'RUNTIME_CLEANUP_FAILED');
+    expect(result.verdict, AcceptanceVerdict.fail);
+    expect(result.mergeCandidate, isFalse);
+    expect(harness.persistence.finalReports, hasLength(1));
+  });
+
+  test('resource stop failure is terminal FAIL evidence, never a thrown PASS',
+      () async {
+    final resources = _FakeResourceSampler(
+      _passingResourceSummary(),
+      throwOnStop: true,
+    );
+    final harness = _Harness(resourceSampler: resources);
+
+    final result = await harness.runner.run(
+      runInteraction: harness.runPassingInteraction,
+    );
+
+    expect(result.cleanupError, 'RUNTIME_CLEANUP_FAILED');
+    expect(result.verdict, AcceptanceVerdict.fail);
+    expect(result.mergeCandidate, isFalse);
+    expect(harness.persistence.finalReports, hasLength(1));
+  });
+
   test('nested Golden progress maps monotonically into the H4 55 percent window',
       () async {
     final progress = <int>[];
@@ -283,7 +422,9 @@ final class _Harness {
     this.frameTiming = _passingFrameTiming,
     ResourceAcceptanceSummary? resourceSummary,
     PreservationSnapshot? afterPreservation,
+    PreservationCapture? preservationCapture,
     _MemoryPersistence? persistence,
+    _FakeResourceSampler? resourceSampler,
     GoldenAcceptanceRun? goldenRun,
     GoldenAcceptanceInterrupt? goldenInterrupt,
     KnownFixtureCleanup? knownFixtureCleanup,
@@ -292,16 +433,21 @@ final class _Harness {
     List<String>? events,
   })  : events = events ?? <String>[],
         diagnostics =
-            diagnostics ?? _FakeDiagnostics(identity: identity ?? _identity()),
+            diagnostics ??
+                _FakeDiagnostics(
+                  identity: identity ?? _identity(),
+                  events: events,
+                ),
         persistence = persistence ??
             _MemoryPersistence(
               baseline: hasBaseline ? _baseline() : null,
               events: events,
             ),
-        resources = _FakeResourceSampler(
-          resourceSummary ?? _passingResourceSummary(),
-          events: events,
-        ) {
+        resources = resourceSampler ??
+            _FakeResourceSampler(
+              resourceSummary ?? _passingResourceSummary(),
+              events: events,
+            ) {
     final before = _preservation(
       versionCode: this.diagnostics.identity.versionCode ?? 2023,
     );
@@ -318,14 +464,15 @@ final class _Harness {
     runner = HandsetAcceptanceRunner(
       diagnostics: this.diagnostics,
       persistence: this.persistence,
-      capturePreservation: (deviceIdentity) async {
-        captureCount += 1;
-        final isBefore = captureCount.isOdd;
-        this.events.add(
-          isBefore ? 'preservation:before' : 'preservation:after',
-        );
-        return isBefore ? before : after;
-      },
+      capturePreservation: preservationCapture ??
+          (deviceIdentity) async {
+            captureCount += 1;
+            final isBefore = captureCount.isOdd;
+            this.events.add(
+              isBefore ? 'preservation:before' : 'preservation:after',
+            );
+            return isBefore ? before : after;
+          },
       runGolden: actualGoldenRun,
       interruptGolden: goldenInterrupt ?? (reasonCode) async {},
       cleanupKnownFixtures: knownFixtureCleanup ?? () async {},
@@ -379,10 +526,14 @@ final class _FakeDiagnostics implements DeviceDiagnosticsGateway {
   _FakeDiagnostics({
     required this.identity,
     this.throwWhenEnablingScreen = false,
-  });
+    this.throwWhenDisablingScreen = false,
+    List<String>? events,
+  }) : events = events ?? <String>[];
 
   final DeviceIdentitySnapshot identity;
   final bool throwWhenEnablingScreen;
+  final bool throwWhenDisablingScreen;
+  final List<String> events;
   final List<bool> keepScreenOnValues = <bool>[];
   int identityReads = 0;
 
@@ -400,18 +551,31 @@ final class _FakeDiagnostics implements DeviceDiagnosticsGateway {
   @override
   Future<void> setKeepScreenOn(bool enabled) async {
     keepScreenOnValues.add(enabled);
+    events.add(enabled ? 'screen:on' : 'screen:off');
     if (enabled && throwWhenEnablingScreen) {
       throw StateError('keep screen on unavailable');
+    }
+    if (!enabled && throwWhenDisablingScreen) {
+      throw StateError('keep screen off unavailable');
     }
   }
 }
 
 final class _FakeResourceSampler implements DeviceResourceSampling {
-  _FakeResourceSampler(this.summary, {List<String>? events})
+  _FakeResourceSampler(
+    this.summary, {
+    List<String>? events,
+    this.stopEntered,
+    this.stopBarrier,
+    this.throwOnStop = false,
+  })
       : events = events ?? <String>[];
 
   final ResourceAcceptanceSummary summary;
   final List<String> events;
+  final Completer<void>? stopEntered;
+  final Completer<void>? stopBarrier;
+  final bool throwOnStop;
   bool _running = false;
   int startCount = 0;
   int stopCount = 0;
@@ -430,9 +594,14 @@ final class _FakeResourceSampler implements DeviceResourceSampling {
   @override
   Future<ResourceAcceptanceSummary> stop() async {
     expect(_running, isTrue);
-    _running = false;
     stopCount += 1;
     events.add('resources:stop');
+    if (stopEntered != null && !stopEntered!.isCompleted) {
+      stopEntered!.complete();
+    }
+    await stopBarrier?.future;
+    if (throwOnStop) throw StateError('resource stop unavailable');
+    _running = false;
     return summary;
   }
 
@@ -448,11 +617,15 @@ final class _MemoryPersistence implements HandsetAcceptancePersistence {
     this.last,
     this.baseline,
     List<String>? events,
+    this.finalReportEntered,
+    this.finalReportBarrier,
   }) : events = events ?? <String>[];
 
   HandsetAcceptanceSnapshot? last;
   PreservationSnapshot? baseline;
   final List<String> events;
+  final Completer<void>? finalReportEntered;
+  final Completer<void>? finalReportBarrier;
   final List<HandsetAcceptanceSnapshot> checkpoints =
       <HandsetAcceptanceSnapshot>[];
   final List<PreservationSnapshot> savedBaselines = <PreservationSnapshot>[];
@@ -479,6 +652,11 @@ final class _MemoryPersistence implements HandsetAcceptancePersistence {
 
   @override
   Future<String> saveFinalReport(Uint8List bytes, String runId) async {
+    events.add('report:save');
+    if (finalReportEntered != null && !finalReportEntered!.isCompleted) {
+      finalReportEntered!.complete();
+    }
+    await finalReportBarrier?.future;
     finalReports.add(Uint8List.fromList(bytes));
     return '/reports/$runId.json';
   }
