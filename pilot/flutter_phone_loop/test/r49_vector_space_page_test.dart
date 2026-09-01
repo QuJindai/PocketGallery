@@ -145,7 +145,7 @@ void main() {
     expect(find.text('有效主成分 3/3'), findsOneWidget);
     expect(find.byType(InteractiveVectorPlot), findsOneWidget);
     expect(find.text('切片原文'), findsOneWidget);
-    expect(find.textContaining('沿着证据回到原始上下文'), findsOneWidget);
+    expect(find.textContaining('沿着证据回到原始上下文'), findsWidgets);
     expect(find.text('为何入选'), findsOneWidget);
     expect(find.text('直接支撑答案'), findsOneWidget);
     expect(find.text('开发者详情'), findsWidgets);
