@@ -100,6 +100,12 @@ jobs:
             --title "OKF Mobile Lab diagnostics ${GITHUB_RUN_ID}" \
             --notes "Automated Flutter analyze/test diagnostics for failed run ${GITHUB_RUN_ID}." \
             --prerelease
+          ENCODED="$(base64 -w0 "$DIAG")"
+          gh api --method PUT \
+            "repos/${GITHUB_REPOSITORY}/contents/docs/ci-diagnostics/okf-mobile-lab-${GITHUB_RUN_ID}.txt" \
+            -f message="ci(okf): persist diagnostics for run ${GITHUB_RUN_ID}" \
+            -f content="$ENCODED" \
+            -f branch="$GITHUB_REF_NAME" >/dev/null
 
       - name: Enforce Flutter green gate
         if: always()
@@ -161,11 +167,9 @@ jobs:
           OUT=build/app/outputs/flutter-apk/PocketGallery-OKF-Mobile-Lab-arm64.apk
           cp "$APK" "$OUT"
           test -s "$OUT"
-
           ABIS="$(unzip -Z1 "$OUT" | grep -E '^lib/[^/]+/.*\.so$' | sed -E 's#^lib/([^/]+)/.*#\1#' | sort -u | paste -sd, -)"
           echo "APK_ABIS=$ABIS"
           test "$ABIS" = "arm64-v8a"
-
           AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)"
           BADGING="$($AAPT dump badging "$OUT")"
           PKG="$(printf '%s\n' "$BADGING" | sed -n "s/^package: name='\([^']*\)'.*/\1/p" | head -1)"
@@ -177,13 +181,11 @@ jobs:
           test "$PKG" = "com.qujindai.pocketgallery_phone_pilot.r3"
           test "$VERSION_CODE" = "$EXPECTED_VERSION_CODE"
           test "$VERSION_CODE" -ge 2020
-
           APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
           "$APKSIGNER" verify --verbose --print-certs "$OUT" 2>&1 | tee /tmp/apksigner.txt
           APK_CERT="$(grep -i 'certificate.*sha-256.*digest' /tmp/apksigner.txt | head -1 | sed -E 's/.*[Dd]igest:[[:space:]]*//' | tr -d '[:space:]:' | tr '[:upper:]' '[:lower:]')"
           echo "APK_SIGNER_SHA256=$APK_CERT"
           test "$APK_CERT" = "$CANONICAL_SIGNER_SHA256"
-
           sha256sum "$OUT" | tee "$OUT.sha256"
 
       - name: Upload Actions artifact
