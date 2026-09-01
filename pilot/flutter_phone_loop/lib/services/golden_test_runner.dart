@@ -93,9 +93,13 @@ class GoldenTraceHandoff {
 }
 
 class GoldenRunControl {
-  GoldenRunControl({
+  factory GoldenRunControl({
     required Future<void> Function() closeActiveModel,
-  }) : _closeActiveModel = closeActiveModel;
+  }) {
+    return GoldenRunControl._(closeActiveModel);
+  }
+
+  GoldenRunControl._(this._closeActiveModel);
 
   final Future<void> Function() _closeActiveModel;
   Future<void>? _closeFuture;
