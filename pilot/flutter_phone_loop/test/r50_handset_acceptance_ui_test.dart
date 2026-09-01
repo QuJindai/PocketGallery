@@ -144,7 +144,7 @@ void main() {
       expect(find.text('高维关系 · 物理交互验收'), findsOneWidget);
       expect(find.textContaining('768D → 3D'), findsWidgets);
 
-      await tester.pageBack();
+      await tester.tap(find.byType(CloseButton));
       await tester.pumpAndSettle();
       expect(controller.interactionResult?.reasonCode, 'USER_ACTION_INCOMPLETE');
       expect(find.text('验收受阻'), findsOneWidget);

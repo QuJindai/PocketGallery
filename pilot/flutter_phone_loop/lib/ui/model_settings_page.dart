@@ -421,8 +421,16 @@ class _ModelSettingsPageState extends State<ModelSettingsPage>
         children: [
           Icon(ready ? Icons.check_circle : Icons.hourglass_top, size: 20),
           const SizedBox(width: 8),
-          Expanded(child: Text(title)),
-          Text(state, style: const TextStyle(fontWeight: FontWeight.w600)),
+          Expanded(flex: 4, child: Text(title)),
+          const SizedBox(width: 8),
+          Flexible(
+            flex: 5,
+            child: Text(
+              state,
+              textAlign: TextAlign.end,
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+          ),
         ],
       );
 
