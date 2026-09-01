@@ -1,0 +1,10 @@
+run_id=33497753686
+carrier_sha=3b5e575b5e805a4a23f5e4951c3d69456164f984
+target_requested=cd0c9d85be0447032372ffa8657bb6e31575f21a
+target_remote=cd0c9d85be0447032372ffa8657bb6e31575f21a
+target_match=true
+cache_hit=true
+verify_exit=75
+
+===== SIGNER VERIFY OUTPUT (NO PASSWORD) =====
+SIGNING_IDENTITY_MISMATCH: expected=81af4a5ef94c236774f0e193b2a4b248805b36c14cc36e2a56df8e451a712541 actual=f317c1a0998e8e6b148e86fecb7996d5f64736ca5497886045ef7b8a10aa67f4
