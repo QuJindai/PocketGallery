@@ -80,16 +80,16 @@ void main() {
       canonicalWorkflow,
       contains('PocketGallery-R50-candidate-v2023.apk'),
     );
-    expect(canonicalWorkflow, contains('verify_apk "$BASELINE_APK" 2022'));
-    expect(canonicalWorkflow, contains('verify_apk "$CANDIDATE_APK" 2023'));
+    expect(canonicalWorkflow, contains(r'verify_apk "$BASELINE_APK" 2022'));
+    expect(canonicalWorkflow, contains(r'verify_apk "$CANDIDATE_APK" 2023'));
     expect(
       canonicalWorkflow,
-      contains('test "$PKG" = "com.qujindai.pocketgallery_phone_pilot.r3"'),
+      contains(r'test "$PKG" = "com.qujindai.pocketgallery_phone_pilot.r3"'),
     );
-    expect(canonicalWorkflow, contains('test "$ABIS" = "arm64-v8a"'));
+    expect(canonicalWorkflow, contains(r'test "$ABIS" = "arm64-v8a"'));
     expect(
       canonicalWorkflow,
-      contains('test "$APK_CERT" = "$CANONICAL_SIGNER_SHA256"'),
+      contains(r'test "$APK_CERT" = "$CANONICAL_SIGNER_SHA256"'),
     );
     for (final fileName in <String>[
       'PocketGallery-R50-baseline-v2022.apk.sha256',
@@ -118,14 +118,14 @@ void main() {
 
     for (final contract in <String>[
       'pocketgallery.r50.automated-evidence.v1',
-      '"sourceCommit": "$SOURCE_COMMIT"',
+      r'"sourceCommit": "$SOURCE_COMMIT"',
       '"automatedGatesPassed": true',
       '"packageName": "com.qujindai.pocketgallery_phone_pilot.r3"',
       '"baselineVersionCode": 2022',
       '"versionCode": 2023',
-      '"signerSha256": "$CANONICAL_SIGNER_SHA256"',
-      '"apkSha256": "$CANDIDATE_SHA256"',
-      '"workflowIdentity": "$GITHUB_WORKFLOW/$GITHUB_RUN_ID/$GITHUB_RUN_ATTEMPT"',
+      r'"signerSha256": "$CANONICAL_SIGNER_SHA256"',
+      r'"apkSha256": "$CANDIDATE_SHA256"',
+      r'"workflowIdentity": "$GITHUB_WORKFLOW/$GITHUB_RUN_ID/$GITHUB_RUN_ATTEMPT"',
       'PG_AUTOMATED_EVIDENCE.json',
     ]) {
       expect(canonicalWorkflow, contains(contract));
@@ -154,7 +154,14 @@ void main() {
     expect(canonicalWorkflow, contains('pocketgallery-r3-signing-v1'));
     expect(
       canonicalWorkflow,
-      isNot(matches(RegExp(r'(?i)keytool\s+-(?:genkey|genkeypair)'))),
+      isNot(
+        matches(
+          RegExp(
+            r'keytool\s+-(?:genkey|genkeypair)',
+            caseSensitive: false,
+          ),
+        ),
+      ),
     );
     expect(canonicalWorkflow, isNot(contains('SIGNING_KEY_ALIAS=new')));
     expect(canonicalWorkflow, contains('SIGNING_IDENTITY_MISSING'));
