@@ -76,6 +76,33 @@ void main() {
       expect(result.passed, isFalse);
     });
 
+    test('a timed-out gate records an unresolved native operation', () async {
+      final operation = Completer<GateResult>();
+
+      final result = await GoldenGateExecutor().execute(
+        runId: 'r50-unresolved-operation',
+        gates: <GoldenGateSpec>[
+          GoldenGateSpec(
+            name: 'F6_GEMMA_CITATION',
+            label: 'Real Gemma citation',
+            timeout: const Duration(milliseconds: 5),
+            run: () => operation.future,
+          ),
+        ],
+      );
+
+      expect(result.gates.single.status, GoldenGateStatus.timedOut);
+      expect(
+        result.cleanupError,
+        contains('GATE_OPERATION_STILL_ACTIVE:F6_GEMMA_CITATION'),
+      );
+
+      operation.complete(
+        const GateResult('F6_GEMMA_CITATION', true, 'late completion'),
+      );
+      await Future<void>.delayed(Duration.zero);
+    });
+
     test('a failed dependency blocks its consumer without invoking it',
         () async {
       var dependentCalls = 0;

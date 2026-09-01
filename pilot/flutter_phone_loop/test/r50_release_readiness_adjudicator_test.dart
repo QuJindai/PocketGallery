@@ -287,6 +287,17 @@ void main() {
         );
       }
     });
+
+    test('rejects nested Golden evidence without explicit cleanup state', () {
+      final device = _deviceJson();
+      final nested = device['nestedGolden'] as Map<String, dynamic>;
+      nested.remove('cleanupError');
+
+      expect(
+        () => DeviceAcceptanceEvidence.fromJson(device),
+        throwsFormatException,
+      );
+    });
   });
 
   group('R5.0 adjudicator CLI', () {

@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pocketgallery_phone_pilot/acceptance/device_diagnostics.dart';
 import 'package:pocketgallery_phone_pilot/acceptance/device_resource_sampler.dart';
@@ -105,6 +107,16 @@ void main() {
     expect(second, isNull);
     expect(diagnostics.resourceReads, 2);
     expect(sampler.isRunning, isFalse);
+  });
+
+  test('native resource reads have a bounded capture timeout', () async {
+    final source =
+        await File('lib/acceptance/device_resource_sampler.dart').readAsString();
+
+    expect(
+      source,
+      contains('diagnostics.readResources().timeout(captureTimeout)'),
+    );
   });
 }
 

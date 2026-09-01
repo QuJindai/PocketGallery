@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:pocketgallery_phone_pilot/acceptance/handset_acceptance_models.dart';
 import 'package:pocketgallery_phone_pilot/acceptance/handset_report_exporter.dart';
 import 'package:pocketgallery_phone_pilot/acceptance/pocketgallery_build_identity.dart';
+import 'package:pocketgallery_phone_pilot/services/golden_test_state.dart';
 
 void main() {
   test('redacted report retains release truth but drops private text', () {
@@ -87,12 +88,51 @@ void main() {
       throwsFormatException,
     );
   });
+
+  test('nested cleanup and gate reasons are explicit without private detail',
+      () {
+    final startedAt = DateTime.utc(2026, 9, 1, 2);
+    final snapshot = _terminalSnapshot(
+      h4Status: HandsetGateStatus.passed,
+      nestedGolden: GoldenTestSnapshot(
+        runId: 'golden-redaction',
+        phase: GoldenRunPhase.completed,
+        startedAt: startedAt,
+        updatedAt: startedAt.add(const Duration(seconds: 1)),
+        cleanupError: 'Bearer hf_secret_private cleanup failed',
+        gates: <GoldenGateSnapshot>[
+          GoldenGateSnapshot(
+            name: 'F6_GEMMA_CITATION',
+            label: 'Gemma',
+            timeout: const Duration(seconds: 1),
+            status: GoldenGateStatus.blocked,
+            detail: 'APP_BACKGROUND_INTERRUPTION',
+            startedAt: startedAt,
+            finishedAt: startedAt.add(const Duration(seconds: 1)),
+          ),
+        ],
+      ),
+    );
+
+    final encoded = utf8.decode(HandsetReportExporter.encodeRedacted(snapshot));
+    final report = jsonDecode(encoded) as Map<String, dynamic>;
+    final nested = report['nestedGolden'] as Map<String, dynamic>;
+    final gates = nested['gates'] as List<dynamic>;
+
+    expect(nested['cleanupError'], 'GOLDEN_CLEANUP_FAILED');
+    expect(
+      (gates.single as Map<String, dynamic>)['reasonCode'],
+      'APP_BACKGROUND_INTERRUPTION',
+    );
+    expect(encoded, isNot(contains('hf_secret_private')));
+  });
 }
 
 HandsetAcceptanceSnapshot _terminalSnapshot({
   required HandsetGateStatus h4Status,
   bool mergeCandidate = false,
   int baselineVersionCode = 2022,
+  GoldenTestSnapshot? nestedGolden,
 }) {
   final startedAt = DateTime.utc(2026, 9, 1, 2);
   final gates = <HandsetGateSnapshot>[];
@@ -123,6 +163,7 @@ HandsetAcceptanceSnapshot _terminalSnapshot({
     reportPath: '/private/report/path',
     baselineVersionCode: baselineVersionCode,
     mergeCandidate: mergeCandidate,
+    nestedGolden: nestedGolden,
   );
 }
 

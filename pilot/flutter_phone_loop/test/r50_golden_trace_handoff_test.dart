@@ -1,7 +1,10 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pocketgallery_phone_pilot/core/models.dart';
+import 'package:pocketgallery_phone_pilot/services/golden_gate_executor.dart';
+import 'package:pocketgallery_phone_pilot/services/golden_test_report_store.dart';
 import 'package:pocketgallery_phone_pilot/services/golden_test_runner.dart';
 import 'package:pocketgallery_phone_pilot/services/golden_test_state.dart';
 import 'package:pocketgallery_phone_pilot/services/knowledge_engine.dart';
@@ -120,4 +123,119 @@ void main() {
     await idleRunner.interrupt('USER_CANCELLED');
     await idleRunner.interrupt('APP_BACKGROUNDED');
   });
+
+  test('sequential model closes are not suppressed after one close finishes',
+      () async {
+    var closeCount = 0;
+    final control = GoldenRunControl(
+      closeActiveModel: () async {
+        closeCount += 1;
+      },
+    );
+
+    await control.closeActiveModel();
+    await control.closeActiveModel();
+
+    expect(closeCount, 2);
+  });
+
+  test('late interruption preserves terminal failure and cleanup evidence',
+      () async {
+    final startedAt = DateTime.utc(2026, 9, 1);
+    final executor = _SnapshotExecutor(
+      GoldenTestSnapshot(
+        runId: 'golden-terminal-precedence',
+        phase: GoldenRunPhase.completed,
+        startedAt: startedAt,
+        updatedAt: startedAt.add(const Duration(seconds: 1)),
+        cleanupError: 'cleanup failure must survive',
+        gates: <GoldenGateSnapshot>[
+          GoldenGateSnapshot(
+            name: 'F1_IMPORT_CHUNK',
+            label: 'failed',
+            timeout: const Duration(seconds: 1),
+            status: GoldenGateStatus.failed,
+            detail: 'fixture failure',
+          ),
+          GoldenGateSnapshot(
+            name: 'F6_GEMMA_CITATION',
+            label: 'timed out',
+            timeout: const Duration(seconds: 1),
+            status: GoldenGateStatus.timedOut,
+            detail: 'timeout=1000ms',
+          ),
+          const GoldenGateSnapshot(
+            name: 'F7_CHAT_REALWORLD',
+            label: 'not started',
+            timeout: Duration(seconds: 1),
+          ),
+        ],
+      ),
+    );
+    final directory =
+        await Directory.systemTemp.createTemp('pg-r50-interruption-');
+    addTearDown(() => directory.delete(recursive: true));
+    final runner = GoldenTestRunner(
+      KnowledgeEngine(),
+      executor: executor,
+      reportStore: GoldenTestReportStore(
+        directoryProvider: () async => directory,
+      ),
+    );
+
+    final run = runner.run();
+    await executor.entered.future;
+    await runner.interrupt('USER_CANCELLED');
+    executor.release.complete();
+    final snapshot = (await run).snapshot!;
+
+    expect(
+      snapshot.gate('F1_IMPORT_CHUNK')!.status,
+      GoldenGateStatus.failed,
+    );
+    expect(
+      snapshot.gate('F6_GEMMA_CITATION')!.status,
+      GoldenGateStatus.timedOut,
+    );
+    expect(
+      snapshot.gate('F7_CHAT_REALWORLD')!.status,
+      GoldenGateStatus.blocked,
+    );
+    expect(
+      snapshot.gate('F7_CHAT_REALWORLD')!.detail,
+      'USER_CANCELLED',
+    );
+    expect(snapshot.cleanupError, 'cleanup failure must survive');
+  });
+
+  test('Gemma model acquisition cannot resurrect a closed service', () async {
+    final source =
+        await File('lib/services/gemma_chat_service.dart').readAsString();
+
+    expect(source, contains('_closed = true'));
+    expect(source, contains('if (_closed)'));
+    expect(source, contains('await acquired.close()'));
+  });
+}
+
+final class _SnapshotExecutor extends GoldenGateExecutor {
+  _SnapshotExecutor(this.snapshot);
+
+  final GoldenTestSnapshot snapshot;
+  final Completer<void> entered = Completer<void>();
+  final Completer<void> release = Completer<void>();
+
+  @override
+  Future<GoldenTestSnapshot> execute({
+    required String runId,
+    required List<GoldenGateSpec> gates,
+    GoldenProgressCallback? onProgress,
+    GoldenCheckpointCallback? onCheckpoint,
+    GoldenGateTimeoutCallback? onGateTimeout,
+    GoldenCleanupCallback? cleanup,
+  }) async {
+    entered.complete();
+    await release.future;
+    return snapshot;
+  }
 }
