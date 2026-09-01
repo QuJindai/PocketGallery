@@ -942,7 +942,7 @@ final class HandsetAcceptanceRunner implements HandsetAcceptanceController {
     }
     ResourceAcceptanceSummary summary;
     try {
-      summary = await resources.stop();
+      summary = await resources.stop().timeout(runtimeCleanupTimeout);
     } catch (_) {
       await _finishGate(
         name,
