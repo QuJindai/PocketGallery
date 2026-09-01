@@ -36,12 +36,13 @@ void main() {
 
     File? checkpointFile;
     for (final generation in generations) {
-      checkpointFile = await store.saveCheckpoint(generation);
-      final decoded = jsonDecode(await checkpointFile.readAsString()) as Map;
+      final saved = await store.saveCheckpoint(generation);
+      checkpointFile = saved;
+      final decoded = jsonDecode(await saved.readAsString()) as Map;
       expect(decoded['runId'], generation.runId);
       expect(decoded['phase'], generation.phase.name);
       expect((await store.readLast())!.phase, generation.phase);
-      expect(File('${checkpointFile.path}.tmp').existsSync(), isFalse);
+      expect(File('${saved.path}.tmp').existsSync(), isFalse);
     }
     final lastCheckpointFile = checkpointFile!;
     expect(
