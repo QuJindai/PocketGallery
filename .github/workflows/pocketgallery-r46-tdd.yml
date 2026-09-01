@@ -47,15 +47,19 @@ jobs:
         run: |
           set -euo pipefail
           ANDROID_VERSION_CODE="$(bash scripts/android_version_code.sh)"
-          flutter build apk --debug --target-platform android-arm64 --split-per-abi --build-number="$ANDROID_VERSION_CODE"
+          flutter build apk --debug --target-platform android-arm64 --split-per-abi
           APK=build/app/outputs/flutter-apk/app-arm64-v8a-debug.apk
           test -s "$APK"
           ABIS="$(unzip -Z1 "$APK" | grep -E '^lib/[^/]+/.*\.so$' | sed -E 's#^lib/([^/]+)/.*#\1#' | sort -u | paste -sd, -)"
+          echo "APK_ABIS=$ABIS"
           test "$ABIS" = "arm64-v8a"
           AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)"
           BADGING="$($AAPT dump badging "$APK")"
           PKG="$(printf '%s\n' "$BADGING" | sed -n "s/^package: name='\([^']*\)'.*/\1/p" | head -1)"
           VERSION_CODE="$(printf '%s\n' "$BADGING" | sed -n "s/^package:.*versionCode='\([^']*\)'.*/\1/p" | head -1)"
+          echo "APK_PACKAGE=$PKG"
+          echo "APK_VERSION_CODE=$VERSION_CODE"
+          echo "EXPECTED_VERSION_CODE=$ANDROID_VERSION_CODE"
           test "$PKG" = "com.qujindai.pocketgallery_phone_pilot.r3"
           test "$VERSION_CODE" = "$ANDROID_VERSION_CODE"
           cp "$APK" build/app/outputs/flutter-apk/PocketGallery-R49-rotatable-3d-debug.apk

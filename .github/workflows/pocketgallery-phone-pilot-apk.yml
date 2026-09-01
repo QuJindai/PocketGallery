@@ -106,8 +106,7 @@ jobs:
       - name: Build arm64 debug APK
         working-directory: pilot/flutter_phone_loop
         run: |
-          ANDROID_VERSION_CODE="$(bash scripts/android_version_code.sh)"
-          flutter build apk --debug --target-platform android-arm64 --split-per-abi --build-number="$ANDROID_VERSION_CODE"
+          flutter build apk --debug --target-platform android-arm64 --split-per-abi
           cp build/app/outputs/flutter-apk/app-arm64-v8a-debug.apk build/app/outputs/flutter-apk/app-debug.apk
 
       - name: Verify package, version, ABI and canonical signing certificate
@@ -124,11 +123,12 @@ jobs:
           BADGING="$($AAPT dump badging "$APK")"
           PKG="$(printf '%s\n' "$BADGING" | sed -n "s/^package: name='\([^']*\)'.*/\1/p" | head -1)"
           VERSION_CODE="$(printf '%s\n' "$BADGING" | sed -n "s/^package:.*versionCode='\([^']*\)'.*/\1/p" | head -1)"
+          EXPECTED_VERSION_CODE="$(bash scripts/android_version_code.sh)"
           echo "APK_PACKAGE=$PKG"
           echo "APK_VERSION_CODE=$VERSION_CODE"
+          echo "EXPECTED_VERSION_CODE=$EXPECTED_VERSION_CODE"
           test "$PKG" = "com.qujindai.pocketgallery_phone_pilot.r3"
-          test -n "$VERSION_CODE"
-          test "$VERSION_CODE" -ge 2020
+          test "$VERSION_CODE" = "$EXPECTED_VERSION_CODE"
 
           APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
           "$APKSIGNER" verify --verbose --print-certs "$APK" 2>&1 | tee /tmp/apksigner.txt
