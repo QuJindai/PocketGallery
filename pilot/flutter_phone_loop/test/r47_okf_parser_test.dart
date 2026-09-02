@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:pocketgallery_phone_pilot/okf/okf_models.dart';
 import 'package:pocketgallery_phone_pilot/okf/okf_parser.dart';
 
+// R4.7 contract gate: canonical OKF semantics must stay deterministic.
 void main() {
   const parser = OkfParser();
 
