@@ -18,15 +18,13 @@ concurrency:
 jobs:
   fix-and-verify:
     runs-on: ubuntu-latest
-    env:
-      READBACK_BRANCH: r47-signing-diagnostic-readback
     steps:
       - uses: actions/checkout@v4
         with:
           ref: codex/r47-okf-gallery
           fetch-depth: 0
 
-      - name: Apply exactly two lint-only edits
+      - name: Apply analyzer-proven lint-only edits
         shell: bash
         run: |
           set -euo pipefail
@@ -36,6 +34,7 @@ jobs:
 
           engine = Path('pilot/flutter_phone_loop/lib/okf/okf_experiment_engine.dart')
           text = engine.read_text()
+
           replacements = {
               'required LineageStore store,': 'required super.store,',
               'required LexicalFtsStore lexicalStore,': 'required super.lexicalStore,',
@@ -46,6 +45,7 @@ jobs:
               if count != 1:
                   raise SystemExit(f'{old!r} count={count}; expected 1')
               text = text.replace(old, new)
+
           pattern = re.compile(
               r"\}\) : super\(\s*"
               r"store: store,\s*"
@@ -57,15 +57,26 @@ jobs:
           text, count = pattern.subn('}) : super(clock: now);', text)
           if count != 1:
               raise SystemExit(f'super initializer replacement count={count}; expected 1')
+
+          unused_engine_imports = [
+              "import '../experiments/representation_builder.dart';\n",
+              "import '../lineage/lineage_store.dart';\n",
+              "import '../services/lexical_fts_store.dart';\n",
+          ]
+          for unused in unused_engine_imports:
+              count = text.count(unused)
+              if count != 1:
+                  raise SystemExit(f'engine import {unused!r} count={count}; expected 1')
+              text = text.replace(unused, '')
           engine.write_text(text)
 
           test_file = Path('pilot/flutter_phone_loop/test/r47_okf_shadow_lab_test.dart')
           test_text = test_file.read_text()
-          unused = "import 'package:pocketgallery_phone_pilot/okf/okf_models.dart';\n"
-          count = test_text.count(unused)
+          unused_test_import = "import 'package:pocketgallery_phone_pilot/okf/okf_models.dart';\n"
+          count = test_text.count(unused_test_import)
           if count != 1:
-              raise SystemExit(f'unused import replacement count={count}; expected 1')
-          test_file.write_text(test_text.replace(unused, ''))
+              raise SystemExit(f'test import count={count}; expected 1')
+          test_file.write_text(test_text.replace(unused_test_import, ''))
           PY
           git diff --check
 
@@ -84,44 +95,9 @@ jobs:
           dart format lib/okf/okf_experiment_engine.dart test/r47_okf_shadow_lab_test.dart
           git diff --check
 
-      - name: Analyze full Flutter package and capture result
-        id: analyze
+      - name: Analyze full Flutter package
         working-directory: pilot/flutter_phone_loop
-        shell: bash
-        run: |
-          set +e
-          flutter analyze > /tmp/r47-post-edit-analyze.log 2>&1
-          RC=$?
-          echo "exit_code=$RC" >> "$GITHUB_OUTPUT"
-          cat /tmp/r47-post-edit-analyze.log
-          exit 0
-
-      - name: Persist post-edit analyzer diagnostic
-        if: always()
-        env:
-          GH_TOKEN: ${{ github.token }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          REPORT=/tmp/r47-post-edit-analyze-diagnostic.txt
-          {
-            echo "run_id=$GITHUB_RUN_ID"
-            echo "source_sha=$(git rev-parse HEAD)"
-            echo "analyze_exit=${{ steps.analyze.outputs.exit_code }}"
-            echo
-            echo "===== FLUTTER ANALYZE AFTER EDITS ====="
-            cat /tmp/r47-post-edit-analyze.log 2>/dev/null || true
-          } > "$REPORT"
-          FILE="docs/superpowers/diagnostics/r47-post-edit-analyze-${GITHUB_RUN_ID}.txt"
-          CONTENT="$(base64 -w0 "$REPORT")"
-          gh api --method PUT \
-            "repos/${GITHUB_REPOSITORY}/contents/${FILE}" \
-            -f message="docs: persist R4.7 post-edit analyzer diagnostic ${GITHUB_RUN_ID}" \
-            -f content="$CONTENT" \
-            -f branch="$READBACK_BRANCH" >/dev/null
-
-      - name: Enforce analyzer gate
-        run: test "${{ steps.analyze.outputs.exit_code }}" = "0"
+        run: flutter analyze
 
       - name: Run all R4.7 tests
         working-directory: pilot/flutter_phone_loop
@@ -132,7 +108,7 @@ jobs:
           test "${#TESTS[@]}" -gt 0
           flutter test "${TESTS[@]}"
 
-      - name: Commit verified lint-only fix
+      - name: Commit verified analyzer-only fix
         shell: bash
         run: |
           set -euo pipefail
