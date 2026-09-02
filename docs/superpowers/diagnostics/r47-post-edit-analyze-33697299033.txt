@@ -1,0 +1,12 @@
+run_id=33697299033
+source_sha=0375963aee6242b9b0a600f3c32d702102bb9f0c
+analyze_exit=1
+
+===== FLUTTER ANALYZE AFTER EDITS =====
+Analyzing flutter_phone_loop...                                 
+
+warning • Unused import: '../experiments/representation_builder.dart'. Try removing the import directive • lib/okf/okf_experiment_engine.dart:4:8 • unused_import
+warning • Unused import: '../lineage/lineage_store.dart'. Try removing the import directive • lib/okf/okf_experiment_engine.dart:9:8 • unused_import
+warning • Unused import: '../services/lexical_fts_store.dart'. Try removing the import directive • lib/okf/okf_experiment_engine.dart:11:8 • unused_import
+
+3 issues found. (ran in 12.5s)
