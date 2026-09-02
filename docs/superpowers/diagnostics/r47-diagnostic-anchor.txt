@@ -1,1 +1,1 @@
-R4.7 diagnostic readback anchor; no runtime effect.
+R4.7 diagnostic readback anchor; second full-gate diagnosis complete.
