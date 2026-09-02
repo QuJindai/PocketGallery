@@ -1,4 +1,5 @@
 import '../core/models.dart';
+import '../okf/okf_models.dart';
 
 enum ProvenanceQuality { exact, legacy }
 
@@ -115,10 +116,12 @@ class LineageImportResult {
     required this.lineageDocument,
     required this.sections,
     required this.chunks,
+    this.okf,
   });
 
   final ImportedDocument document;
   final LineageDocumentRecord lineageDocument;
   final List<LineageSectionRecord> sections;
   final List<LineageChunkRecord> chunks;
+  final OkfParseResult? okf;
 }
