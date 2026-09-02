@@ -1,0 +1,37 @@
+name: R4.7 Refresh Integrity Manifests
+
+on:
+  push:
+    branches:
+      - codex/r47-okf-gallery
+    paths:
+      - '.github/workflows/r47-refresh-manifests.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: codex/r47-okf-gallery
+      - name: Regenerate inner and outer manifests
+        working-directory: pilot/flutter_phone_loop
+        run: |
+          set -euo pipefail
+          bash scripts/generate_manifests.sh inner > MANIFEST.sha256
+          bash scripts/generate_manifests.sh outer > ../../DROPIN_MANIFEST.sha256
+      - name: Commit manifest update
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add pilot/flutter_phone_loop/MANIFEST.sha256 DROPIN_MANIFEST.sha256
+          if git diff --cached --quiet; then
+            echo "Manifests already current"
+            exit 0
+          fi
+          git commit -m "build(r47): refresh OKF integrity manifests"
+          git push origin HEAD:codex/r47-okf-gallery
