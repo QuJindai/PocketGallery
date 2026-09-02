@@ -20,7 +20,10 @@ import 'package:pocketgallery_phone_pilot/services/lexical_fts_store.dart';
 
 class _Generator implements EmbeddingGenerator {
   @override
-  Future<List<double>> generateDocument(String text) async => const <double>[1, 0];
+  Future<List<double>> generateDocument(String text) async => const <double>[
+    1,
+    0,
+  ];
 
   @override
   Future<List<double>> generateQuery(String text) async {
@@ -28,11 +31,8 @@ class _Generator implements EmbeddingGenerator {
   }
 }
 
-Future<({
-  LineageStore lineage,
-  LexicalFtsStore lexical,
-  OkfStore okf,
-})> _fixture() async {
+Future<({LineageStore lineage, LexicalFtsStore lexical, OkfStore okf})>
+_fixture() async {
   final lineageDb = sqlite3.openInMemory();
   final lexicalDb = sqlite3.openInMemory();
   final okfDb = sqlite3.openInMemory();
@@ -250,103 +250,120 @@ Historical policy.
 }
 
 void main() {
-  test('OKF signal policy is bounded, explainable, and penalizes stale facts', () {
-    const policy = OkfSignalPolicy();
-    const parser = OkfParser();
-    final verified = parser.parseMarkdown(
-      '---\ntype: Policy\nverified: human:qa\nstale_after: 2027-01-01\n---\n# P',
-      documentId: 'verified',
-      sourceName: 'verified.md',
-      now: DateTime.utc(2026, 9, 2),
-    ).document;
-    final stale = parser.parseMarkdown(
-      '---\ntype: Policy\ngenerated: process:legacy\nstale_after: 2026-01-01\n---\n# P',
-      documentId: 'stale',
-      sourceName: 'stale.md',
-      now: DateTime.utc(2026, 9, 2),
-    ).document;
+  test(
+    'OKF signal policy is bounded, explainable, and penalizes stale facts',
+    () {
+      const policy = OkfSignalPolicy();
+      const parser = OkfParser();
+      final verified = parser
+          .parseMarkdown(
+            '---\ntype: Policy\nverified: human:qa\nstale_after: 2027-01-01\n---\n# P',
+            documentId: 'verified',
+            sourceName: 'verified.md',
+            now: DateTime.utc(2026, 9, 2),
+          )
+          .document;
+      final stale = parser
+          .parseMarkdown(
+            '---\ntype: Policy\ngenerated: process:legacy\nstale_after: 2026-01-01\n---\n# P',
+            documentId: 'stale',
+            sourceName: 'stale.md',
+            now: DateTime.utc(2026, 9, 2),
+          )
+          .document;
 
-    final trusted = policy.score(
-      baseScore: 0.10,
-      document: verified,
-      relativeLinkCount: 2,
-    );
-    final old = policy.score(
-      baseScore: 0.11,
-      document: stale,
-      relativeLinkCount: 0,
-    );
+      final trusted = policy.score(
+        baseScore: 0.10,
+        document: verified,
+        relativeLinkCount: 2,
+      );
+      final old = policy.score(
+        baseScore: 0.11,
+        document: stale,
+        relativeLinkCount: 0,
+      );
 
-    expect(trusted.finalScore, greaterThan(old.finalScore));
-    expect(trusted.trustAdjustment, greaterThan(0));
-    expect(old.freshnessAdjustment, lessThan(0));
-    expect(trusted.reason, contains('verified'));
-    expect(trusted.reason, contains('fresh'));
-    expect(trusted.reason, contains('links'));
-    expect(trusted.totalAdjustment.abs(), lessThanOrEqualTo(0.08));
-  });
+      expect(trusted.finalScore, greaterThan(old.finalScore));
+      expect(trusted.trustAdjustment, greaterThan(0));
+      expect(old.freshnessAdjustment, lessThan(0));
+      expect(trusted.reason, contains('verified'));
+      expect(trusted.reason, contains('fresh'));
+      expect(trusted.reason, contains('links'));
+      expect(trusted.totalAdjustment.abs(), lessThanOrEqualTo(0.08));
+    },
+  );
 
-  test('OKF SHADOW reranks candidates without mutating ACTIVE evidence', () async {
-    final data = await _fixture();
-    final activeBefore = await data.lineage.candidatesForTrace(
-      'tr-okf',
-      strategyId: RetrievalStrategies.activeControl.id,
-      lane: RetrievalLane.active,
-    );
-    final activeEvidenceBefore = await data.lineage.evidenceForTrace(
-      'tr-okf',
-      strategyId: RetrievalStrategies.activeControl.id,
-      lane: RetrievalLane.active,
-    );
-    final engine = OkfAwareRetrievalExperimentEngine(
-      store: data.lineage,
-      lexicalStore: data.lexical,
-      representationBuilder: RepresentationBuilder(
+  test(
+    'OKF SHADOW reranks candidates without mutating ACTIVE evidence',
+    () async {
+      final data = await _fixture();
+      final activeBefore = await data.lineage.candidatesForTrace(
+        'tr-okf',
+        strategyId: RetrievalStrategies.activeControl.id,
+        lane: RetrievalLane.active,
+      );
+      final activeEvidenceBefore = await data.lineage.evidenceForTrace(
+        'tr-okf',
+        strategyId: RetrievalStrategies.activeControl.id,
+        lane: RetrievalLane.active,
+      );
+      final engine = OkfAwareRetrievalExperimentEngine(
         store: data.lineage,
         lexicalStore: data.lexical,
-        generator: _Generator(),
-        modelIdentity: 'test',
-      ),
-      okfStore: data.okf,
-      now: () => DateTime.utc(2026, 9, 2),
-    );
+        representationBuilder: RepresentationBuilder(
+          store: data.lineage,
+          lexicalStore: data.lexical,
+          generator: _Generator(),
+          modelIdentity: 'test',
+        ),
+        okfStore: data.okf,
+        now: () => DateTime.utc(2026, 9, 2),
+      );
 
-    final run = await engine.run(
-      traceId: 'tr-okf',
-      strategyId: RetrievalStrategies.okfV02Structured.id,
-    );
-    final shadow = await data.lineage.candidatesForTrace(
-      'tr-okf',
-      strategyId: RetrievalStrategies.okfV02Structured.id,
-      lane: RetrievalLane.shadow,
-    );
-    final signals = await data.okf.candidateSignals(
-      traceId: 'tr-okf',
-      strategyId: RetrievalStrategies.okfV02Structured.id,
-    );
-    final activeAfter = await data.lineage.candidatesForTrace(
-      'tr-okf',
-      strategyId: RetrievalStrategies.activeControl.id,
-      lane: RetrievalLane.active,
-    );
-    final activeEvidenceAfter = await data.lineage.evidenceForTrace(
-      'tr-okf',
-      strategyId: RetrievalStrategies.activeControl.id,
-      lane: RetrievalLane.active,
-    );
+      final run = await engine.run(
+        traceId: 'tr-okf',
+        strategyId: RetrievalStrategies.okfV02Structured.id,
+      );
+      final shadow = await data.lineage.candidatesForTrace(
+        'tr-okf',
+        strategyId: RetrievalStrategies.okfV02Structured.id,
+        lane: RetrievalLane.shadow,
+      );
+      final signals = await data.okf.candidateSignals(
+        traceId: 'tr-okf',
+        strategyId: RetrievalStrategies.okfV02Structured.id,
+      );
+      final activeAfter = await data.lineage.candidatesForTrace(
+        'tr-okf',
+        strategyId: RetrievalStrategies.activeControl.id,
+        lane: RetrievalLane.active,
+      );
+      final activeEvidenceAfter = await data.lineage.evidenceForTrace(
+        'tr-okf',
+        strategyId: RetrievalStrategies.activeControl.id,
+        lane: RetrievalLane.active,
+      );
 
-    expect(run.status, ExperimentRunStatus.complete);
-    expect(shadow.first.chunkId, 'c-verified');
-    expect(signals, hasLength(2));
-    expect(signals.first.documentId, 'd-verified');
-    expect(activeAfter.single.fusionScore, activeBefore.single.fusionScore);
-    expect(activeAfter.single.finalRank, activeBefore.single.finalRank);
-    expect(activeEvidenceAfter.single.anchor, activeEvidenceBefore.single.anchor);
-    expect(activeEvidenceAfter.single.score, activeEvidenceBefore.single.score);
-  });
+      expect(run.status, ExperimentRunStatus.complete);
+      expect(shadow.first.chunkId, 'c-verified');
+      expect(signals, hasLength(2));
+      expect(signals.first.documentId, 'd-verified');
+      expect(activeAfter.single.fusionScore, activeBefore.single.fusionScore);
+      expect(activeAfter.single.finalRank, activeBefore.single.finalRank);
+      expect(
+        activeEvidenceAfter.single.anchor,
+        activeEvidenceBefore.single.anchor,
+      );
+      expect(
+        activeEvidenceAfter.single.score,
+        activeEvidenceBefore.single.score,
+      );
+    },
+  );
 
   test('Gallery exposes a human-readable three-arm OKF Lab', () async {
-    final engine = await File('lib/services/knowledge_engine.dart').readAsString();
+    final engine = await File('lib/services/knowledge_engine.dart')
+        .readAsString();
     final ui = await File(
       'lib/ui/microscope/retrieval_experiment_center_page.dart',
     ).readAsString();

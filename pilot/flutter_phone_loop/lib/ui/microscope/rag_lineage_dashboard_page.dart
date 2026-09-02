@@ -413,9 +413,8 @@ class _RagLineageDashboardPageState extends State<RagLineageDashboardPage> {
       RagStage.evidence => EvidenceContextPage(snapshot: data),
       RagStage.generation => GenerationCitationPage(snapshot: data),
     };
-    await Navigator.of(
-      context,
-    ).push(MaterialPageRoute<void>(builder: (_) => page));
+    await Navigator.of(context)
+        .push(MaterialPageRoute<void>(builder: (_) => page));
   }
 
   Future<void> _openExperiments(TraceSnapshot data) async {
@@ -510,9 +509,8 @@ class _RagLineageDashboardPageState extends State<RagLineageDashboardPage> {
   }
 
   void _showMessage(String message) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
   }
 }
 

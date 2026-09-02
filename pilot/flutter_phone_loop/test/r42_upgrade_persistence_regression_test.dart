@@ -36,9 +36,8 @@ void main() {
   test(
     'canceled model downloads recover automatically without OAuth reset',
     () async {
-      final setup = await File(
-        'lib/services/model_setup_service.dart',
-      ).readAsString();
+      final setup = await File('lib/services/model_setup_service.dart')
+          .readAsString();
 
       expect(setup, contains('DownloadException'));
       expect(setup, contains('CanceledError'));

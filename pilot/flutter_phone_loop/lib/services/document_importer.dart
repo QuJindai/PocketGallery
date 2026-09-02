@@ -230,7 +230,10 @@ class DocumentImporter {
       );
     } else {
       if (headings.first.start > contentStart &&
-          text.substring(contentStart, headings.first.start).trim().isNotEmpty) {
+          text
+              .substring(contentStart, headings.first.start)
+              .trim()
+              .isNotEmpty) {
         addSection(
           start: contentStart,
           end: headings.first.start,

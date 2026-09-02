@@ -10,9 +10,8 @@ import 'package:sqlite3/sqlite3.dart';
 
 void main() {
   test('R4.0.2 chat picker accepts multiple TXT MD PDF files', () async {
-    final importer = await File(
-      'lib/services/document_importer.dart',
-    ).readAsString();
+    final importer = await File('lib/services/document_importer.dart')
+        .readAsString();
 
     expect(importer, contains("allowedExtensions: const ['txt', 'md', 'pdf']"));
     expect(importer, contains('FilePicker.pickFiles('));
@@ -56,49 +55,46 @@ void main() {
     },
   );
 
-  test(
-    'R4.0.2 explicit attachment scope falls back to document evidence on vague prompts',
-    () async {
-      final db = sqlite3.openInMemory();
-      final lexical = LexicalFtsStore(database: db);
-      await lexical.initialize();
-      await lexical.replaceDocument(
-        ImportedDocument(
-          documentId: 'attached',
-          sourceName: 'attached.pdf',
-          sha256: 'attached-sha',
-          chunks: List.generate(
-            4,
-            (i) => PgChunk(
-              id: 'attached-$i',
-              documentId: 'attached',
-              sourceName: 'attached.pdf',
-              locator: 'p${i + 1}',
-              ordinal: i,
-              text:
-                  'Unique attached document content section $i about resilient systems.',
-            ),
+  test('R4.0.2 explicit attachment scope falls back to document evidence on vague prompts', () async {
+    final db = sqlite3.openInMemory();
+    final lexical = LexicalFtsStore(database: db);
+    await lexical.initialize();
+    await lexical.replaceDocument(
+      ImportedDocument(
+        documentId: 'attached',
+        sourceName: 'attached.pdf',
+        sha256: 'attached-sha',
+        chunks: List.generate(
+          4,
+          (i) => PgChunk(
+            id: 'attached-$i',
+            documentId: 'attached',
+            sourceName: 'attached.pdf',
+            locator: 'p${i + 1}',
+            ordinal: i,
+            text:
+                'Unique attached document content section $i about resilient systems.',
           ),
         ),
-      );
+      ),
+    );
 
-      final retriever = KnowledgeRetriever(
-        lexicalStore: lexical,
-        semanticStore: SemanticStore(lexical),
-      );
-      final result = await retriever.retrieve(
-        '总结一下',
-        scope: KnowledgeScope.documents({'attached'}),
-        limit: 3,
-      );
+    final retriever = KnowledgeRetriever(
+      lexicalStore: lexical,
+      semanticStore: SemanticStore(lexical),
+    );
+    final result = await retriever.retrieve(
+      '总结一下',
+      scope: KnowledgeScope.documents({'attached'}),
+      limit: 3,
+    );
 
-      expect(result.evidence, isNotEmpty);
-      expect(result.relevantForAuto, isTrue);
-      expect(
-        result.evidence.map((e) => e.chunk.documentId).toSet(),
-        equals({'attached'}),
-      );
-      db.close();
-    },
-  );
+    expect(result.evidence, isNotEmpty);
+    expect(result.relevantForAuto, isTrue);
+    expect(
+      result.evidence.map((e) => e.chunk.documentId).toSet(),
+      equals({'attached'}),
+    );
+    db.close();
+  });
 }

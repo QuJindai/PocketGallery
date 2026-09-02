@@ -9,8 +9,9 @@ import 'lineage_ids.dart';
 import 'lineage_models.dart';
 import 'lineage_store.dart';
 
-typedef DocumentEmbeddingGenerator =
-    Future<List<double>> Function(PgChunk chunk);
+typedef DocumentEmbeddingGenerator = Future<List<double>> Function(
+  PgChunk chunk,
+);
 
 class VectorMigrationReport {
   const VectorMigrationReport({

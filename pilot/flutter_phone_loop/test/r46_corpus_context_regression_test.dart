@@ -150,9 +150,10 @@ void main() {
         maxTokens: maxTokens,
         maxItems: 8,
       );
-      final fingerprints = RegExp(
-        r'source="#[0-9a-f]{8}"',
-      ).allMatches(context).map((match) => match.group(0)).toSet();
+      final fingerprints = RegExp(r'source="#[0-9a-f]{8}"')
+          .allMatches(context)
+          .map((match) => match.group(0))
+          .toSet();
 
       for (var i = 0; i < 6; i++) {
         expect(context, contains('[E${i + 1}]'));

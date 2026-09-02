@@ -24,9 +24,8 @@ void main() {
         p.join(temporaryRoot.path, 'android_host', name),
       );
     }
-    await File(
-      p.join(temporaryRoot.path, 'pubspec.yaml'),
-    ).writeAsString('name: pocketgallery_phone_pilot\n');
+    await File(p.join(temporaryRoot.path, 'pubspec.yaml'))
+        .writeAsString('name: pocketgallery_phone_pilot\n');
 
     final fakeBin = Directory(p.join(temporaryRoot.path, 'fake-bin'));
     await fakeBin.create(recursive: true);

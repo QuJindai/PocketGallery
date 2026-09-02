@@ -28,9 +28,8 @@ void main() {
   test(
     'R3 model setup consumes OAuth access token without exposing it in UI',
     () async {
-      final setup = await File(
-        'lib/services/model_setup_service.dart',
-      ).readAsString();
+      final setup = await File('lib/services/model_setup_service.dart')
+          .readAsString();
       final home = await File('lib/ui/home_page.dart').readAsString();
 
       expect(setup, contains('HfOAuthDeviceService'));

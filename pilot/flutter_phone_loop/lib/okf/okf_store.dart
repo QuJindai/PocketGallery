@@ -81,7 +81,9 @@ class OkfStore {
     final db = _db!;
     db.execute('BEGIN IMMEDIATE;');
     try {
-      db.execute('DELETE FROM pg_okf_links WHERE document_id = ?', [documentId]);
+      db.execute('DELETE FROM pg_okf_links WHERE document_id = ?', [
+        documentId,
+      ]);
       db.execute('DELETE FROM pg_okf_documents WHERE document_id = ?', [
         documentId,
       ]);
@@ -109,7 +111,9 @@ class OkfStore {
             document.freshness.name,
             jsonEncode(document.verifiedActors),
             jsonEncode(document.generatedActors),
-            jsonEncode(document.sources.map((source) => source.toJson()).toList()),
+            jsonEncode(
+              document.sources.map((source) => source.toJson()).toList(),
+            ),
             document.status,
             document.staleAfter?.toUtc().toIso8601String(),
             document.supersededBy,
@@ -161,9 +165,8 @@ class OkfStore {
       generatedActors: _decodeStrings(row['generated_json'] as String),
       sources: sourcesRaw
           .map(
-            (value) => OkfSource.fromJson(
-              Map<String, Object?>.from(value as Map),
-            ),
+            (value) =>
+                OkfSource.fromJson(Map<String, Object?>.from(value as Map)),
           )
           .toList(growable: false),
       status: row['status'] as String?,
@@ -274,7 +277,8 @@ class OkfStore {
             documentId: row['document_id'] as String,
             baseScore: (row['base_score'] as num).toDouble(),
             trustAdjustment: (row['trust_adjustment'] as num).toDouble(),
-            freshnessAdjustment: (row['freshness_adjustment'] as num).toDouble(),
+            freshnessAdjustment: (row['freshness_adjustment'] as num)
+                .toDouble(),
             linkAdjustment: (row['link_adjustment'] as num).toDouble(),
             finalScore: (row['final_score'] as num).toDouble(),
             reason: row['reason'] as String,

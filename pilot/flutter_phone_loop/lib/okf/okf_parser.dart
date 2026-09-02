@@ -162,10 +162,7 @@ class OkfParser {
   List<String> _stringList(Object? value) {
     if (value == null) return const <String>[];
     if (value is Iterable && value is! String) {
-      return value
-          .map(_string)
-          .whereType<String>()
-          .toList(growable: false);
+      return value.map(_string).whereType<String>().toList(growable: false);
     }
     final single = _string(value);
     return single == null ? const <String>[] : <String>[single];
@@ -240,7 +237,9 @@ class OkfParser {
     if (value.startsWith('<') && value.endsWith('>') && value.length > 2) {
       value = value.substring(1, value.length - 1);
     }
-    if (value.startsWith('#') || value.startsWith('/') || value.startsWith('//')) {
+    if (value.startsWith('#') ||
+        value.startsWith('/') ||
+        value.startsWith('//')) {
       return false;
     }
     return !RegExp(r'^[A-Za-z][A-Za-z0-9+.-]*:').hasMatch(value);

@@ -36,7 +36,9 @@ Torque limit is 320 Nm. See [Policy](policy.md).
     final tmp = await Directory.systemTemp.createTemp('pg-r47-plain-');
     addTearDown(() => tmp.delete(recursive: true));
     final file = File('${tmp.path}/plain.md');
-    await file.writeAsString('# Plain\nExisting Gallery behavior remains intact.');
+    await file.writeAsString(
+      '# Plain\nExisting Gallery behavior remains intact.',
+    );
 
     final result = await DocumentImporter().importPathWithLineage(file.path);
 

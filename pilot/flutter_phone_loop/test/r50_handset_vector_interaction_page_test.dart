@@ -142,9 +142,8 @@ void main() {
         MaterialApp(
           theme: ThemeData(brightness: variant.brightness),
           builder: (context, child) => MediaQuery(
-            data: MediaQuery.of(
-              context,
-            ).copyWith(textScaler: TextScaler.linear(variant.scale)),
+            data: MediaQuery.of(context)
+                .copyWith(textScaler: TextScaler.linear(variant.scale)),
             child: child!,
           ),
           home: HandsetVectorInteractionPage(

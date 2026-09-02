@@ -294,9 +294,8 @@ void main() {
   );
 
   test('Gemma model acquisition cannot resurrect a closed service', () async {
-    final source = await File(
-      'lib/services/gemma_chat_service.dart',
-    ).readAsString();
+    final source = await File('lib/services/gemma_chat_service.dart')
+        .readAsString();
 
     expect(source, contains('_closed = true'));
     expect(source, contains('if (_closed)'));

@@ -163,9 +163,8 @@ class _ModelSettingsPageState extends State<ModelSettingsPage>
       await setup.openEmbeddingLicensePage();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('无法打开官方许可页：$e')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('无法打开官方许可页：$e')));
     }
   }
 

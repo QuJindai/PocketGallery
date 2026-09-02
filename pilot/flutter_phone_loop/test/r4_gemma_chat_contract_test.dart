@@ -49,9 +49,8 @@ void main() {
   test(
     'Gemma chat service rebuilds and invalidates native chat every turn',
     () async {
-      final source = await File(
-        'lib/services/gemma_chat_service.dart',
-      ).readAsString();
+      final source = await File('lib/services/gemma_chat_service.dart')
+          .readAsString();
       expect(source, contains('InferenceChat? _chat'));
       expect(source, contains('_createTurnChat'));
       expect(source, contains('await _closeNativeChat();'));

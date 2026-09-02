@@ -123,11 +123,7 @@ class OkfAwareRetrievalExperimentEngine extends RetrievalExperimentEngine {
       );
       signals.add(record);
       scored.add(
-        _ScoredCandidate(
-          candidate: candidate,
-          chunk: chunk,
-          signal: record,
-        ),
+        _ScoredCandidate(candidate: candidate, chunk: chunk, signal: record),
       );
     }
 
@@ -156,14 +152,9 @@ class OkfAwareRetrievalExperimentEngine extends RetrievalExperimentEngine {
           semanticRank: item.candidate.vectorRank,
         ),
     ];
-    final selection = const EvidencePolicy(maxEvidence: 3).select(
-      rankedHits,
-      maxItems: 3,
-      maxTotalChars: tokenReserve * 3,
-    );
-    final selectedIds = selection.evidence
-        .map((item) => item.chunk.id)
-        .toSet();
+    final selection = const EvidencePolicy(maxEvidence: 3)
+        .select(rankedHits, maxItems: 3, maxTotalChars: tokenReserve * 3);
+    final selectedIds = selection.evidence.map((item) => item.chunk.id).toSet();
 
     await store.clearStrategyOutputs(
       traceId: traceId,
@@ -228,7 +219,8 @@ class OkfAwareRetrievalExperimentEngine extends RetrievalExperimentEngine {
           selectionRank: index + 1,
           score: evidence.score,
           tokenCount:
-              lineageChunk?.tokenCount ?? ((evidence.chunk.text.length + 2) ~/ 3),
+              lineageChunk?.tokenCount ??
+              ((evidence.chunk.text.length + 2) ~/ 3),
           selectionReason: 'okf_v02_structured; ${signal.reason}',
         ),
       );

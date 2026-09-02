@@ -71,9 +71,8 @@ class _HandsetAcceptanceEntryCardState
                   children: <Widget>[
                     Text(
                       '手机一键验收',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
+                      style: Theme.of(context).textTheme.titleMedium
+                          ?.copyWith(fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 4),
                     const Text('S24 Ultra · H1–H10 · 高维关系 3D 实体交互'),

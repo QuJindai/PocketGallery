@@ -304,9 +304,8 @@ class _ExperimentRunDetailPageState extends State<ExperimentRunDetailPage> {
   );
 
   Future<void> _push(Widget page) async {
-    await Navigator.of(
-      context,
-    ).push(MaterialPageRoute<void>(builder: (_) => page));
+    await Navigator.of(context)
+        .push(MaterialPageRoute<void>(builder: (_) => page));
   }
 
   String _pretty(String value) {

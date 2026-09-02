@@ -26,15 +26,12 @@ void main() {
   });
 
   test('microscope visibly distinguishes REAL and DERIVED data', () async {
-    final trace = await File(
-      'lib/ui/microscope/retrieval_trace_page.dart',
-    ).readAsString();
-    final fts = await File(
-      'lib/ui/microscope/fts_inspector_page.dart',
-    ).readAsString();
-    final vector = await File(
-      'lib/ui/microscope/vector_microscope_page.dart',
-    ).readAsString();
+    final trace = await File('lib/ui/microscope/retrieval_trace_page.dart')
+        .readAsString();
+    final fts = await File('lib/ui/microscope/fts_inspector_page.dart')
+        .readAsString();
+    final vector = await File('lib/ui/microscope/vector_microscope_page.dart')
+        .readAsString();
     expect('$trace\n$fts\n$vector', contains('REAL'));
     expect('$trace\n$fts\n$vector', contains('DERIVED'));
     expect(vector, contains('UMAP · 未启用'));
@@ -50,9 +47,8 @@ void main() {
           .where((e) => e is File && e.path.endsWith('.dart'))
           .cast<File>()
           .toList();
-      final source = (await Future.wait(
-        files.map((e) => e.readAsString()),
-      )).join('\n');
+      final source = (await Future.wait(files.map((e) => e.readAsString())))
+          .join('\n');
       for (final forbidden in ['86.7%', '93.3%', '0.625', '8.42']) {
         expect(source, isNot(contains(forbidden)), reason: forbidden);
       }

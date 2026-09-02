@@ -80,9 +80,7 @@ class _RetrievalExperimentCenterPageState
           );
         }
       }
-      final labFuture = selected == null
-          ? null
-          : _loadOkfLabSnapshot(selected);
+      final labFuture = selected == null ? null : _loadOkfLabSnapshot(selected);
       final exactQuery = selected == null
           ? null
           : await widget.store.embeddingById(
@@ -366,7 +364,8 @@ class _RetrievalExperimentCenterPageState
                   else ...[
                     const SizedBox(height: 6),
                     const Text('为什么改变排序：'),
-                    for (final reason in data.reasons.take(3)) Text('• $reason'),
+                    for (final reason in data.reasons.take(3))
+                      Text('• $reason'),
                   ],
                 ],
               ],
@@ -393,7 +392,10 @@ class _RetrievalExperimentCenterPageState
       children: [
         SizedBox(
           width: 132,
-          child: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+          child: Text(
+            title,
+            style: const TextStyle(fontWeight: FontWeight.w600),
+          ),
         ),
         Expanded(child: Text(detail)),
       ],
@@ -443,7 +445,9 @@ class _RetrievalExperimentCenterPageState
       okfCandidateCount: okfCandidates.length,
       okfEvidenceCount: okfEvidence.length,
       okfDocumentCount: documents.length,
-      runStatus: runs.isEmpty ? 'NOT RUN' : runs.first.status.name.toUpperCase(),
+      runStatus: runs.isEmpty
+          ? 'NOT RUN'
+          : runs.first.status.name.toUpperCase(),
       verifiedCount: documents
           .where((item) => item.trustTier == OkfTrustTier.verified)
           .length,
@@ -466,9 +470,12 @@ class _RetrievalExperimentCenterPageState
           .where((item) => item.freshness == OkfFreshness.unknown)
           .length,
       reasons: signals
-          .map((item) => '${item.documentId} · ${item.reason} · '
-              '${item.baseScore.toStringAsFixed(3)} → '
-              '${item.finalScore.toStringAsFixed(3)}')
+          .map(
+            (item) =>
+                '${item.documentId} · ${item.reason} · '
+                '${item.baseScore.toStringAsFixed(3)} → '
+                '${item.finalScore.toStringAsFixed(3)}',
+          )
           .toList(growable: false),
     );
   }

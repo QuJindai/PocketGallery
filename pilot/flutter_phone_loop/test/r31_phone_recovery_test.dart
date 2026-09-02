@@ -5,9 +5,8 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   test('R3.1 continues through OAuth after the gated-model license step', () {
     final home = File('lib/ui/home_page.dart').readAsStringSync();
-    final setup = File(
-      'lib/services/model_setup_service.dart',
-    ).readAsStringSync();
+    final setup = File('lib/services/model_setup_service.dart')
+        .readAsStringSync();
 
     expect(setup, contains('continueAfterLicense'));
     expect(home, contains('setup.continueAfterLicense'));
@@ -34,21 +33,18 @@ void main() {
     },
   );
 
-  test(
-    'R3.1+ stays on the stable R3 Android identity and advances app version',
-    () {
-      final bootstrap = File('scripts/bootstrap_android.sh').readAsStringSync();
-      final pubspec = File('pubspec.yaml').readAsStringSync();
+  test('R3.1+ stays on the stable R3 Android identity and advances app version', () {
+    final bootstrap = File('scripts/bootstrap_android.sh').readAsStringSync();
+    final pubspec = File('pubspec.yaml').readAsStringSync();
 
-      expect(bootstrap, contains('com.qujindai.pocketgallery_phone_pilot.r3'));
-      expect(
-        pubspec,
-        contains(
-          RegExp(
-            r'version: 0\.(3\.[1-9][0-9]*|[4-9]\.[0-9]+)\+(?:[4-9]|[1-9][0-9]+)',
-          ),
+    expect(bootstrap, contains('com.qujindai.pocketgallery_phone_pilot.r3'));
+    expect(
+      pubspec,
+      contains(
+        RegExp(
+          r'version: 0\.(3\.[1-9][0-9]*|[4-9]\.[0-9]+)\+(?:[4-9]|[1-9][0-9]+)',
         ),
-      );
-    },
-  );
+      ),
+    );
+  });
 }

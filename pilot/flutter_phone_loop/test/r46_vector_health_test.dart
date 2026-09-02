@@ -222,9 +222,8 @@ void main() {
   test(
     'Chunk Explorer separates legacy observations from R4.6 ACTIVE health',
     () async {
-      final source = await File(
-        'lib/ui/microscope/chunk_explorer_page.dart',
-      ).readAsString();
+      final source = await File('lib/ui/microscope/chunk_explorer_page.dart')
+          .readAsString();
       expect(source, contains('Legacy observation'));
       expect(source, contains('R4.6 ACTIVE Vector'));
       expect(source, contains('Generated'));

@@ -34,9 +34,8 @@ void main() {
   test(
     'semantic index writes one explicit vector to observation and RAG paths',
     () async {
-      final source = await File(
-        'lib/services/semantic_store.dart',
-      ).readAsString();
+      final source = await File('lib/services/semantic_store.dart')
+          .readAsString();
       expect(source, contains('FlutterGemma.getActiveEmbedder()'));
       expect(source, contains('TaskType.retrievalDocument'));
       expect(source, contains('putChunkVector'));

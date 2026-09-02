@@ -53,16 +53,14 @@ void main() {
 
       expect(passing.passesReleaseThreshold, isTrue);
       expect(
-        _summary(
-          sampleDuration: const Duration(milliseconds: 14999),
-        ).passesReleaseThreshold,
+        _summary(sampleDuration: const Duration(milliseconds: 14999))
+            .passesReleaseThreshold,
         isFalse,
       );
       expect(_summary(eligibleFrameCount: 179).passesReleaseThreshold, isFalse);
       expect(
-        _summary(
-          p95: const Duration(microseconds: 16701),
-        ).passesReleaseThreshold,
+        _summary(p95: const Duration(microseconds: 16701))
+            .passesReleaseThreshold,
         isFalse,
       );
       expect(

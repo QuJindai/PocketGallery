@@ -9,12 +9,10 @@ void main() {
     'R4.x remains an in-place R3-signed upgrade without model redownload',
     () async {
       final pubspec = await File('pubspec.yaml').readAsString();
-      final bootstrap = await File(
-        'scripts/bootstrap_android.sh',
-      ).readAsString();
-      final setup = await File(
-        'lib/services/model_setup_service.dart',
-      ).readAsString();
+      final bootstrap = await File('scripts/bootstrap_android.sh')
+          .readAsString();
+      final setup = await File('lib/services/model_setup_service.dart')
+          .readAsString();
 
       final version = parseReleaseVersion(pubspec);
       expect(
@@ -30,9 +28,8 @@ void main() {
 
   test('R4.1 persistence migrations are additive', () async {
     final chat = await File('lib/chat/chat_session_store.dart').readAsString();
-    final traces = await File(
-      'lib/observability/retrieval_trace_store.dart',
-    ).readAsString();
+    final traces = await File('lib/observability/retrieval_trace_store.dart')
+        .readAsString();
     final vectors = await File(
       'lib/observability/vector_observation_store.dart',
     ).readAsString();

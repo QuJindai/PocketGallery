@@ -55,7 +55,8 @@ class OkfSignalPolicy {
     final finalScore = baseScore + bounded;
     final trustLabel = document?.trustTier.name ?? 'no-okf';
     final freshnessLabel = document?.freshness.name ?? 'unknown';
-    final reason = '$trustLabel ${_signed(trust)} · '
+    final reason =
+        '$trustLabel ${_signed(trust)} · '
         '$freshnessLabel ${_signed(freshness)} · '
         'links($safeLinks) ${_signed(links)}';
     return OkfSignalScore(
@@ -68,7 +69,6 @@ class OkfSignalPolicy {
     );
   }
 
-  String _signed(double value) => value >= 0
-      ? '+${value.toStringAsFixed(3)}'
-      : value.toStringAsFixed(3);
+  String _signed(double value) =>
+      value >= 0 ? '+${value.toStringAsFixed(3)}' : value.toStringAsFixed(3);
 }

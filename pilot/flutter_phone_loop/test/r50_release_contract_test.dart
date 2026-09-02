@@ -74,9 +74,9 @@ void main() {
         );
       }
       expect(
-        RegExp(
-          'POCKETGALLERY_SOURCE_COMMIT',
-        ).allMatches(canonicalWorkflow).length,
+        RegExp('POCKETGALLERY_SOURCE_COMMIT')
+            .allMatches(canonicalWorkflow)
+            .length,
         greaterThanOrEqualTo(2),
       );
     },
@@ -190,9 +190,10 @@ void main() {
     final firstSecret = canonicalWorkflow.indexOf(r'${{ secrets.');
     expect(firstSecret, greaterThan(tests));
 
-    final secretNames = RegExp(
-      r'secrets\.([A-Z0-9_]+)',
-    ).allMatches(canonicalWorkflow).map((match) => match.group(1)!).toSet();
+    final secretNames = RegExp(r'secrets\.([A-Z0-9_]+)')
+        .allMatches(canonicalWorkflow)
+        .map((match) => match.group(1)!)
+        .toSet();
     expect(secretNames, <String>{
       'POCKETGALLERY_SIGNING_KEYSTORE_B64',
       'POCKETGALLERY_SIGNING_STORE_PASSWORD',
@@ -221,12 +222,10 @@ void main() {
 
   test('R5 documentation pins the physical S24U acceptance handoff', () async {
     final readme = await File('README.md').readAsString();
-    final checklist = await File(
-      '../../docs/phone-pilot/release-checklist.md',
-    ).readAsString();
-    final matrix = await File(
-      '../../docs/phone-pilot/verification-matrix.md',
-    ).readAsString();
+    final checklist = await File('../../docs/phone-pilot/release-checklist.md')
+        .readAsString();
+    final matrix = await File('../../docs/phone-pilot/verification-matrix.md')
+        .readAsString();
     final runbook = await File(
       '../../docs/phone-pilot/r50-s24u-handset-acceptance-runbook.md',
     ).readAsString();

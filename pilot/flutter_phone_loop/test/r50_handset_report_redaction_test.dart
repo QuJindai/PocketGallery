@@ -31,24 +31,20 @@ void main() {
   });
 
   test('release summary maps failed and blocked phone loops independently', () {
-    final failed =
-        jsonDecode(
-              utf8.decode(
-                HandsetReportExporter.encodeRedacted(
-                  _terminalSnapshot(h4Status: HandsetGateStatus.failed),
-                ),
-              ),
-            )
-            as Map<String, dynamic>;
-    final blocked =
-        jsonDecode(
-              utf8.decode(
-                HandsetReportExporter.encodeRedacted(
-                  _terminalSnapshot(h4Status: HandsetGateStatus.blocked),
-                ),
-              ),
-            )
-            as Map<String, dynamic>;
+    final failed = jsonDecode(
+      utf8.decode(
+        HandsetReportExporter.encodeRedacted(
+          _terminalSnapshot(h4Status: HandsetGateStatus.failed),
+        ),
+      ),
+    ) as Map<String, dynamic>;
+    final blocked = jsonDecode(
+      utf8.decode(
+        HandsetReportExporter.encodeRedacted(
+          _terminalSnapshot(h4Status: HandsetGateStatus.blocked),
+        ),
+      ),
+    ) as Map<String, dynamic>;
 
     expect(failed['PHONE_FUNCTION_LOOP'], 'FAIL');
     expect(failed['DEVICE_ACCEPTANCE'], 'FAIL');
@@ -158,18 +154,16 @@ void main() {
           ),
       ],
     );
-    final report =
-        jsonDecode(
-              utf8.decode(
-                HandsetReportExporter.encodeRedacted(
-                  _terminalSnapshot(
-                    h4Status: HandsetGateStatus.blocked,
-                    nestedGolden: nestedGolden,
-                  ),
-                ),
-              ),
-            )
-            as Map<String, dynamic>;
+    final report = jsonDecode(
+      utf8.decode(
+        HandsetReportExporter.encodeRedacted(
+          _terminalSnapshot(
+            h4Status: HandsetGateStatus.blocked,
+            nestedGolden: nestedGolden,
+          ),
+        ),
+      ),
+    ) as Map<String, dynamic>;
 
     final evidence = DeviceAcceptanceEvidence.fromJson(report);
     final nested = report['nestedGolden'] as Map<String, dynamic>;
@@ -184,32 +178,30 @@ void main() {
 
   test('exporter canonicalizes a status-mismatched generic reason', () {
     final startedAt = DateTime.utc(2026, 9, 1, 2);
-    final report =
-        jsonDecode(
-              utf8.decode(
-                HandsetReportExporter.encodeRedacted(
-                  _terminalSnapshot(
-                    h4Status: HandsetGateStatus.failed,
-                    nestedGolden: GoldenTestSnapshot(
-                      runId: 'golden-generic-reason',
-                      phase: GoldenRunPhase.completed,
-                      startedAt: startedAt,
-                      updatedAt: startedAt.add(const Duration(seconds: 1)),
-                      gates: <GoldenGateSnapshot>[
-                        GoldenGateSnapshot(
-                          name: 'F6_GEMMA_CITATION',
-                          label: 'Gemma',
-                          timeout: const Duration(seconds: 1),
-                          status: GoldenGateStatus.timedOut,
-                          detail: 'GATE_FAILED',
-                        ),
-                      ],
-                    ),
-                  ),
+    final report = jsonDecode(
+      utf8.decode(
+        HandsetReportExporter.encodeRedacted(
+          _terminalSnapshot(
+            h4Status: HandsetGateStatus.failed,
+            nestedGolden: GoldenTestSnapshot(
+              runId: 'golden-generic-reason',
+              phase: GoldenRunPhase.completed,
+              startedAt: startedAt,
+              updatedAt: startedAt.add(const Duration(seconds: 1)),
+              gates: <GoldenGateSnapshot>[
+                GoldenGateSnapshot(
+                  name: 'F6_GEMMA_CITATION',
+                  label: 'Gemma',
+                  timeout: const Duration(seconds: 1),
+                  status: GoldenGateStatus.timedOut,
+                  detail: 'GATE_FAILED',
                 ),
-              ),
-            )
-            as Map<String, dynamic>;
+              ],
+            ),
+          ),
+        ),
+      ),
+    ) as Map<String, dynamic>;
     final nested = report['nestedGolden'] as Map<String, dynamic>;
     final gates = nested['gates'] as List<dynamic>;
 
