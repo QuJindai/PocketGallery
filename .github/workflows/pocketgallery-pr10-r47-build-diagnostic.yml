@@ -97,7 +97,6 @@ jobs:
           flutter pub get >/tmp/r47-pub-get.log 2>&1
           RC=$?
           echo "exit_code=$RC" >> "$GITHUB_OUTPUT"
-          tail -80 /tmp/r47-pub-get.log || true
           exit 0
 
       - name: Flutter analyze
@@ -109,7 +108,6 @@ jobs:
           flutter analyze >/tmp/r47-analyze.log 2>&1
           RC=$?
           echo "exit_code=$RC" >> "$GITHUB_OUTPUT"
-          tail -100 /tmp/r47-analyze.log || true
           exit 0
 
       - name: Focused R4.7 tests
@@ -129,7 +127,6 @@ jobs:
           flutter test $TESTS >/tmp/r47-focused.log 2>&1
           RC=$?
           echo "exit_code=$RC" >> "$GITHUB_OUTPUT"
-          tail -120 /tmp/r47-focused.log || true
           exit 0
 
       - name: Bootstrap Android
@@ -141,7 +138,6 @@ jobs:
           bash scripts/bootstrap_android.sh >/tmp/r47-bootstrap.log 2>&1
           RC=$?
           echo "exit_code=$RC" >> "$GITHUB_OUTPUT"
-          tail -100 /tmp/r47-bootstrap.log || true
           exit 0
 
       - name: Build diagnostic report
@@ -165,7 +161,15 @@ jobs:
           analyze_exit=${{ steps.analyze.outputs.exit_code }}
           focused_tests_exit=${{ steps.focused.outputs.exit_code }}
           android_bootstrap_exit=${{ steps.bootstrap.outputs.exit_code }}
+
+          ===== FLUTTER ANALYZE =====
           EOF
+          tail -160 /tmp/r47-analyze.log >> "$REPORT" 2>/dev/null || true
+          cat >> "$REPORT" <<EOF
+
+          ===== FOCUSED TEST TAIL =====
+          EOF
+          tail -60 /tmp/r47-focused.log >> "$REPORT" 2>/dev/null || true
           cat "$REPORT"
 
       - name: Persist diagnostic to isolated readback branch
@@ -182,14 +186,6 @@ jobs:
             -f message="docs: persist PR10 R4.7 build diagnostic ${GITHUB_RUN_ID}" \
             -f content="$CONTENT" \
             -f branch="$READBACK_BRANCH" >/dev/null
-
-      - name: Comment diagnostic on PR10
-        if: always() && github.event_name == 'pull_request'
-        continue-on-error: true
-        env:
-          GH_TOKEN: ${{ github.token }}
-        shell: bash
-        run: gh pr comment 10 --body-file /tmp/r47-build-diagnostic.txt
 
       - name: Enforce diagnostic gate
         if: always()
