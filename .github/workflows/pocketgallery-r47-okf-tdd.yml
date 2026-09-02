@@ -2,18 +2,6 @@ name: PocketGallery R4.7 OKF TDD
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - codex/r47-okf-gallery
-    paths:
-      - 'pilot/flutter_phone_loop/**'
-      - '.github/workflows/pocketgallery-r47-okf-tdd.yml'
-  pull_request:
-    branches:
-      - codex/r46-full-microscope
-    paths:
-      - 'pilot/flutter_phone_loop/**'
-      - '.github/workflows/pocketgallery-r47-okf-tdd.yml'
 
 permissions:
   contents: read
