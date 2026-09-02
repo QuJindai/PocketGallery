@@ -41,4 +41,4 @@ jobs:
           git commit -m "build(r47): refresh OKF integrity manifests"
           git push origin HEAD:codex/r47-okf-gallery
 
-# explicit retrigger after diagnosed Dart formatting
+# explicit retrigger after scoped format recovery
