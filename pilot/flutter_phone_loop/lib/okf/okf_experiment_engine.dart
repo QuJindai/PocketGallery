@@ -1,32 +1,24 @@
 import 'dart:convert';
 
 import '../core/models.dart';
-import '../experiments/representation_builder.dart';
 import '../experiments/retrieval_experiment_engine.dart';
 import '../experiments/retrieval_strategy.dart';
 import '../lineage/lineage_ids.dart';
 import '../lineage/lineage_models.dart';
-import '../lineage/lineage_store.dart';
 import '../retrieval/evidence_policy.dart';
-import '../services/lexical_fts_store.dart';
 import 'okf_models.dart';
 import 'okf_signal_policy.dart';
 import 'okf_store.dart';
 
 class OkfAwareRetrievalExperimentEngine extends RetrievalExperimentEngine {
   OkfAwareRetrievalExperimentEngine({
-    required LineageStore store,
-    required LexicalFtsStore lexicalStore,
-    required RepresentationBuilder representationBuilder,
+    required super.store,
+    required super.lexicalStore,
+    required super.representationBuilder,
     required this.okfStore,
     this.signalPolicy = const OkfSignalPolicy(),
     DateTime Function()? now,
-  }) : super(
-         store: store,
-         lexicalStore: lexicalStore,
-         representationBuilder: representationBuilder,
-         clock: now,
-       );
+  }) : super(clock: now);
 
   final OkfStore okfStore;
   final OkfSignalPolicy signalPolicy;

@@ -11,7 +11,6 @@ import 'package:pocketgallery_phone_pilot/lineage/lineage_ids.dart';
 import 'package:pocketgallery_phone_pilot/lineage/lineage_models.dart';
 import 'package:pocketgallery_phone_pilot/lineage/lineage_store.dart';
 import 'package:pocketgallery_phone_pilot/okf/okf_experiment_engine.dart';
-import 'package:pocketgallery_phone_pilot/okf/okf_models.dart';
 import 'package:pocketgallery_phone_pilot/okf/okf_parser.dart';
 import 'package:pocketgallery_phone_pilot/okf/okf_signal_policy.dart';
 import 'package:pocketgallery_phone_pilot/okf/okf_store.dart';
