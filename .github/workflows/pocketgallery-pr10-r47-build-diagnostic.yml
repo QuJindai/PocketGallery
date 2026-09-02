@@ -18,6 +18,7 @@ jobs:
     timeout-minutes: 30
     env:
       TARGET_BRANCH: codex/r47-okf-gallery
+      READBACK_BRANCH: r47-signing-diagnostic-readback
       CANONICAL_SIGNER_SHA256: 81af4a5ef94c236774f0e193b2a4b248805b36c14cc36e2a56df8e451a712541
     steps:
       - name: Checkout carrier
@@ -144,7 +145,6 @@ jobs:
           exit 0
 
       - name: Build diagnostic report
-        id: report
         if: always()
         shell: bash
         run: |
@@ -168,21 +168,20 @@ jobs:
           EOF
           cat "$REPORT"
 
-      - name: Publish diagnostic prerelease
+      - name: Persist diagnostic to isolated readback branch
         if: always()
-        continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
-          TAG="r47-build-diag-${GITHUB_RUN_ID}"
-          gh release create "$TAG" \
-            "/tmp/r47-build-diagnostic.txt#r47-build-diagnostic.txt" \
-            --repo "$GITHUB_REPOSITORY" \
-            --target "$GITHUB_HEAD_REF" \
-            --title "R4.7 build diagnostic ${GITHUB_RUN_ID}" \
-            --notes "Non-secret PR10 R4.7 build phase diagnostics." \
-            --prerelease
+          set -euo pipefail
+          FILE="docs/superpowers/diagnostics/pr10-r47-build-${GITHUB_RUN_ID}.txt"
+          CONTENT="$(base64 -w0 /tmp/r47-build-diagnostic.txt)"
+          gh api --method PUT \
+            "repos/${GITHUB_REPOSITORY}/contents/${FILE}" \
+            -f message="docs: persist PR10 R4.7 build diagnostic ${GITHUB_RUN_ID}" \
+            -f content="$CONTENT" \
+            -f branch="$READBACK_BRANCH" >/dev/null
 
       - name: Comment diagnostic on PR10
         if: always() && github.event_name == 'pull_request'
@@ -190,8 +189,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
-        run: |
-          gh pr comment 10 --body-file /tmp/r47-build-diagnostic.txt
+        run: gh pr comment 10 --body-file /tmp/r47-build-diagnostic.txt
 
       - name: Enforce diagnostic gate
         if: always()
