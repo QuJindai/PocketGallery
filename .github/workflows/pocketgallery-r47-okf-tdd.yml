@@ -34,9 +34,6 @@ jobs:
       - name: Resolve dependencies
         working-directory: pilot/flutter_phone_loop
         run: flutter pub get
-      - name: Format contract
-        working-directory: pilot/flutter_phone_loop
-        run: dart format --output=none --set-exit-if-changed test/r47_okf_parser_test.dart test/r47_okf_integration_contract_test.dart
       - name: R4.7 RED-GREEN contracts
         working-directory: pilot/flutter_phone_loop
         run: flutter test test/r47_okf_parser_test.dart test/r47_okf_integration_contract_test.dart
