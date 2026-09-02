@@ -1,0 +1,158 @@
+name: PocketGallery R4.7 OKF Full Gate
+
+on:
+  push:
+    branches:
+      - codex/r47-okf-gallery
+    paths:
+      - '.github/workflows/pocketgallery-r47-okf-full-gate.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  full-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    environment: pocketgallery-canonical-signing
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify integrity manifests
+        working-directory: pilot/flutter_phone_loop
+        run: |
+          set -euo pipefail
+          bash scripts/generate_manifests.sh inner > "$RUNNER_TEMP/r47-inner.sha256"
+          bash scripts/generate_manifests.sh outer > "$RUNNER_TEMP/r47-outer.sha256"
+          diff -u MANIFEST.sha256 "$RUNNER_TEMP/r47-inner.sha256"
+          diff -u ../../DROPIN_MANIFEST.sha256 "$RUNNER_TEMP/r47-outer.sha256"
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Flutter environment
+        working-directory: pilot/flutter_phone_loop
+        run: flutter --version
+
+      - name: Resolve dependencies
+        working-directory: pilot/flutter_phone_loop
+        run: flutter pub get
+
+      - name: Verify Dart formatting
+        working-directory: pilot/flutter_phone_loop
+        run: dart format --output=none --set-exit-if-changed lib test tool
+
+      - name: Analyze entire Gallery pilot
+        working-directory: pilot/flutter_phone_loop
+        run: flutter analyze
+
+      - name: Run full Flutter regression suite
+        working-directory: pilot/flutter_phone_loop
+        run: flutter test
+
+      - name: Bootstrap Android scaffold
+        working-directory: pilot/flutter_phone_loop
+        run: bash scripts/bootstrap_android.sh
+
+      - name: Build canonical signed R4.7 OKF APK
+        working-directory: pilot/flutter_phone_loop
+        shell: bash
+        env:
+          POCKETGALLERY_SIGNING_KEYSTORE_B64: ${{ secrets.POCKETGALLERY_SIGNING_KEYSTORE_B64 }}
+          POCKETGALLERY_SIGNING_STORE_PASSWORD: ${{ secrets.POCKETGALLERY_SIGNING_STORE_PASSWORD }}
+          POCKETGALLERY_SIGNING_KEY_PASSWORD: ${{ secrets.POCKETGALLERY_SIGNING_KEY_PASSWORD }}
+          POCKETGALLERY_SIGNING_KEY_ALIAS: ${{ secrets.POCKETGALLERY_SIGNING_KEY_ALIAS }}
+        run: |
+          set -euo pipefail
+          SECRET_KEYSTORE="$RUNNER_TEMP/pocketgallery-r47-signing/r47.keystore"
+          CERT_FILE="$RUNNER_TEMP/pocketgallery-r47-cert.der"
+          CANONICAL_SIGNER_SHA256=81af4a5ef94c236774f0e193b2a4b248805b36c14cc36e2a56df8e451a712541
+          cleanup_signing() {
+            unset POCKETGALLERY_SIGNING_KEYSTORE_B64
+            unset POCKETGALLERY_SIGNING_KEYSTORE
+            unset POCKETGALLERY_SIGNING_STORE_PASSWORD
+            unset POCKETGALLERY_SIGNING_KEY_PASSWORD
+            unset POCKETGALLERY_SIGNING_KEY_ALIAS
+            rm -f "$SECRET_KEYSTORE" "$CERT_FILE"
+            rm -f android/app/pocketgallery-pilot.keystore
+            rm -f android/app/build.gradle android/app/build.gradle.kts
+          }
+          trap cleanup_signing EXIT
+          if [[ -z "$POCKETGALLERY_SIGNING_KEYSTORE_B64" || \
+                -z "$POCKETGALLERY_SIGNING_STORE_PASSWORD" || \
+                -z "$POCKETGALLERY_SIGNING_KEY_PASSWORD" || \
+                -z "$POCKETGALLERY_SIGNING_KEY_ALIAS" ]]; then
+            echo "::error::SIGNING_IDENTITY_MISSING"
+            exit 74
+          fi
+          mkdir -p "$(dirname "$SECRET_KEYSTORE")"
+          printf '%s' "$POCKETGALLERY_SIGNING_KEYSTORE_B64" | base64 --decode > "$SECRET_KEYSTORE"
+          chmod 600 "$SECRET_KEYSTORE"
+          echo "::add-mask::$POCKETGALLERY_SIGNING_STORE_PASSWORD"
+          echo "::add-mask::$POCKETGALLERY_SIGNING_KEY_PASSWORD"
+          echo "::add-mask::$POCKETGALLERY_SIGNING_KEY_ALIAS"
+          keytool -exportcert \
+            -keystore "$SECRET_KEYSTORE" \
+            -storepass "$POCKETGALLERY_SIGNING_STORE_PASSWORD" \
+            -alias "$POCKETGALLERY_SIGNING_KEY_ALIAS" \
+            -file "$CERT_FILE" >/dev/null
+          KEY_CERT="$(sha256sum "$CERT_FILE" | awk '{print $1}')"
+          test "$KEY_CERT" = "$CANONICAL_SIGNER_SHA256"
+          export POCKETGALLERY_SIGNING_KEYSTORE="$SECRET_KEYSTORE"
+          bash scripts/bootstrap_android.sh
+          SOURCE_COMMIT="$(git rev-parse HEAD)"
+          flutter build apk --debug --target-platform android-arm64 --split-per-abi \
+            --build-name=0.5.1 \
+            --build-number=24 \
+            --dart-define=POCKETGALLERY_SOURCE_COMMIT="$SOURCE_COMMIT"
+          ARTIFACT_DIR="build/app/outputs/flutter-apk"
+          cp "$ARTIFACT_DIR/app-arm64-v8a-debug.apk" \
+             "$ARTIFACT_DIR/PocketGallery-R47-OKF-v2024.apk"
+
+      - name: Verify APK identity and hash
+        working-directory: pilot/flutter_phone_loop
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="build/app/outputs/flutter-apk/PocketGallery-R47-OKF-v2024.apk"
+          CANONICAL_SIGNER_SHA256=81af4a5ef94c236774f0e193b2a4b248805b36c14cc36e2a56df8e451a712541
+          AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)"
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          test -s "$APK"
+          ABIS="$(unzip -Z1 "$APK" | grep -E '^lib/[^/]+/.*\.so$' | sed -E 's#^lib/([^/]+)/.*#\1#' | sort -u | paste -sd, -)"
+          test "$ABIS" = "arm64-v8a"
+          BADGING="$($AAPT dump badging "$APK")"
+          PKG="$(printf '%s\n' "$BADGING" | sed -n "s/^package: name='\([^']*\)'.*/\1/p" | head -1)"
+          VERSION_CODE="$(printf '%s\n' "$BADGING" | sed -n "s/^package:.*versionCode='\([^']*\)'.*/\1/p" | head -1)"
+          test "$PKG" = "com.qujindai.pocketgallery_phone_pilot.r3"
+          test "$VERSION_CODE" = "2024"
+          "$APKSIGNER" verify --verbose --print-certs "$APK" > "$RUNNER_TEMP/r47-apksigner.txt" 2>&1
+          APK_CERT="$(grep -i 'certificate.*sha-256.*digest' "$RUNNER_TEMP/r47-apksigner.txt" | head -1 | sed -E 's/.*[Dd]igest:[[:space:]]*//' | tr -d '[:space:]:' | tr '[:upper:]' '[:lower:]')"
+          test "$APK_CERT" = "$CANONICAL_SIGNER_SHA256"
+          sha256sum "$APK" | tee "$APK.sha256"
+          cat > build/app/outputs/flutter-apk/PG_R47_OKF_EVIDENCE.json <<JSON
+          {
+            "schema": "pocketgallery.r47.okf-evidence.v1",
+            "sourceCommit": "$GITHUB_SHA",
+            "packageName": "$PKG",
+            "versionCode": 2024,
+            "abi": "$ABIS",
+            "signerSha256": "$APK_CERT",
+            "workflowRun": "$GITHUB_RUN_ID",
+            "fullGatePassed": true
+          }
+          JSON
+
+      - name: Upload R4.7 OKF APK and evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: PocketGallery-R47-OKF-v2024
+          path: |
+            pilot/flutter_phone_loop/build/app/outputs/flutter-apk/PocketGallery-R47-OKF-v2024.apk
+            pilot/flutter_phone_loop/build/app/outputs/flutter-apk/PocketGallery-R47-OKF-v2024.apk.sha256
+            pilot/flutter_phone_loop/build/app/outputs/flutter-apk/PG_R47_OKF_EVIDENCE.json
+          if-no-files-found: error
+          retention-days: 14
