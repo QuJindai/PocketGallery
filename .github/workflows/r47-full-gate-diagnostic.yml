@@ -1,0 +1,94 @@
+name: R4.7 Full Gate Diagnostic
+
+on:
+  push:
+    branches:
+      - codex/r47-okf-gallery
+    paths:
+      - '.github/workflows/r47-full-gate-diagnostic.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: codex/r47-okf-gallery
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Diagnose first failing gate without modifying sources
+        working-directory: pilot/flutter_phone_loop
+        shell: bash
+        run: |
+          set -u
+          REPORT="../../docs/superpowers/diagnostics/r47-full-gate-diagnostic.md"
+          mkdir -p "$(dirname "$REPORT")"
+          : > "$REPORT"
+          {
+            echo '# PocketGallery R4.7 full-gate diagnostic'
+            echo
+            echo "- source_commit: $(git rev-parse HEAD)"
+            echo "- workflow_run: ${GITHUB_RUN_ID}"
+            echo "- flutter: $(flutter --version | head -1)"
+            echo
+          } >> "$REPORT"
+
+          run_stage() {
+            local name="$1"
+            shift
+            local log="$RUNNER_TEMP/r47-${name}.log"
+            set +e
+            "$@" >"$log" 2>&1
+            local code=$?
+            set -e
+            {
+              echo "## ${name}"
+              echo
+              echo "exit_code: ${code}"
+              echo
+              echo '```text'
+              tail -n 100 "$log" | sed -E 's/[[:cntrl:]]\[[0-9;]*m//g'
+              echo '```'
+              echo
+            } >> "$REPORT"
+            return "$code"
+          }
+
+          FIRST_FAIL="none"
+          if ! run_stage manifest bash -lc 'set -euo pipefail; bash scripts/generate_manifests.sh inner > "$RUNNER_TEMP/r47-diag-inner.sha256"; bash scripts/generate_manifests.sh outer > "$RUNNER_TEMP/r47-diag-outer.sha256"; diff -u MANIFEST.sha256 "$RUNNER_TEMP/r47-diag-inner.sha256"; diff -u ../../DROPIN_MANIFEST.sha256 "$RUNNER_TEMP/r47-diag-outer.sha256"'; then
+            FIRST_FAIL="manifest"
+          elif ! run_stage pub_get flutter pub get; then
+            FIRST_FAIL="pub_get"
+          elif ! run_stage format dart format --output=none --set-exit-if-changed lib test tool; then
+            FIRST_FAIL="format"
+          elif ! run_stage analyze flutter analyze; then
+            FIRST_FAIL="analyze"
+          elif ! run_stage full_tests flutter test; then
+            FIRST_FAIL="full_tests"
+          elif ! run_stage bootstrap bash scripts/bootstrap_android.sh; then
+            FIRST_FAIL="bootstrap"
+          fi
+
+          {
+            echo '## Result'
+            echo
+            echo "first_failing_stage: ${FIRST_FAIL}"
+          } >> "$REPORT"
+          echo "FIRST_FAIL=$FIRST_FAIL"
+
+      - name: Commit diagnostic report
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/superpowers/diagnostics/r47-full-gate-diagnostic.md
+          git commit -m "docs(r47): record full gate diagnostic" || exit 0
+          git push origin HEAD:codex/r47-okf-gallery
