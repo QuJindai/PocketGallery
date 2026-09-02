@@ -5,6 +5,8 @@ import '../../experiments/retrieval_strategy.dart';
 import '../../lineage/lineage_ids.dart';
 import '../../lineage/lineage_models.dart';
 import '../../lineage/lineage_store.dart';
+import '../../okf/okf_experiment_engine.dart';
+import '../../okf/okf_models.dart';
 import 'experiment_run_detail_page.dart';
 
 class RetrievalExperimentCenterPage extends StatefulWidget {
@@ -31,6 +33,7 @@ class _RetrievalExperimentCenterPageState
   List<LineageTrace> traces = const <LineageTrace>[];
   Map<String, List<ExperimentRunRecord>> runs = const {};
   Map<String, List<BuildJobRecord>> jobs = const {};
+  Future<_OkfLabSnapshot>? okfLabFuture;
   bool loading = true;
   String? runningStrategyId;
   Object? error;
@@ -77,6 +80,9 @@ class _RetrievalExperimentCenterPageState
           );
         }
       }
+      final labFuture = selected == null
+          ? null
+          : _loadOkfLabSnapshot(selected);
       final exactQuery = selected == null
           ? null
           : await widget.store.embeddingById(
@@ -89,6 +95,7 @@ class _RetrievalExperimentCenterPageState
         queryEmbedding = exactQuery;
         runs = runMap;
         jobs = jobMap;
+        okfLabFuture = labFuture;
       });
     } catch (caught) {
       if (mounted) setState(() => error = caught);
@@ -126,6 +133,7 @@ class _RetrievalExperimentCenterPageState
               if (error != null) Text('实验数据读取失败：$error'),
               _traceCard(context),
               _activeCard(context),
+              _okfLabCard(context),
               for (final strategy in RetrievalStrategies.all.where(
                 (item) => item.onDemand,
               ))
@@ -294,6 +302,177 @@ class _RetrievalExperimentCenterPageState
     );
   }
 
+  Widget _okfLabCard(BuildContext context) {
+    final future = okfLabFuture;
+    if (widget.experimentEngine is! OkfAwareRetrievalExperimentEngine ||
+        future == null) {
+      return const SizedBox.shrink();
+    }
+    return Card(
+      key: const ValueKey<String>('okf-lab-card'),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: FutureBuilder<_OkfLabSnapshot>(
+          future: future,
+          builder: (context, snapshot) {
+            final data = snapshot.data;
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'OKF Lab · 三臂对照',
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+                const SizedBox(height: 4),
+                const Text('同一 Trace / Query Embedding / 本地模型条件下比较知识表示差异。'),
+                const SizedBox(height: 8),
+                _okfArm(
+                  context,
+                  title: 'BARE MODEL',
+                  detail: '纯模型基线 · Evidence 0 · Context 0 · 本轮生成 NOT RUN',
+                ),
+                _okfArm(
+                  context,
+                  title: 'MARKDOWN CONTROL',
+                  detail: data == null
+                      ? '读取中…'
+                      : 'ACTIVE · candidates ${data.activeCandidateCount} · '
+                            'evidence ${data.activeEvidenceCount} · 不读取 OKF 信号',
+                ),
+                _okfArm(
+                  context,
+                  title: 'OKF v0.2',
+                  detail: data == null
+                      ? '读取中…'
+                      : 'SHADOW · ${data.runStatus} · candidates '
+                            '${data.okfCandidateCount} · evidence '
+                            '${data.okfEvidenceCount} · OKF docs ${data.okfDocumentCount}',
+                ),
+                if (snapshot.hasError)
+                  Text('OKF Lab 读取失败：${snapshot.error}')
+                else if (data != null) ...[
+                  const Divider(),
+                  Text(
+                    '信任 · verified ${data.verifiedCount} · generated '
+                    '${data.generatedCount} · provenance ${data.provenanceCount}',
+                  ),
+                  Text(
+                    '新鲜度 · fresh ${data.freshCount} · stale '
+                    '${data.staleCount} · deprecated ${data.deprecatedCount} · '
+                    'unknown ${data.unknownCount}',
+                  ),
+                  if (data.reasons.isEmpty)
+                    const Text('OKF 调整原因 · 尚未运行 OKF SHADOW')
+                  else ...[
+                    const SizedBox(height: 6),
+                    const Text('为什么改变排序：'),
+                    for (final reason in data.reasons.take(3)) Text('• $reason'),
+                  ],
+                ],
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _okfArm(
+    BuildContext context, {
+    required String title,
+    required String detail,
+  }) => Container(
+    margin: const EdgeInsets.only(bottom: 6),
+    padding: const EdgeInsets.all(9),
+    decoration: BoxDecoration(
+      border: Border.all(color: Theme.of(context).dividerColor),
+      borderRadius: BorderRadius.circular(10),
+    ),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 132,
+          child: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+        ),
+        Expanded(child: Text(detail)),
+      ],
+    ),
+  );
+
+  Future<_OkfLabSnapshot> _loadOkfLabSnapshot(LineageTrace selected) async {
+    final engine = widget.experimentEngine;
+    if (engine is! OkfAwareRetrievalExperimentEngine) {
+      return const _OkfLabSnapshot.empty();
+    }
+    final activeCandidates = await widget.store.candidatesForTrace(
+      selected.traceId,
+      strategyId: selected.activeStrategyId,
+      lane: RetrievalLane.active,
+    );
+    final activeEvidence = await widget.store.evidenceForTrace(
+      selected.traceId,
+      strategyId: selected.activeStrategyId,
+      lane: RetrievalLane.active,
+    );
+    final okfCandidates = await widget.store.candidatesForTrace(
+      selected.traceId,
+      strategyId: RetrievalStrategies.okfV02Structured.id,
+      lane: RetrievalLane.shadow,
+    );
+    final okfEvidence = await widget.store.evidenceForTrace(
+      selected.traceId,
+      strategyId: RetrievalStrategies.okfV02Structured.id,
+      lane: RetrievalLane.shadow,
+    );
+    final signals = await engine.okfStore.candidateSignals(
+      traceId: selected.traceId,
+      strategyId: RetrievalStrategies.okfV02Structured.id,
+    );
+    final documents = await engine.okfStore.documentsByIds(
+      signals.map((item) => item.documentId),
+    );
+    final runs = await widget.store.experimentRunsForTrace(
+      selected.traceId,
+      strategyId: RetrievalStrategies.okfV02Structured.id,
+      lane: RetrievalLane.shadow,
+    );
+    return _OkfLabSnapshot(
+      activeCandidateCount: activeCandidates.length,
+      activeEvidenceCount: activeEvidence.length,
+      okfCandidateCount: okfCandidates.length,
+      okfEvidenceCount: okfEvidence.length,
+      okfDocumentCount: documents.length,
+      runStatus: runs.isEmpty ? 'NOT RUN' : runs.first.status.name.toUpperCase(),
+      verifiedCount: documents
+          .where((item) => item.trustTier == OkfTrustTier.verified)
+          .length,
+      generatedCount: documents
+          .where((item) => item.trustTier == OkfTrustTier.generated)
+          .length,
+      provenanceCount: documents
+          .where((item) => item.trustTier == OkfTrustTier.provenance)
+          .length,
+      freshCount: documents
+          .where((item) => item.freshness == OkfFreshness.fresh)
+          .length,
+      staleCount: documents
+          .where((item) => item.freshness == OkfFreshness.stale)
+          .length,
+      deprecatedCount: documents
+          .where((item) => item.freshness == OkfFreshness.deprecated)
+          .length,
+      unknownCount: documents
+          .where((item) => item.freshness == OkfFreshness.unknown)
+          .length,
+      reasons: signals
+          .map((item) => '${item.documentId} · ${item.reason} · '
+              '${item.baseScore.toStringAsFixed(3)} → '
+              '${item.finalScore.toStringAsFixed(3)}')
+          .toList(growable: false),
+    );
+  }
+
   Widget _promotionCard(BuildContext context) => Card(
     child: Padding(
       padding: const EdgeInsets.all(12),
@@ -347,6 +526,56 @@ class _RetrievalExperimentCenterPageState
       ),
     );
   }
+}
+
+class _OkfLabSnapshot {
+  const _OkfLabSnapshot({
+    required this.activeCandidateCount,
+    required this.activeEvidenceCount,
+    required this.okfCandidateCount,
+    required this.okfEvidenceCount,
+    required this.okfDocumentCount,
+    required this.runStatus,
+    required this.verifiedCount,
+    required this.generatedCount,
+    required this.provenanceCount,
+    required this.freshCount,
+    required this.staleCount,
+    required this.deprecatedCount,
+    required this.unknownCount,
+    required this.reasons,
+  });
+
+  const _OkfLabSnapshot.empty()
+    : activeCandidateCount = 0,
+      activeEvidenceCount = 0,
+      okfCandidateCount = 0,
+      okfEvidenceCount = 0,
+      okfDocumentCount = 0,
+      runStatus = 'NOT RUN',
+      verifiedCount = 0,
+      generatedCount = 0,
+      provenanceCount = 0,
+      freshCount = 0,
+      staleCount = 0,
+      deprecatedCount = 0,
+      unknownCount = 0,
+      reasons = const <String>[];
+
+  final int activeCandidateCount;
+  final int activeEvidenceCount;
+  final int okfCandidateCount;
+  final int okfEvidenceCount;
+  final int okfDocumentCount;
+  final String runStatus;
+  final int verifiedCount;
+  final int generatedCount;
+  final int provenanceCount;
+  final int freshCount;
+  final int staleCount;
+  final int deprecatedCount;
+  final int unknownCount;
+  final List<String> reasons;
 }
 
 extension _FirstOrNull<T> on Iterable<T> {

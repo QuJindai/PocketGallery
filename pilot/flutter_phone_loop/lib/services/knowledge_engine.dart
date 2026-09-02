@@ -13,6 +13,8 @@ import '../lineage/lineage_models.dart';
 import '../lineage/lineage_store.dart';
 import '../lineage/r45_vector_migration.dart';
 import '../lineage/runtime_lineage_recorder.dart';
+import '../okf/okf_experiment_engine.dart';
+import '../okf/okf_store.dart';
 import '../retrieval/active_vector_index.dart';
 import '../retrieval/query_embedding_runtime.dart';
 import '../retrieval/retrieval_runtime.dart';
@@ -47,12 +49,14 @@ class KnowledgeEngine {
     SemanticStore? semanticStore,
     LineageStore? lineageStore,
     ActiveVectorIndex? activeVectorIndex,
+    OkfStore? okfStore,
   }) : lexicalStore = lexicalStore ?? LexicalFtsStore(),
        importer = importer ?? DocumentImporter(),
        gemma = gemma ?? GemmaService() {
     this.semanticStore = semanticStore ?? SemanticStore(this.lexicalStore);
     this.lineageStore = lineageStore ?? LineageStore();
     this.activeVectorIndex = activeVectorIndex ?? SqliteActiveVectorIndex();
+    this.okfStore = okfStore ?? OkfStore();
     queryEmbeddingRuntime = QueryEmbeddingRuntime(
       generator: const FlutterGemmaEmbeddingGenerator(),
       store: this.lineageStore,
@@ -64,10 +68,11 @@ class KnowledgeEngine {
       generator: const FlutterGemmaEmbeddingGenerator(),
       modelIdentity: SemanticStore.embeddingModelIdentity,
     );
-    experimentEngine = RetrievalExperimentEngine(
+    experimentEngine = OkfAwareRetrievalExperimentEngine(
       store: this.lineageStore,
       lexicalStore: this.lexicalStore,
       representationBuilder: representationBuilder,
+      okfStore: this.okfStore,
     );
     localBenchmarkStore = LocalBenchmarkStore();
     runtimeLineageRecorder = RuntimeLineageRecorder(store: this.lineageStore);
@@ -106,6 +111,7 @@ class KnowledgeEngine {
   late final KnowledgeRetriever retriever;
   late final LineageStore lineageStore;
   late final ActiveVectorIndex activeVectorIndex;
+  late final OkfStore okfStore;
   late final QueryEmbeddingRuntime queryEmbeddingRuntime;
   late final RepresentationBuilder representationBuilder;
   late final RetrievalExperimentEngine experimentEngine;
@@ -166,6 +172,9 @@ class KnowledgeEngine {
       );
 
       await lineageStore.replaceImportLineage(result);
+      if (result.okf != null) {
+        await okfStore.replaceDocument(doc.documentId, result.okf);
+      }
       buildState = BuildState.lineageCommitted;
       await _recordImportBuildState(
         doc,
@@ -405,6 +414,7 @@ class KnowledgeEngine {
   Future<void> close() async {
     await gemma.close();
     await activeVectorIndex.close();
+    await okfStore.close();
     localBenchmarkStore.dispose();
     lineageStore.dispose();
     lexicalStore.dispose();
