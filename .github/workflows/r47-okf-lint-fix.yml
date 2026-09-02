@@ -18,6 +18,8 @@ concurrency:
 jobs:
   fix-and-verify:
     runs-on: ubuntu-latest
+    env:
+      READBACK_BRANCH: r47-signing-diagnostic-readback
     steps:
       - uses: actions/checkout@v4
         with:
@@ -34,7 +36,6 @@ jobs:
 
           engine = Path('pilot/flutter_phone_loop/lib/okf/okf_experiment_engine.dart')
           text = engine.read_text()
-
           replacements = {
               'required LineageStore store,': 'required super.store,',
               'required LexicalFtsStore lexicalStore,': 'required super.lexicalStore,',
@@ -45,7 +46,6 @@ jobs:
               if count != 1:
                   raise SystemExit(f'{old!r} count={count}; expected 1')
               text = text.replace(old, new)
-
           pattern = re.compile(
               r"\}\) : super\(\s*"
               r"store: store,\s*"
@@ -67,9 +67,7 @@ jobs:
               raise SystemExit(f'unused import replacement count={count}; expected 1')
           test_file.write_text(test_text.replace(unused, ''))
           PY
-
           git diff --check
-          git diff -- pilot/flutter_phone_loop/lib/okf/okf_experiment_engine.dart pilot/flutter_phone_loop/test/r47_okf_shadow_lab_test.dart
 
       - uses: subosito/flutter-action@v2
         with:
@@ -86,9 +84,44 @@ jobs:
           dart format lib/okf/okf_experiment_engine.dart test/r47_okf_shadow_lab_test.dart
           git diff --check
 
-      - name: Analyze full Flutter package
+      - name: Analyze full Flutter package and capture result
+        id: analyze
         working-directory: pilot/flutter_phone_loop
-        run: flutter analyze
+        shell: bash
+        run: |
+          set +e
+          flutter analyze > /tmp/r47-post-edit-analyze.log 2>&1
+          RC=$?
+          echo "exit_code=$RC" >> "$GITHUB_OUTPUT"
+          cat /tmp/r47-post-edit-analyze.log
+          exit 0
+
+      - name: Persist post-edit analyzer diagnostic
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          REPORT=/tmp/r47-post-edit-analyze-diagnostic.txt
+          {
+            echo "run_id=$GITHUB_RUN_ID"
+            echo "source_sha=$(git rev-parse HEAD)"
+            echo "analyze_exit=${{ steps.analyze.outputs.exit_code }}"
+            echo
+            echo "===== FLUTTER ANALYZE AFTER EDITS ====="
+            cat /tmp/r47-post-edit-analyze.log 2>/dev/null || true
+          } > "$REPORT"
+          FILE="docs/superpowers/diagnostics/r47-post-edit-analyze-${GITHUB_RUN_ID}.txt"
+          CONTENT="$(base64 -w0 "$REPORT")"
+          gh api --method PUT \
+            "repos/${GITHUB_REPOSITORY}/contents/${FILE}" \
+            -f message="docs: persist R4.7 post-edit analyzer diagnostic ${GITHUB_RUN_ID}" \
+            -f content="$CONTENT" \
+            -f branch="$READBACK_BRANCH" >/dev/null
+
+      - name: Enforce analyzer gate
+        run: test "${{ steps.analyze.outputs.exit_code }}" = "0"
 
       - name: Run all R4.7 tests
         working-directory: pilot/flutter_phone_loop
