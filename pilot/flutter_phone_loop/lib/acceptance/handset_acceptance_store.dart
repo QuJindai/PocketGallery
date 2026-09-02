@@ -21,8 +21,9 @@ final class HandsetAcceptanceStore {
   final HandsetReportDirectoryProvider _directoryProvider;
 
   Future<File> saveCheckpoint(HandsetAcceptanceSnapshot snapshot) async {
-    final encoded = const JsonEncoder.withIndent('  ')
-        .convert(snapshot.toJson());
+    final encoded = const JsonEncoder.withIndent(
+      '  ',
+    ).convert(snapshot.toJson());
     return _writeAtomicString(checkpointFileName, encoded, _decodeCheckpoint);
   }
 
@@ -31,8 +32,9 @@ final class HandsetAcceptanceStore {
   }
 
   Future<File> saveBaseline(PreservationSnapshot snapshot) async {
-    final encoded = const JsonEncoder.withIndent('  ')
-        .convert(snapshot.toJson());
+    final encoded = const JsonEncoder.withIndent(
+      '  ',
+    ).convert(snapshot.toJson());
     return _writeAtomicString(baselineFileName, encoded, _decodeBaseline);
   }
 

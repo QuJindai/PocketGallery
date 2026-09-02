@@ -23,8 +23,9 @@ class GoldenTestReportStore {
     final destination = File(p.join(directory.path, fileName));
     final temporary = File('${destination.path}.tmp');
     final backup = File('${destination.path}.bak');
-    final encoded = const JsonEncoder.withIndent('  ')
-        .convert(snapshot.toJson());
+    final encoded = const JsonEncoder.withIndent(
+      '  ',
+    ).convert(snapshot.toJson());
 
     await temporary.writeAsString(encoded, flush: true);
     _decodeSnapshot(await temporary.readAsString());

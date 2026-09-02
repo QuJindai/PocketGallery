@@ -161,15 +161,17 @@ void main() {
 
       expect(report.failed, 0);
       expect(
-        (await lineage.lineageDocumentById(result.document.documentId))!
-            .provenanceQuality,
+        (await lineage.lineageDocumentById(
+          result.document.documentId,
+        ))!.provenanceQuality,
         ProvenanceQuality.exact,
       );
       expect(
-        (await lineage.lineageChunksForDocument(result.document.documentId))
-            .every(
-              (chunk) => chunk.startOffset != null && chunk.endOffset != null,
-            ),
+        (await lineage.lineageChunksForDocument(
+          result.document.documentId,
+        )).every(
+          (chunk) => chunk.startOffset != null && chunk.endOffset != null,
+        ),
         isTrue,
       );
     },

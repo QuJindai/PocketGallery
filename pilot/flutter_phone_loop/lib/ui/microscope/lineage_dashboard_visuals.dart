@@ -99,9 +99,9 @@ class TraceWaterfallCard extends StatelessWidget {
                               child: Container(
                                 height: 12,
                                 decoration: BoxDecoration(
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .primaryContainer,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.primaryContainer,
                                   borderRadius: BorderRadius.circular(6),
                                 ),
                               ),

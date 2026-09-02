@@ -22,8 +22,9 @@ void main() {
   });
 
   test('R2 model setup service exposes automatic bootstrap behavior', () {
-    final source = File('lib/services/model_setup_service.dart')
-        .readAsStringSync();
+    final source = File(
+      'lib/services/model_setup_service.dart',
+    ).readAsStringSync();
 
     expect(source, contains('prepareAutomatically'));
     expect(source, contains('modelFromNetwork'));
@@ -31,10 +32,12 @@ void main() {
   });
 
   test('R2 semantic safety guard remains after R4 retrieval split', () {
-    final engine = File('lib/services/knowledge_engine.dart')
-        .readAsStringSync();
-    final retriever = File('lib/services/knowledge_retriever.dart')
-        .readAsStringSync();
+    final engine = File(
+      'lib/services/knowledge_engine.dart',
+    ).readAsStringSync();
+    final retriever = File(
+      'lib/services/knowledge_retriever.dart',
+    ).readAsStringSync();
     final source = '$engine\n$retriever';
 
     expect(source, contains('FlutterGemma.hasActiveEmbedder()'));

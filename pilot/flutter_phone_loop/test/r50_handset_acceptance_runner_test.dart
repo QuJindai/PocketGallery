@@ -348,8 +348,9 @@ void main() {
   test(
     'runtime cleanup gives both native shutdown calls a hard timeout',
     () async {
-      final source = await File('lib/acceptance/handset_acceptance_runner.dart')
-          .readAsString();
+      final source = await File(
+        'lib/acceptance/handset_acceptance_runner.dart',
+      ).readAsString();
 
       expect(
         RegExp(r'\.timeout\(runtimeCleanupTimeout\)').allMatches(source).length,
@@ -459,33 +460,39 @@ void main() {
     expect(result.verdict, AcceptanceVerdict.fail);
   });
 
-  test('stale checkpoint recovery cleans fixtures once and blocks unfinished gates', () async {
-    final stale = _staleSnapshot();
-    var cleanups = 0;
-    final persistence = _MemoryPersistence(last: stale, baseline: _baseline());
-    final harness = _Harness(
-      persistence: persistence,
-      knownFixtureCleanup: () async {
-        cleanups += 1;
-      },
-    );
+  test(
+    'stale checkpoint recovery cleans fixtures once and blocks unfinished gates',
+    () async {
+      final stale = _staleSnapshot();
+      var cleanups = 0;
+      final persistence = _MemoryPersistence(
+        last: stale,
+        baseline: _baseline(),
+      );
+      final harness = _Harness(
+        persistence: persistence,
+        knownFixtureCleanup: () async {
+          cleanups += 1;
+        },
+      );
 
-    final first = await harness.runner.recoverInterruptedCheckpoint();
-    final second = await harness.runner.recoverInterruptedCheckpoint();
+      final first = await harness.runner.recoverInterruptedCheckpoint();
+      final second = await harness.runner.recoverInterruptedCheckpoint();
 
-    expect(cleanups, 1);
-    expect(second, same(first));
-    expect(first!.phase, HandsetRunPhase.completed);
-    expect(_gate(first, 'H1_TARGET_DEVICE').status, HandsetGateStatus.passed);
-    expect(
-      _gate(first, 'H4_PHONE_FUNCTION_LOOP').status,
-      HandsetGateStatus.blocked,
-    );
-    expect(
-      _gate(first, 'H4_PHONE_FUNCTION_LOOP').detail,
-      'PROCESS_INTERRUPTED',
-    );
-  });
+      expect(cleanups, 1);
+      expect(second, same(first));
+      expect(first!.phase, HandsetRunPhase.completed);
+      expect(_gate(first, 'H1_TARGET_DEVICE').status, HandsetGateStatus.passed);
+      expect(
+        _gate(first, 'H4_PHONE_FUNCTION_LOOP').status,
+        HandsetGateStatus.blocked,
+      );
+      expect(
+        _gate(first, 'H4_PHONE_FUNCTION_LOOP').detail,
+        'PROCESS_INTERRUPTED',
+      );
+    },
+  );
 
   test('recovery cleanup failure prevents a new run and forces FAIL', () async {
     final persistence = _MemoryPersistence(

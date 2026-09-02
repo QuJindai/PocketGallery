@@ -53,8 +53,9 @@ void main() {
   });
 
   test('semantic scope oversamples before document filtering', () async {
-    final source = await File('lib/services/semantic_store.dart')
-        .readAsString();
+    final source = await File(
+      'lib/services/semantic_store.dart',
+    ).readAsString();
     expect(source, contains('candidateK'));
     expect(source, contains('scope.documentIds'));
     expect(

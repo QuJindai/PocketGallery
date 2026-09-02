@@ -322,8 +322,9 @@ class _ChatPageState extends State<ChatPage> {
         message += ' · ${failedFiles.length} 个文件导入失败';
       }
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(message)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
     } finally {
       if (mounted) setState(() => attaching = false);
     }
@@ -340,8 +341,9 @@ class _ChatPageState extends State<ChatPage> {
     );
     if (!mounted) return;
     setState(() => session = updated);
-    ScaffoldMessenger.of(context)
-        .showSnackBar(const SnackBar(content: Text('已解除当前聊天附件；文件仍保留在知识库')));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('已解除当前聊天附件；文件仍保留在知识库')));
   }
 
   Future<void> _showTrace(ChatMessage message) async {
@@ -370,8 +372,9 @@ class _ChatPageState extends State<ChatPage> {
     final trace = await traceStore.get(traceId);
     if (!mounted) return;
     if (trace == null) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('该历史回答没有可读取的 Trace。')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('该历史回答没有可读取的 Trace。')));
       return;
     }
     await Navigator.of(context).push(

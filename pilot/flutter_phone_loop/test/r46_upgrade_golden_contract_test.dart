@@ -23,10 +23,12 @@ void main() {
       final r46Workflow = await File(
         '../../.github/workflows/pocketgallery-r46-tdd.yml',
       ).readAsString();
-      final setup = await File('lib/services/model_setup_service.dart')
-          .readAsString();
-      final bootstrap = await File('scripts/bootstrap_android.sh')
-          .readAsString();
+      final setup = await File(
+        'lib/services/model_setup_service.dart',
+      ).readAsString();
+      final bootstrap = await File(
+        'scripts/bootstrap_android.sh',
+      ).readAsString();
 
       final version = parseReleaseVersion(pubspec);
       expect(
@@ -173,8 +175,9 @@ void main() {
   test(
     'F8-F10 stay wired after F7 and F11 is not a placeholder pass',
     () async {
-      final golden = await File('lib/services/golden_test_runner.dart')
-          .readAsString();
+      final golden = await File(
+        'lib/services/golden_test_runner.dart',
+      ).readAsString();
       final f7 = golden.indexOf("name: 'F7_CHAT_REALWORLD'");
       final f8 = golden.indexOf("name: 'F8_RUNTIME_LINEAGE'");
       final f9 = golden.indexOf("name: 'F9_QUERY_VECTOR_IDENTITY'");

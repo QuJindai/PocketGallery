@@ -4,8 +4,9 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   test('R3.3 copies the HF user code before opening the browser', () {
-    final oauth = File('lib/services/hf_oauth_device_service.dart')
-        .readAsStringSync();
+    final oauth = File(
+      'lib/services/hf_oauth_device_service.dart',
+    ).readAsStringSync();
 
     expect(oauth, contains("package:flutter/services.dart"));
     expect(oauth, contains('Clipboard.setData'));
@@ -13,10 +14,12 @@ void main() {
   });
 
   test('R3.3 can recover and surface the persisted pending user code', () {
-    final oauth = File('lib/services/hf_oauth_device_service.dart')
-        .readAsStringSync();
-    final setup = File('lib/services/model_setup_service.dart')
-        .readAsStringSync();
+    final oauth = File(
+      'lib/services/hf_oauth_device_service.dart',
+    ).readAsStringSync();
+    final setup = File(
+      'lib/services/model_setup_service.dart',
+    ).readAsStringSync();
 
     expect(oauth, contains('getPendingUserCode'));
     expect(setup, contains('getPendingUserCode'));

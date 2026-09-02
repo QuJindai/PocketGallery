@@ -8,15 +8,16 @@ void main() {
   test(
     'R4.0.3 materializes embedding runtime before RAG add and search',
     () async {
-      final semantic = await File('lib/services/semantic_store.dart')
-          .readAsString();
+      final semantic = await File(
+        'lib/services/semantic_store.dart',
+      ).readAsString();
 
       expect(semantic, contains('_ensureEmbeddingRuntime'));
       expect(semantic, contains('FlutterGemma.getActiveEmbedder()'));
 
-      final ensureCalls = RegExp(r'await _ensureEmbeddingRuntime\(\)')
-          .allMatches(semantic)
-          .length;
+      final ensureCalls = RegExp(
+        r'await _ensureEmbeddingRuntime\(\)',
+      ).allMatches(semantic).length;
       expect(ensureCalls, greaterThanOrEqualTo(2));
     },
   );
@@ -24,8 +25,9 @@ void main() {
   test(
     'R4.0.3 model READY self-check includes a real embedding runtime probe',
     () async {
-      final setup = await File('lib/services/model_setup_service.dart')
-          .readAsString();
+      final setup = await File(
+        'lib/services/model_setup_service.dart',
+      ).readAsString();
 
       expect(setup, contains('await FlutterGemma.getActiveEmbedder()'));
       expect(setup, contains('Embedding runtime'));

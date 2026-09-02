@@ -250,48 +250,45 @@ Historical policy.
 }
 
 void main() {
-  test(
-    'OKF signal policy is bounded, explainable, and penalizes stale facts',
-    () {
-      const policy = OkfSignalPolicy();
-      const parser = OkfParser();
-      final verified = parser
-          .parseMarkdown(
-            '---\ntype: Policy\nverified: human:qa\nstale_after: 2027-01-01\n---\n# P',
-            documentId: 'verified',
-            sourceName: 'verified.md',
-            now: DateTime.utc(2026, 9, 2),
-          )
-          .document;
-      final stale = parser
-          .parseMarkdown(
-            '---\ntype: Policy\ngenerated: process:legacy\nstale_after: 2026-01-01\n---\n# P',
-            documentId: 'stale',
-            sourceName: 'stale.md',
-            now: DateTime.utc(2026, 9, 2),
-          )
-          .document;
+  test('OKF signal policy is bounded, explainable, and penalizes stale facts', () {
+    const policy = OkfSignalPolicy();
+    const parser = OkfParser();
+    final verified = parser
+        .parseMarkdown(
+          '---\ntype: Policy\nverified: human:qa\nstale_after: 2027-01-01\n---\n# P',
+          documentId: 'verified',
+          sourceName: 'verified.md',
+          now: DateTime.utc(2026, 9, 2),
+        )
+        .document;
+    final stale = parser
+        .parseMarkdown(
+          '---\ntype: Policy\ngenerated: process:legacy\nstale_after: 2026-01-01\n---\n# P',
+          documentId: 'stale',
+          sourceName: 'stale.md',
+          now: DateTime.utc(2026, 9, 2),
+        )
+        .document;
 
-      final trusted = policy.score(
-        baseScore: 0.10,
-        document: verified,
-        relativeLinkCount: 2,
-      );
-      final old = policy.score(
-        baseScore: 0.11,
-        document: stale,
-        relativeLinkCount: 0,
-      );
+    final trusted = policy.score(
+      baseScore: 0.10,
+      document: verified,
+      relativeLinkCount: 2,
+    );
+    final old = policy.score(
+      baseScore: 0.11,
+      document: stale,
+      relativeLinkCount: 0,
+    );
 
-      expect(trusted.finalScore, greaterThan(old.finalScore));
-      expect(trusted.trustAdjustment, greaterThan(0));
-      expect(old.freshnessAdjustment, lessThan(0));
-      expect(trusted.reason, contains('verified'));
-      expect(trusted.reason, contains('fresh'));
-      expect(trusted.reason, contains('links'));
-      expect(trusted.totalAdjustment.abs(), lessThanOrEqualTo(0.08));
-    },
-  );
+    expect(trusted.finalScore, greaterThan(old.finalScore));
+    expect(trusted.trustAdjustment, greaterThan(0));
+    expect(old.freshnessAdjustment, lessThan(0));
+    expect(trusted.reason, contains('verified'));
+    expect(trusted.reason, contains('fresh'));
+    expect(trusted.reason, contains('links'));
+    expect(trusted.totalAdjustment.abs(), lessThanOrEqualTo(0.08));
+  });
 
   test(
     'OKF SHADOW reranks candidates without mutating ACTIVE evidence',
@@ -362,8 +359,9 @@ void main() {
   );
 
   test('Gallery exposes a human-readable three-arm OKF Lab', () async {
-    final engine = await File('lib/services/knowledge_engine.dart')
-        .readAsString();
+    final engine = await File(
+      'lib/services/knowledge_engine.dart',
+    ).readAsString();
     final ui = await File(
       'lib/ui/microscope/retrieval_experiment_center_page.dart',
     ).readAsString();

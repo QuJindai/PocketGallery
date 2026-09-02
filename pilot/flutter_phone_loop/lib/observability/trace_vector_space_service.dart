@@ -255,7 +255,8 @@ class TraceVectorSpaceService {
       queryEmbeddingId: query.embeddingId,
       queryVectorSha256: query.vectorSha256,
       usedCapturedQuery: true,
-      samplePolicy: 'ACTIVE hits → SHADOW hits → deterministic document-stratified body fill',
+      samplePolicy:
+          'ACTIVE hits → SHADOW hits → deterministic document-stratified body fill',
       totalPersistentBodyCount: bodyEmbeddings.length,
       points: List<TraceVectorPoint>.unmodifiable(points),
       neighbors: List<TraceVectorPoint>.unmodifiable(neighbors.take(10)),

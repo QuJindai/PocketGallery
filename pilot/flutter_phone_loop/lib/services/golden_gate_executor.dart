@@ -4,12 +4,10 @@ import '../core/models.dart';
 import 'golden_test_state.dart';
 
 typedef GoldenProgressCallback = void Function(GoldenTestSnapshot snapshot);
-typedef GoldenCheckpointCallback = FutureOr<void> Function(
-  GoldenTestSnapshot snapshot,
-);
-typedef GoldenGateTimeoutCallback = FutureOr<void> Function(
-  GoldenGateSnapshot gate,
-);
+typedef GoldenCheckpointCallback =
+    FutureOr<void> Function(GoldenTestSnapshot snapshot);
+typedef GoldenGateTimeoutCallback =
+    FutureOr<void> Function(GoldenGateSnapshot gate);
 typedef GoldenCleanupCallback = FutureOr<void> Function();
 
 class GoldenGateSpec {

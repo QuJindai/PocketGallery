@@ -41,8 +41,9 @@ void main() {
   });
 
   test('chat schema is additive and isolated from R3 knowledge DBs', () async {
-    final source = await File('lib/chat/chat_session_store.dart')
-        .readAsString();
+    final source = await File(
+      'lib/chat/chat_session_store.dart',
+    ).readAsString();
     expect(source, contains('pocketgallery_chat.db'));
     expect(source, isNot(contains('DROP TABLE')));
     expect(source, isNot(contains('pocketgallery_fts5.db')));

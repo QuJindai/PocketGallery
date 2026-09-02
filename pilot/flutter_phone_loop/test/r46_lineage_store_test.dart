@@ -5,53 +5,56 @@ import 'package:pocketgallery_phone_pilot/lineage/lineage_models.dart';
 import 'package:pocketgallery_phone_pilot/lineage/lineage_store.dart';
 
 void main() {
-  test('chunk and embedding identities are distinct and one chunk can own many embeddings', () async {
-    final db = sqlite3.openInMemory();
-    final store = LineageStore(database: db);
-    await store.initialize();
+  test(
+    'chunk and embedding identities are distinct and one chunk can own many embeddings',
+    () async {
+      final db = sqlite3.openInMemory();
+      final store = LineageStore(database: db);
+      await store.initialize();
 
-    const chunkId = 'doc:7';
-    final bodyId = LineageIds.embeddingId(
-      sourceKind: 'chunk',
-      sourceId: chunkId,
-      representation: EmbeddingRepresentation.body,
-    );
-    final headingId = LineageIds.embeddingId(
-      sourceKind: 'chunk',
-      sourceId: chunkId,
-      representation: EmbeddingRepresentation.heading,
-    );
-    expect(bodyId, isNot(chunkId));
-    expect(headingId, isNot(chunkId));
-    expect(bodyId, isNot(headingId));
-
-    await store.putEmbedding(
-      LineageEmbedding.test(
-        embeddingId: bodyId,
+      const chunkId = 'doc:7';
+      final bodyId = LineageIds.embeddingId(
         sourceKind: 'chunk',
         sourceId: chunkId,
-        chunkId: chunkId,
         representation: EmbeddingRepresentation.body,
-        vector: const [1.0, 0.0],
-        modelIdentity: 'EmbeddingGemma-test',
-        taskMode: 'retrieval_document',
-      ),
-    );
-    await store.putEmbedding(
-      LineageEmbedding.test(
-        embeddingId: headingId,
+      );
+      final headingId = LineageIds.embeddingId(
         sourceKind: 'chunk',
         sourceId: chunkId,
-        chunkId: chunkId,
         representation: EmbeddingRepresentation.heading,
-        vector: const [0.0, 1.0],
-        modelIdentity: 'EmbeddingGemma-test',
-        taskMode: 'retrieval_document',
-      ),
-    );
-    expect(await store.embeddingsForChunk(chunkId), hasLength(2));
-    db.close();
-  });
+      );
+      expect(bodyId, isNot(chunkId));
+      expect(headingId, isNot(chunkId));
+      expect(bodyId, isNot(headingId));
+
+      await store.putEmbedding(
+        LineageEmbedding.test(
+          embeddingId: bodyId,
+          sourceKind: 'chunk',
+          sourceId: chunkId,
+          chunkId: chunkId,
+          representation: EmbeddingRepresentation.body,
+          vector: const [1.0, 0.0],
+          modelIdentity: 'EmbeddingGemma-test',
+          taskMode: 'retrieval_document',
+        ),
+      );
+      await store.putEmbedding(
+        LineageEmbedding.test(
+          embeddingId: headingId,
+          sourceKind: 'chunk',
+          sourceId: chunkId,
+          chunkId: chunkId,
+          representation: EmbeddingRepresentation.heading,
+          vector: const [0.0, 1.0],
+          modelIdentity: 'EmbeddingGemma-test',
+          taskMode: 'retrieval_document',
+        ),
+      );
+      expect(await store.embeddingsForChunk(chunkId), hasLength(2));
+      db.close();
+    },
+  );
 
   test('query embedding is first class without a chunk identity', () async {
     final db = sqlite3.openInMemory();
@@ -77,55 +80,58 @@ void main() {
     db.close();
   });
 
-  test('lineage schema contains resumable build state and strategy scoped decisions', () async {
-    final db = sqlite3.openInMemory();
-    final store = LineageStore(database: db);
-    await store.initialize();
-    final tables = db
-        .select("SELECT name FROM sqlite_master WHERE type='table'")
-        .map((r) => r['name'] as String)
-        .toSet();
-    expect(
-      tables,
-      containsAll(<String>{
-        'pg_lineage_documents',
-        'pg_lineage_sections',
-        'pg_lineage_chunks',
-        'pg_embeddings',
-        'pg_vector_index_entries',
-        'pg_traces',
-        'pg_trace_events',
-        'pg_candidates',
-        'pg_router_decisions',
-        'pg_evidence',
-        'pg_prompt_budgets',
-        'pg_generation_stats',
-        'pg_citations',
-        'pg_experiment_runs',
-        'pg_build_jobs',
-      }),
-    );
-    final routerSql =
-        db
-                .select(
-                  "SELECT sql FROM sqlite_master WHERE name='pg_router_decisions'",
-                )
-                .single['sql']
-            as String;
-    expect(routerSql, contains('strategy_id'));
-    expect(routerSql, contains('lane'));
-    expect(
-      BuildState.values.map((x) => x.name),
-      containsAll(<String>[
-        'prepared',
-        'lexicalCommitted',
-        'lineageCommitted',
-        'vectorCommitted',
-        'ready',
-      ]),
-    );
-    db.close();
-  });
+  test(
+    'lineage schema contains resumable build state and strategy scoped decisions',
+    () async {
+      final db = sqlite3.openInMemory();
+      final store = LineageStore(database: db);
+      await store.initialize();
+      final tables = db
+          .select("SELECT name FROM sqlite_master WHERE type='table'")
+          .map((r) => r['name'] as String)
+          .toSet();
+      expect(
+        tables,
+        containsAll(<String>{
+          'pg_lineage_documents',
+          'pg_lineage_sections',
+          'pg_lineage_chunks',
+          'pg_embeddings',
+          'pg_vector_index_entries',
+          'pg_traces',
+          'pg_trace_events',
+          'pg_candidates',
+          'pg_router_decisions',
+          'pg_evidence',
+          'pg_prompt_budgets',
+          'pg_generation_stats',
+          'pg_citations',
+          'pg_experiment_runs',
+          'pg_build_jobs',
+        }),
+      );
+      final routerSql =
+          db
+                  .select(
+                    "SELECT sql FROM sqlite_master WHERE name='pg_router_decisions'",
+                  )
+                  .single['sql']
+              as String;
+      expect(routerSql, contains('strategy_id'));
+      expect(routerSql, contains('lane'));
+      expect(
+        BuildState.values.map((x) => x.name),
+        containsAll(<String>[
+          'prepared',
+          'lexicalCommitted',
+          'lineageCommitted',
+          'vectorCommitted',
+          'ready',
+        ]),
+      );
+      db.close();
+    },
+  );
 
   test(
     'runtime first-class records round-trip without collapsing identities',
@@ -332,87 +338,92 @@ void main() {
     },
   );
 
-  test('trace events are immutable by sequence and retention keeps persistent chunk vectors', () async {
-    final db = sqlite3.openInMemory();
-    final store = LineageStore(database: db);
-    await store.initialize();
-    const strategy = 'active.r45-body-hybrid';
+  test(
+    'trace events are immutable by sequence and retention keeps persistent chunk vectors',
+    () async {
+      final db = sqlite3.openInMemory();
+      final store = LineageStore(database: db);
+      await store.initialize();
+      const strategy = 'active.r45-body-hybrid';
 
-    Future<void> addCompleteTrace(String id, int minute) async {
-      final time = DateTime.utc(2026, 8, 29, 9, minute);
-      await store.putTrace(
-        LineageTrace(
-          traceId: id,
-          sessionId: 's',
-          turnId: id,
-          queryText: id,
-          requestedMode: 'auto',
-          finalMode: 'knowledge',
-          scopeJson: '{"type":"all"}',
-          activeStrategyId: strategy,
-          startedAt: time,
-          completedAt: time,
-          status: TraceStatus.complete,
-          failureStage: null,
-          failureCode: null,
-        ),
-      );
+      Future<void> addCompleteTrace(String id, int minute) async {
+        final time = DateTime.utc(2026, 8, 29, 9, minute);
+        await store.putTrace(
+          LineageTrace(
+            traceId: id,
+            sessionId: 's',
+            turnId: id,
+            queryText: id,
+            requestedMode: 'auto',
+            finalMode: 'knowledge',
+            scopeJson: '{"type":"all"}',
+            activeStrategyId: strategy,
+            startedAt: time,
+            completedAt: time,
+            status: TraceStatus.complete,
+            failureStage: null,
+            failureCode: null,
+          ),
+        );
+        await store.putEmbedding(
+          LineageEmbedding.test(
+            embeddingId: LineageIds.queryEmbeddingId(id),
+            sourceKind: 'query',
+            sourceId: id,
+            chunkId: null,
+            representation: EmbeddingRepresentation.query,
+            vector: const [0.3, 0.7],
+            modelIdentity: 'EmbeddingGemma-test',
+            taskMode: 'retrieval_query',
+          ),
+        );
+      }
+
+      await addCompleteTrace('tr-old', 1);
+      await addCompleteTrace('tr-new', 2);
       await store.putEmbedding(
         LineageEmbedding.test(
-          embeddingId: LineageIds.queryEmbeddingId(id),
-          sourceKind: 'query',
-          sourceId: id,
-          chunkId: null,
-          representation: EmbeddingRepresentation.query,
-          vector: const [0.3, 0.7],
+          embeddingId: LineageIds.bodyEmbeddingId('chunk-persistent'),
+          sourceKind: 'chunk',
+          sourceId: 'chunk-persistent',
+          chunkId: 'chunk-persistent',
+          representation: EmbeddingRepresentation.body,
+          vector: const [1.0, 0.2],
           modelIdentity: 'EmbeddingGemma-test',
-          taskMode: 'retrieval_query',
+          taskMode: 'retrieval_document',
         ),
       );
-    }
 
-    await addCompleteTrace('tr-old', 1);
-    await addCompleteTrace('tr-new', 2);
-    await store.putEmbedding(
-      LineageEmbedding.test(
-        embeddingId: LineageIds.bodyEmbeddingId('chunk-persistent'),
-        sourceKind: 'chunk',
-        sourceId: 'chunk-persistent',
-        chunkId: 'chunk-persistent',
-        representation: EmbeddingRepresentation.body,
-        vector: const [1.0, 0.2],
-        modelIdentity: 'EmbeddingGemma-test',
-        taskMode: 'retrieval_document',
-      ),
-    );
+      final first = TraceEventRecord(
+        eventId: LineageIds.eventId('tr-new', 1),
+        traceId: 'tr-new',
+        seq: 1,
+        stage: 'trace',
+        kind: 'trace.started',
+        truthKind: TruthKind.real,
+        lane: RetrievalLane.active,
+        strategyId: strategy,
+        timestampUs: 1,
+        durationUs: null,
+        payloadJson: '{}',
+      );
+      await store.appendEvent(first);
+      expect(() => store.appendEvent(first), throwsA(anything));
 
-    final first = TraceEventRecord(
-      eventId: LineageIds.eventId('tr-new', 1),
-      traceId: 'tr-new',
-      seq: 1,
-      stage: 'trace',
-      kind: 'trace.started',
-      truthKind: TruthKind.real,
-      lane: RetrievalLane.active,
-      strategyId: strategy,
-      timestampUs: 1,
-      durationUs: null,
-      payloadJson: '{}',
-    );
-    await store.appendEvent(first);
-    expect(() => store.appendEvent(first), throwsA(anything));
-
-    await store.pruneCompletedTraces(keep: 1);
-    expect(await store.traceById('tr-old'), isNull);
-    expect(await store.traceById('tr-new'), isNotNull);
-    expect(
-      await store.embeddingById(LineageIds.queryEmbeddingId('tr-old')),
-      isNull,
-    );
-    expect(
-      await store.embeddingById(LineageIds.bodyEmbeddingId('chunk-persistent')),
-      isNotNull,
-    );
-    db.close();
-  });
+      await store.pruneCompletedTraces(keep: 1);
+      expect(await store.traceById('tr-old'), isNull);
+      expect(await store.traceById('tr-new'), isNotNull);
+      expect(
+        await store.embeddingById(LineageIds.queryEmbeddingId('tr-old')),
+        isNull,
+      );
+      expect(
+        await store.embeddingById(
+          LineageIds.bodyEmbeddingId('chunk-persistent'),
+        ),
+        isNotNull,
+      );
+      db.close();
+    },
+  );
 }

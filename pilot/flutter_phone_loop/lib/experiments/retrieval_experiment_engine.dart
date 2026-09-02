@@ -494,8 +494,9 @@ class RetrievalExperimentEngine {
         dropReasons: dynamic.dropReasons,
       );
     }
-    final selected = const EvidencePolicy(maxEvidence: 3)
-        .select(hits, maxItems: 3, maxTotalChars: tokenReserve * 3);
+    final selected = const EvidencePolicy(
+      maxEvidence: 3,
+    ).select(hits, maxItems: 3, maxTotalChars: tokenReserve * 3);
     return _ExperimentEvidenceSelection(
       selected: <HybridHit>[
         for (final evidence in selected.evidence)

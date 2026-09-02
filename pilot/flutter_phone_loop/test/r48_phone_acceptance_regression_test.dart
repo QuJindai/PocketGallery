@@ -367,10 +367,12 @@ void main() {
         final store = GoldenTestReportStore(
           directoryProvider: () async => directory,
         );
-        await File('${directory.path}/PG_GOLDEN_LAST.json')
-            .writeAsString('{bad-primary');
-        await File('${directory.path}/PG_GOLDEN_LAST.json.bak')
-            .writeAsString('bad-backup');
+        await File(
+          '${directory.path}/PG_GOLDEN_LAST.json',
+        ).writeAsString('{bad-primary');
+        await File(
+          '${directory.path}/PG_GOLDEN_LAST.json.bak',
+        ).writeAsString('bad-backup');
 
         expect(await store.readLast(), isNull);
       },

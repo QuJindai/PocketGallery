@@ -127,7 +127,8 @@ void main() {
           strategyId: 'active.r45-body-hybrid',
           timestampUs: 1,
           durationUs: null,
-          payloadJson: '{"authorization":"Bearer secret","rawText":"private body","safeCount":3}',
+          payloadJson:
+              '{"authorization":"Bearer secret","rawText":"private body","safeCount":3}',
         ),
       );
       final snapshot = await TraceSnapshot.load(store, traceId);

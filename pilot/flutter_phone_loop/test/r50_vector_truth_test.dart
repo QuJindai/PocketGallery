@@ -32,64 +32,67 @@ void main() {
     },
   );
 
-  test('truth verifier rejects synthetic, flat, incomplete, or non-finite evidence', () async {
-    final valid = await _seedArtifact();
-    final query = valid.vectorSpace.points.singleWhere(
-      (point) => point.isQuery,
-    );
-    final candidate = valid.vectorSpace.points.firstWhere(
-      (point) => !point.isQuery,
-    );
-    final cases = <String, VectorAcceptanceArtifact>{
-      'ORIGINAL_DIMENSION_NOT_HIGH': _withSpace(valid, originalDimension: 3),
-      'PCA_THREE_COMPONENTS_UNAVAILABLE': _withSpace(
-        valid,
-        effectiveComponentCount: 2,
-        explainedVarianceRatios: const <double>[0.7, 0.3],
-      ),
-      'CAPTURED_QUERY_NOT_USED': _withSpace(valid, usedCapturedQuery: false),
-      'NON_FINITE_COORDINATE': _withSpace(
-        valid,
-        points: <TraceVectorPoint>[
-          _point(candidate, x: double.nan),
-          ...valid.vectorSpace.points.where(
-            (point) => point.embeddingId != candidate.embeddingId,
-          ),
-        ],
-      ),
-      'QUERY_EMBEDDING_ID_MISMATCH': _withSpace(
-        valid,
-        queryEmbeddingId: 'not-the-captured-query',
-      ),
-      'NON_QUERY_POINT_MISSING': _withSpace(
-        valid,
-        points: <TraceVectorPoint>[query],
-        neighbors: const <TraceVectorPoint>[],
-      ),
-      'CANDIDATE_EXPLANATION_MISSING': _withSpace(
-        valid,
-        points: <TraceVectorPoint>[
-          _point(
-            candidate,
-            selectedForEvidence: true,
-            selectionReason: null,
-            dropReason: null,
-          ),
-          ...valid.vectorSpace.points.where(
-            (point) => point.embeddingId != candidate.embeddingId,
-          ),
-        ],
-      ),
-    };
-
-    for (final entry in cases.entries) {
-      expect(
-        VectorTruthVerifier.verify(entry.value).reasonCodes,
-        contains(entry.key),
-        reason: entry.key,
+  test(
+    'truth verifier rejects synthetic, flat, incomplete, or non-finite evidence',
+    () async {
+      final valid = await _seedArtifact();
+      final query = valid.vectorSpace.points.singleWhere(
+        (point) => point.isQuery,
       );
-    }
-  });
+      final candidate = valid.vectorSpace.points.firstWhere(
+        (point) => !point.isQuery,
+      );
+      final cases = <String, VectorAcceptanceArtifact>{
+        'ORIGINAL_DIMENSION_NOT_HIGH': _withSpace(valid, originalDimension: 3),
+        'PCA_THREE_COMPONENTS_UNAVAILABLE': _withSpace(
+          valid,
+          effectiveComponentCount: 2,
+          explainedVarianceRatios: const <double>[0.7, 0.3],
+        ),
+        'CAPTURED_QUERY_NOT_USED': _withSpace(valid, usedCapturedQuery: false),
+        'NON_FINITE_COORDINATE': _withSpace(
+          valid,
+          points: <TraceVectorPoint>[
+            _point(candidate, x: double.nan),
+            ...valid.vectorSpace.points.where(
+              (point) => point.embeddingId != candidate.embeddingId,
+            ),
+          ],
+        ),
+        'QUERY_EMBEDDING_ID_MISMATCH': _withSpace(
+          valid,
+          queryEmbeddingId: 'not-the-captured-query',
+        ),
+        'NON_QUERY_POINT_MISSING': _withSpace(
+          valid,
+          points: <TraceVectorPoint>[query],
+          neighbors: const <TraceVectorPoint>[],
+        ),
+        'CANDIDATE_EXPLANATION_MISSING': _withSpace(
+          valid,
+          points: <TraceVectorPoint>[
+            _point(
+              candidate,
+              selectedForEvidence: true,
+              selectionReason: null,
+              dropReason: null,
+            ),
+            ...valid.vectorSpace.points.where(
+              (point) => point.embeddingId != candidate.embeddingId,
+            ),
+          ],
+        ),
+      };
+
+      for (final entry in cases.entries) {
+        expect(
+          VectorTruthVerifier.verify(entry.value).reasonCodes,
+          contains(entry.key),
+          reason: entry.key,
+        );
+      }
+    },
+  );
 }
 
 Future<VectorAcceptanceArtifact> _seedArtifact() async {

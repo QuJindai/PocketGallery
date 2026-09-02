@@ -111,8 +111,9 @@ void main() {
   });
 
   test('native resource reads have a bounded capture timeout', () async {
-    final source = await File('lib/acceptance/device_resource_sampler.dart')
-        .readAsString();
+    final source = await File(
+      'lib/acceptance/device_resource_sampler.dart',
+    ).readAsString();
 
     expect(
       source,

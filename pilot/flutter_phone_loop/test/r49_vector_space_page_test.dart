@@ -106,7 +106,8 @@ void main() {
     queryEmbeddingId: 'query-embedding',
     queryVectorSha256: 'sha256-query',
     usedCapturedQuery: true,
-    samplePolicy: 'ACTIVE hits → SHADOW hits → deterministic document-stratified body fill',
+    samplePolicy:
+        'ACTIVE hits → SHADOW hits → deterministic document-stratified body fill',
     totalPersistentBodyCount: 332,
     points: <TraceVectorPoint>[
       evidencePoint,

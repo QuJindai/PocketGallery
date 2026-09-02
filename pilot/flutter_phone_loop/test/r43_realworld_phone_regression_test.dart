@@ -40,10 +40,12 @@ void main() {
   });
 
   test('real chat rebuilds a bounded native session for every turn', () async {
-    final source = await File('lib/services/gemma_chat_service.dart')
-        .readAsString();
-    final budgeter = await File('lib/chat/context_budgeter.dart')
-        .readAsString();
+    final source = await File(
+      'lib/services/gemma_chat_service.dart',
+    ).readAsString();
+    final budgeter = await File(
+      'lib/chat/context_budgeter.dart',
+    ).readAsString();
 
     expect(source, contains('_createTurnChat'));
     expect(
@@ -59,15 +61,17 @@ void main() {
   });
 
   test('prompt evidence is bounded before native prefill', () async {
-    final source = await File('lib/services/gemma_chat_service.dart')
-        .readAsString();
+    final source = await File(
+      'lib/services/gemma_chat_service.dart',
+    ).readAsString();
     expect(source, contains('_boundedEvidenceContext'));
     expect(source, contains('evidenceReserveMax'));
   });
 
   test('Golden Test exercises the real chat orchestrator path', () async {
-    final source = await File('lib/services/golden_test_runner.dart')
-        .readAsString();
+    final source = await File(
+      'lib/services/golden_test_runner.dart',
+    ).readAsString();
     expect(source, contains('ChatOrchestrator'));
     expect(source, contains('GemmaChatService'));
     expect(source, contains('F7_CHAT_REALWORLD'));
@@ -76,8 +80,9 @@ void main() {
   test(
     'retrieval benchmark prepares and cleans temporary golden corpus',
     () async {
-      final page = await File('lib/ui/microscope/retrieval_benchmark_page.dart')
-          .readAsString();
+      final page = await File(
+        'lib/ui/microscope/retrieval_benchmark_page.dart',
+      ).readAsString();
       final fixture = File('lib/eval/retrieval_benchmark_fixture.dart');
 
       expect(fixture.existsSync(), isTrue);
@@ -89,10 +94,12 @@ void main() {
 
   test('forced knowledge can reject weak semantic-only evidence', () async {
     final source = await File('lib/chat/chat_orchestrator.dart').readAsString();
-    final retriever = await File('lib/services/knowledge_retriever.dart')
-        .readAsString();
-    final bundle = await File('lib/retrieval/retrieval_bundle.dart')
-        .readAsString();
+    final retriever = await File(
+      'lib/services/knowledge_retriever.dart',
+    ).readAsString();
+    final bundle = await File(
+      'lib/retrieval/retrieval_bundle.dart',
+    ).readAsString();
 
     expect(bundle, contains('relevantForKnowledge'));
     expect(

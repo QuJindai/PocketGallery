@@ -16,10 +16,8 @@ import 'handset_vector_interaction_page.dart';
 
 typedef HandsetAcceptanceRunnerFactory =
     Future<HandsetAcceptanceController> Function();
-typedef HandsetReportSaver = Future<Uri?> Function(
-  Uint8List bytes,
-  String fileName,
-);
+typedef HandsetReportSaver =
+    Future<Uri?> Function(Uint8List bytes, String fileName);
 
 class HandsetAcceptancePage extends StatefulWidget {
   const HandsetAcceptancePage({

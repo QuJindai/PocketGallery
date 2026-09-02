@@ -6,8 +6,9 @@ void main() {
   test(
     'installed Gemma and Embedding models bypass network download paths',
     () async {
-      final source = await File('lib/services/model_setup_service.dart')
-          .readAsString();
+      final source = await File(
+        'lib/services/model_setup_service.dart',
+      ).readAsString();
 
       final gemmaGuard = source.indexOf('if (!FlutterGemma.hasActiveModel())');
       final gemmaNetwork = source.indexOf('.fromNetwork(gemma4Url');
@@ -26,8 +27,9 @@ void main() {
   );
 
   test('model bootstrap does not use temporary cache storage', () async {
-    final source = await File('lib/services/model_setup_service.dart')
-        .readAsString();
+    final source = await File(
+      'lib/services/model_setup_service.dart',
+    ).readAsString();
     expect(source, isNot(contains('getTemporaryDirectory')));
     expect(source, isNot(contains('/cache/')));
   });
@@ -35,8 +37,9 @@ void main() {
   test(
     'application identity and signing chain fail closed for upgrades',
     () async {
-      final bootstrap = await File('scripts/bootstrap_android.sh')
-          .readAsString();
+      final bootstrap = await File(
+        'scripts/bootstrap_android.sh',
+      ).readAsString();
       final workflow = await File(
         '../../.github/workflows/pocketgallery-phone-pilot-apk.yml',
       ).readAsString();

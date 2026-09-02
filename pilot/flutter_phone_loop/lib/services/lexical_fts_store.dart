@@ -328,7 +328,8 @@ class LexicalFtsStore {
     return FtsInspectionResult(
       query: query,
       normalizedQuery: terms.join(' OR '),
-      diagnostics: '2-char CJK fallback: FTS5 trigram indexes substrings >=3 chars, so exact LIKE is used and raw BM25 is unavailable',
+      diagnostics:
+          '2-char CJK fallback: FTS5 trigram indexes substrings >=3 chars, so exact LIKE is used and raw BM25 is unavailable',
       hits: [
         for (var i = 0; i < rows.length; i++)
           FtsInspectionHit(
@@ -419,10 +420,9 @@ class LexicalFtsStore {
       .take(12)
       .toList(growable: false);
 
-  List<String> _shortCjkTerms(String query) =>
-      _queryTerms(query)
-          .where((term) => RegExp(r'^[\u3400-\u9fff]{2}$').hasMatch(term))
-          .toList(growable: false);
+  List<String> _shortCjkTerms(String query) => _queryTerms(query)
+      .where((term) => RegExp(r'^[\u3400-\u9fff]{2}$').hasMatch(term))
+      .toList(growable: false);
 
   bool _onlyShortCjkTerms(String query) {
     final terms = _queryTerms(query);

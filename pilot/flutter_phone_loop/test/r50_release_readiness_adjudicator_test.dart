@@ -388,9 +388,9 @@ void main() {
       expect(result.stdout, contains('MERGE_READY=true'));
       expect(fixture.output.existsSync(), isTrue);
       expect(File('${fixture.output.path}.tmp').existsSync(), isFalse);
-      final decoded = jsonDecode(
-        await fixture.output.readAsString(),
-      ) as Map<String, dynamic>;
+      final decoded =
+          jsonDecode(await fixture.output.readAsString())
+              as Map<String, dynamic>;
       expect(decoded['mergeReady'], isTrue);
       expect(decoded['reasons'], isEmpty);
     });
@@ -405,9 +405,9 @@ void main() {
 
       expect(result.exitCode, 2);
       expect(result.stdout, contains('MERGE_READY=false'));
-      final decoded = jsonDecode(
-        await fixture.output.readAsString(),
-      ) as Map<String, dynamic>;
+      final decoded =
+          jsonDecode(await fixture.output.readAsString())
+              as Map<String, dynamic>;
       expect(decoded['reasons'], <String>['AUTOMATED_GATES_FAILED']);
     });
 

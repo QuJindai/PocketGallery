@@ -16,8 +16,9 @@ void main() {
       final workflow = await File(
         '../../.github/workflows/pocketgallery-phone-pilot-apk.yml',
       ).readAsString();
-      final bootstrap = await File('scripts/bootstrap_android.sh')
-          .readAsString();
+      final bootstrap = await File(
+        'scripts/bootstrap_android.sh',
+      ).readAsString();
 
       final version = parseReleaseVersion(pubspec);
       expect(

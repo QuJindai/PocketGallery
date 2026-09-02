@@ -13,36 +13,32 @@ import 'pocketgallery_build_identity.dart';
 import 'preservation_probe.dart';
 import 'vector_acceptance.dart';
 
-typedef GoldenAcceptanceRun = Future<GoldenTestReport> Function({
-  GoldenProgressCallback? onProgress,
-  GoldenTraceReadyCallback? onTraceReady,
-});
+typedef GoldenAcceptanceRun =
+    Future<GoldenTestReport> Function({
+      GoldenProgressCallback? onProgress,
+      GoldenTraceReadyCallback? onTraceReady,
+    });
 
 typedef GoldenAcceptanceInterrupt = Future<void> Function(String reasonCode);
 
 typedef KnownFixtureCleanup = Future<void> Function();
 
-typedef PreservationCapture = Future<PreservationSnapshot> Function(
-  DeviceIdentitySnapshot identity,
-);
+typedef PreservationCapture =
+    Future<PreservationSnapshot> Function(DeviceIdentitySnapshot identity);
 
-typedef VectorArtifactCapture = Future<VectorAcceptanceArtifact> Function(
-  String traceId,
-);
+typedef VectorArtifactCapture =
+    Future<VectorAcceptanceArtifact> Function(String traceId);
 
-typedef VectorTruthEvaluation = VectorTruthResult Function(
-  VectorAcceptanceArtifact artifact,
-);
+typedef VectorTruthEvaluation =
+    VectorTruthResult Function(VectorAcceptanceArtifact artifact);
 
-typedef VectorInteractionRun = Future<VectorInteractionResult> Function(
-  VectorAcceptanceArtifact artifact,
-);
+typedef VectorInteractionRun =
+    Future<VectorInteractionResult> Function(VectorAcceptanceArtifact artifact);
 
 typedef ModelReadinessProbe = Future<ModelReadinessResult> Function();
 
-typedef HandsetProgressCallback = void Function(
-  HandsetAcceptanceSnapshot snapshot,
-);
+typedef HandsetProgressCallback =
+    void Function(HandsetAcceptanceSnapshot snapshot);
 
 abstract interface class HandsetAcceptanceController {
   ValueListenable<String?> get interruption;

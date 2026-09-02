@@ -12,36 +12,39 @@ import 'package:pocketgallery_phone_pilot/services/lexical_fts_store.dart';
 import 'support/release_version.dart';
 
 void main() {
-  test('long CJK query recalls a semantically aligned phrase through trigram windows', () async {
-    final db = sqlite3.openInMemory();
-    final store = LexicalFtsStore(database: db);
-    await store.initialize();
-    await store.replaceDocument(
-      const ImportedDocument(
-        documentId: 'edge-ai',
-        sourceName: '端侧模型性能测试方法.pdf',
-        sha256: 'edge',
-        chunks: [
-          PgChunk(
-            id: 'edge-1',
-            documentId: 'edge-ai',
-            sourceName: '端侧模型性能测试方法.pdf',
-            locator: 'page 4',
-            ordinal: 0,
-            text: '端侧模型性能测试方法包括 TTFT、解码速度、峰值内存、功耗、温控降频和任务基准测试。',
-          ),
-        ],
-      ),
-    );
+  test(
+    'long CJK query recalls a semantically aligned phrase through trigram windows',
+    () async {
+      final db = sqlite3.openInMemory();
+      final store = LexicalFtsStore(database: db);
+      await store.initialize();
+      await store.replaceDocument(
+        const ImportedDocument(
+          documentId: 'edge-ai',
+          sourceName: '端侧模型性能测试方法.pdf',
+          sha256: 'edge',
+          chunks: [
+            PgChunk(
+              id: 'edge-1',
+              documentId: 'edge-ai',
+              sourceName: '端侧模型性能测试方法.pdf',
+              locator: 'page 4',
+              ordinal: 0,
+              text: '端侧模型性能测试方法包括 TTFT、解码速度、峰值内存、功耗、温控降频和任务基准测试。',
+            ),
+          ],
+        ),
+      );
 
-    final result = await store.inspect('端侧模型如何测试');
-    expect(result.hits, isNotEmpty);
-    expect(result.hits.first.chunk.id, 'edge-1');
-    expect(result.diagnostics, contains('CJK trigram-window'));
+      final result = await store.inspect('端侧模型如何测试');
+      expect(result.hits, isNotEmpty);
+      expect(result.hits.first.chunk.id, 'edge-1');
+      expect(result.diagnostics, contains('CJK trigram-window'));
 
-    store.dispose();
-    db.close();
-  });
+      store.dispose();
+      db.close();
+    },
+  );
 
   test(
     'semantic-only auto routing accepts a separated high-confidence winner',
@@ -217,8 +220,9 @@ void main() {
   test(
     'R4.5 benchmark expands to phone-realworld Chinese paraphrases',
     () async {
-      final raw = await File('assets/golden/rag_microscope_benchmark.json')
-          .readAsString();
+      final raw = await File(
+        'assets/golden/rag_microscope_benchmark.json',
+      ).readAsString();
       final json = jsonDecode(raw) as Map<String, dynamic>;
       final cases = (json['cases'] as List<dynamic>)
           .cast<Map<String, dynamic>>();

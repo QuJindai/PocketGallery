@@ -207,9 +207,9 @@ void main() {
         );
         expect(
           card.color,
-          Theme.of(tester.element(find.text('验收通过')))
-              .colorScheme
-              .tertiaryContainer,
+          Theme.of(
+            tester.element(find.text('验收通过')),
+          ).colorScheme.tertiaryContainer,
         );
       },
     );

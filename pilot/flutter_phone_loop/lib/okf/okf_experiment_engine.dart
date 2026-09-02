@@ -152,8 +152,9 @@ class OkfAwareRetrievalExperimentEngine extends RetrievalExperimentEngine {
           semanticRank: item.candidate.vectorRank,
         ),
     ];
-    final selection = const EvidencePolicy(maxEvidence: 3)
-        .select(rankedHits, maxItems: 3, maxTotalChars: tokenReserve * 3);
+    final selection = const EvidencePolicy(
+      maxEvidence: 3,
+    ).select(rankedHits, maxItems: 3, maxTotalChars: tokenReserve * 3);
     final selectedIds = selection.evidence.map((item) => item.chunk.id).toSet();
 
     await store.clearStrategyOutputs(
