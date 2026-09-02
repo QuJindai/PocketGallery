@@ -4,8 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sqlite3/sqlite3.dart';
 
 import 'package:pocketgallery_phone_pilot/experiments/retrieval_strategy.dart';
-import 'package:pocketgallery_phone_pilot/lineage/lineage_store.dart';
 import 'package:pocketgallery_phone_pilot/okf/okf_models.dart';
+import 'package:pocketgallery_phone_pilot/okf/okf_store.dart';
 import 'package:pocketgallery_phone_pilot/services/document_importer.dart';
 
 void main() {
@@ -44,7 +44,7 @@ Torque limit is 320 Nm. See [Policy](policy.md).
     expect(result.okf, isNull);
   });
 
-  test('lineage store round-trips OKF sidecar transactionally', () async {
+  test('OKF store round-trips the sidecar graph in SQLite', () async {
     final tmp = await Directory.systemTemp.createTemp('pg-r47-store-');
     addTearDown(() => tmp.delete(recursive: true));
     final file = File('${tmp.path}/metric.md');
@@ -59,12 +59,12 @@ See [Definition](definition.md).
     final imported = await DocumentImporter().importPathWithLineage(file.path);
     final db = sqlite3.openInMemory();
     addTearDown(db.close);
-    final store = LineageStore(database: db);
+    final store = OkfStore(database: db);
 
-    await store.replaceImportLineage(imported);
+    await store.replaceDocument(imported.document.documentId, imported.okf);
 
-    final doc = await store.okfDocumentById(imported.document.documentId);
-    final links = await store.okfLinksForDocument(imported.document.documentId);
+    final doc = await store.documentById(imported.document.documentId);
+    final links = await store.linksForDocument(imported.document.documentId);
     expect(doc, isNotNull);
     expect(doc!.type, 'Metric');
     expect(doc.trustTier, OkfTrustTier.generated);
