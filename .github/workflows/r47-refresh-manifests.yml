@@ -6,6 +6,11 @@ on:
       - codex/r47-okf-gallery
     paths:
       - '.github/workflows/r47-refresh-manifests.yml'
+      - 'pilot/flutter_phone_loop/lib/**'
+      - 'pilot/flutter_phone_loop/test/**'
+      - 'pilot/flutter_phone_loop/tool/**'
+      - 'pilot/flutter_phone_loop/pubspec.yaml'
+      - 'pilot/flutter_phone_loop/scripts/**'
 
 permissions:
   contents: write
