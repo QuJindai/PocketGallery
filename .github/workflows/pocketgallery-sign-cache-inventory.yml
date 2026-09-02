@@ -1,0 +1,43 @@
+name: PocketGallery Signing Cache Inventory
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/phone-pilot-r3-final-apk
+    paths:
+      - .github/workflows/pocketgallery-sign-cache-inventory.yml
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  inventory:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read signing cache metadata only
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT=/tmp/sign-cache-inventory.txt
+          {
+            echo "run_id=$GITHUB_RUN_ID"
+            echo "repository=$GITHUB_REPOSITORY"
+            echo "ref=$GITHUB_REF"
+            echo
+            gh api \
+              -H "Accept: application/vnd.github+json" \
+              "/repos/${GITHUB_REPOSITORY}/actions/caches?per_page=100" \
+              --jq '.actions_caches[] | select(.key | contains("pocketgallery-r3-signing")) | {id,key,ref,version,size_in_bytes,created_at,last_accessed_at}'
+          } | tee "$OUT"
+          ENCODED="$(base64 -w0 "$OUT")"
+          gh api --method PUT \
+            "repos/${GITHUB_REPOSITORY}/contents/docs/ci-diagnostics/sign-cache-inventory-${GITHUB_RUN_ID}.txt" \
+            -f message="ci: persist signing cache inventory ${GITHUB_RUN_ID}" \
+            -f content="$ENCODED" \
+            -f branch="$GITHUB_REF_NAME" >/dev/null

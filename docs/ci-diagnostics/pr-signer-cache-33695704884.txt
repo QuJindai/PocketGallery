@@ -1,0 +1,10 @@
+run_id=33695704884
+event=pull_request
+ref=refs/pull/8/merge
+head_ref=feature/phone-pilot-r3-final-apk
+base_ref=feature/phone-pilot-r2-auto-models
+cache_hit=
+keystore_present=false
+password_present=false
+cert_export_ok=false
+signer_sha256=

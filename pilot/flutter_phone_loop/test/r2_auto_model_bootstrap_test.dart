@@ -27,10 +27,16 @@ void main() {
     expect(source, contains('const <RetrievalHit>[]'));
   });
 
-  test('R2 installs side by side instead of colliding with R1 debug signature', () {
+  test('pilot app identity remains isolated from the original R1 package', () {
     final source = File('scripts/bootstrap_android.sh').readAsStringSync();
 
-    expect(source, contains('com.qujindai.pocketgallery_phone_pilot.r2'));
-    expect(source, contains('PocketGallery R2'));
+    expect(source, contains('com.qujindai.pocketgallery_phone_pilot.r3'));
+    expect(source, contains('PocketGallery R3'));
+    expect(
+      source,
+      isNot(contains(
+        'applicationId = "com.qujindai.pocketgallery_phone_pilot"\n',
+      )),
+    );
   });
 }
