@@ -1,0 +1,15 @@
+run_id=33696577667
+ref=refs/pull/10/merge
+carrier_outcome=success
+cache_outcome=success
+cache_hit=true
+signer_exit=0
+signer_sha256=81af4a5ef94c236774f0e193b2a4b248805b36c14cc36e2a56df8e451a712541
+target_resolve_exit=0
+target_sha=af1fb6b30e269583630a88e7760595a7e0634a1c
+target_checkout_outcome=success
+flutter_setup_outcome=success
+pub_get_exit=0
+analyze_exit=1
+focused_tests_exit=0
+android_bootstrap_exit=0
