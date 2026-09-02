@@ -131,6 +131,19 @@ abstract final class RetrievalStrategies {
     onDemand: true,
   );
 
+  static const okfV02Structured = RetrievalStrategyDescriptor(
+    id: 'shadow.okf-v02-structured',
+    label: 'SHADOW · OKF v0.2 structured',
+    lane: RetrievalLane.shadow,
+    representations: <EmbeddingRepresentation>{EmbeddingRepresentation.body},
+    candidatePolicy: ExperimentCandidatePolicy.bodyHybrid,
+    fusionPolicy: ExperimentFusionPolicy.weightedRrf,
+    rerankPolicy: ExperimentRerankPolicy.none,
+    evidencePolicy: ExperimentEvidencePolicy.conservative,
+    parentChildPolicy: ParentChildPolicy.none,
+    onDemand: true,
+  );
+
   static const all = <RetrievalStrategyDescriptor>[
     activeControl,
     headingBodyMultivector,
@@ -138,6 +151,7 @@ abstract final class RetrievalStrategies {
     featureReranker,
     parentChild,
     dynamicEvidence,
+    okfV02Structured,
   ];
 
   static RetrievalStrategyDescriptor byId(String id) {
