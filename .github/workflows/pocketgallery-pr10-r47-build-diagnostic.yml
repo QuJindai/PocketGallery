@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   pull-requests: write
 
 jobs:
@@ -143,31 +143,55 @@ jobs:
           tail -100 /tmp/r47-bootstrap.log || true
           exit 0
 
-      - name: Comment diagnostic on PR10
-        if: always() && github.event_name == 'pull_request'
+      - name: Build diagnostic report
+        id: report
+        if: always()
+        shell: bash
+        run: |
+          REPORT=/tmp/r47-build-diagnostic.txt
+          cat > "$REPORT" <<EOF
+          run_id=$GITHUB_RUN_ID
+          ref=$GITHUB_REF
+          carrier_outcome=${{ steps.carrier.outcome }}
+          cache_outcome=${{ steps.cache.outcome }}
+          cache_hit=${{ steps.cache.outputs.cache-hit }}
+          signer_exit=${{ steps.signer.outputs.exit_code }}
+          signer_sha256=${{ steps.signer.outputs.cert_sha }}
+          target_resolve_exit=${{ steps.target.outputs.exit_code }}
+          target_sha=${{ steps.target.outputs.sha }}
+          target_checkout_outcome=${{ steps.target_checkout.outcome }}
+          flutter_setup_outcome=${{ steps.flutter_setup.outcome }}
+          pub_get_exit=${{ steps.pub_get.outputs.exit_code }}
+          analyze_exit=${{ steps.analyze.outputs.exit_code }}
+          focused_tests_exit=${{ steps.focused.outputs.exit_code }}
+          android_bootstrap_exit=${{ steps.bootstrap.outputs.exit_code }}
+          EOF
+          cat "$REPORT"
+
+      - name: Publish diagnostic prerelease
+        if: always()
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
-          BODY=$(cat <<EOF
-          <!-- r47-build-diagnostic -->
-          R4.7 canonical build diagnostic run ${GITHUB_RUN_ID}
-          - ref: ${GITHUB_REF}
-          - carrier checkout: ${{ steps.carrier.outcome }}
-          - cache restore: ${{ steps.cache.outcome }} / cache_hit=${{ steps.cache.outputs.cache-hit }}
-          - signer verify exit: ${{ steps.signer.outputs.exit_code }}
-          - signer sha256: ${{ steps.signer.outputs.cert_sha }}
-          - target resolve exit: ${{ steps.target.outputs.exit_code }}
-          - target sha: ${{ steps.target.outputs.sha }}
-          - target checkout: ${{ steps.target_checkout.outcome }}
-          - flutter setup: ${{ steps.flutter_setup.outcome }}
-          - pub get exit: ${{ steps.pub_get.outputs.exit_code }}
-          - analyze exit: ${{ steps.analyze.outputs.exit_code }}
-          - focused tests exit: ${{ steps.focused.outputs.exit_code }}
-          - android bootstrap exit: ${{ steps.bootstrap.outputs.exit_code }}
-          EOF
-          )
-          gh pr comment 10 --body "$BODY"
+          TAG="r47-build-diag-${GITHUB_RUN_ID}"
+          gh release create "$TAG" \
+            "/tmp/r47-build-diagnostic.txt#r47-build-diagnostic.txt" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_HEAD_REF" \
+            --title "R4.7 build diagnostic ${GITHUB_RUN_ID}" \
+            --notes "Non-secret PR10 R4.7 build phase diagnostics." \
+            --prerelease
+
+      - name: Comment diagnostic on PR10
+        if: always() && github.event_name == 'pull_request'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          gh pr comment 10 --body-file /tmp/r47-build-diagnostic.txt
 
       - name: Enforce diagnostic gate
         if: always()
