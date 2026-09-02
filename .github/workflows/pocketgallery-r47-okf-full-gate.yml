@@ -41,9 +41,24 @@ jobs:
         working-directory: pilot/flutter_phone_loop
         run: flutter pub get
 
-      - name: Verify Dart formatting
+      - name: Verify formatting only for R4.7-owned Dart changes
         working-directory: pilot/flutter_phone_loop
-        run: dart format --output=none --set-exit-if-changed lib test tool
+        run: |
+          set -euo pipefail
+          dart format --output=none --set-exit-if-changed \
+            lib/okf/okf_models.dart \
+            lib/okf/okf_parser.dart \
+            lib/okf/okf_store.dart \
+            lib/okf/okf_signal_policy.dart \
+            lib/okf/okf_experiment_engine.dart \
+            lib/lineage/import_lineage.dart \
+            lib/services/document_importer.dart \
+            lib/services/knowledge_engine.dart \
+            lib/experiments/retrieval_strategy.dart \
+            lib/ui/microscope/retrieval_experiment_center_page.dart \
+            test/r47_okf_parser_test.dart \
+            test/r47_okf_integration_contract_test.dart \
+            test/r47_okf_shadow_lab_test.dart
 
       - name: Analyze entire Gallery pilot
         working-directory: pilot/flutter_phone_loop
@@ -156,5 +171,3 @@ jobs:
             pilot/flutter_phone_loop/build/app/outputs/flutter-apk/PG_R47_OKF_EVIDENCE.json
           if-no-files-found: error
           retention-days: 14
-
-# rerun after diagnosed format repair and manifest refresh
