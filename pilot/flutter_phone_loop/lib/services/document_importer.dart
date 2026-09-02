@@ -8,6 +8,8 @@ import '../core/chunker.dart';
 import '../core/models.dart';
 import '../lineage/import_lineage.dart';
 import '../lineage/lineage_ids.dart';
+import '../okf/okf_models.dart';
+import '../okf/okf_parser.dart';
 
 class DocumentImporter {
   DocumentImporter({PgChunker? chunker})
@@ -42,9 +44,25 @@ class DocumentImporter {
     final stat = await file.stat();
     final importedAt = DateTime.now().toUtc();
 
+    String? markdownText;
+    OkfParseResult? okf;
+    if (ext == 'md') {
+      markdownText = await file.readAsString();
+      okf = const OkfParser().tryParseMarkdown(
+        markdownText,
+        documentId: documentId,
+        sourceName: sourceName,
+        now: importedAt,
+      );
+    }
+
     final parsed = switch (ext) {
       'txt' => await _readText(file, documentId),
-      'md' => await _readMarkdown(file, documentId),
+      'md' => _parseMarkdown(
+        markdownText!,
+        documentId,
+        contentStart: okf?.bodyStartOffset ?? 0,
+      ),
       'pdf' => await _readPdf(path, documentId),
       _ => throw UnsupportedError('Unsupported document type: .$ext'),
     };
@@ -104,6 +122,7 @@ class DocumentImporter {
             ),
           )
           .toList(growable: false),
+      okf: okf,
     );
   }
 
@@ -144,12 +163,19 @@ class DocumentImporter {
     );
   }
 
-  Future<_ParsedDocument> _readMarkdown(File file, String documentId) async {
-    final text = await file.readAsString();
+  _ParsedDocument _parseMarkdown(
+    String text,
+    String documentId, {
+    int contentStart = 0,
+  }) {
+    if (contentStart < 0 || contentStart > text.length) {
+      throw RangeError.range(contentStart, 0, text.length, 'contentStart');
+    }
+    final searchable = text.substring(contentStart);
     final headings = RegExp(
       r'^(#{1,6})[ \t]+([^\r\n]+?)[ \t]*#*[ \t]*(?:\r)?$',
       multiLine: true,
-    ).allMatches(text).toList(growable: false);
+    ).allMatches(text, contentStart).toList(growable: false);
     final sections = <TextSection>[];
     final records = <LineageSectionRecord>[];
 
@@ -196,17 +222,17 @@ class DocumentImporter {
 
     if (headings.isEmpty) {
       addSection(
-        start: 0,
+        start: contentStart,
         end: text.length,
         locator: 'text',
         heading: null,
         sectionType: 'text',
       );
     } else {
-      if (headings.first.start > 0 &&
-          text.substring(0, headings.first.start).trim().isNotEmpty) {
+      if (headings.first.start > contentStart &&
+          text.substring(contentStart, headings.first.start).trim().isNotEmpty) {
         addSection(
-          start: 0,
+          start: contentStart,
           end: headings.first.start,
           locator: 'preamble',
           heading: null,
@@ -229,7 +255,9 @@ class DocumentImporter {
       }
     }
 
-    final status = text.trim().isEmpty ? ParseStatus.empty : ParseStatus.parsed;
+    final status = searchable.trim().isEmpty
+        ? ParseStatus.empty
+        : ParseStatus.parsed;
     return _ParsedDocument(
       sections: sections,
       lineageSections: records,
@@ -237,7 +265,7 @@ class DocumentImporter {
       parseStatus: status,
       parseErrorCode: null,
       parseErrorDetail: null,
-      extractedCharCount: text.length,
+      extractedCharCount: searchable.length,
       emptyPageCount: 0,
     );
   }
