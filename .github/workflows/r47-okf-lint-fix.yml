@@ -30,41 +30,41 @@ jobs:
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
+          import re
 
           engine = Path('pilot/flutter_phone_loop/lib/okf/okf_experiment_engine.dart')
           text = engine.read_text()
-          old = """  OkfAwareRetrievalExperimentEngine({
-              required LineageStore store,
-              required LexicalFtsStore lexicalStore,
-              required RepresentationBuilder representationBuilder,
-              required this.okfStore,
-              this.signalPolicy = const OkfSignalPolicy(),
-              DateTime Function()? now,
-            }) : super(
-                   store: store,
-                   lexicalStore: lexicalStore,
-                   representationBuilder: representationBuilder,
-                   clock: now,
-                 );
-          """
-          new = """  OkfAwareRetrievalExperimentEngine({
-              required super.store,
-              required super.lexicalStore,
-              required super.representationBuilder,
-              required this.okfStore,
-              this.signalPolicy = const OkfSignalPolicy(),
-              DateTime Function()? now,
-            }) : super(clock: now);
-          """
-          if text.count(old) != 1:
-              raise SystemExit(f'constructor replacement count={text.count(old)}; expected 1')
-          engine.write_text(text.replace(old, new))
+
+          replacements = {
+              'required LineageStore store,': 'required super.store,',
+              'required LexicalFtsStore lexicalStore,': 'required super.lexicalStore,',
+              'required RepresentationBuilder representationBuilder,': 'required super.representationBuilder,',
+          }
+          for old, new in replacements.items():
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{old!r} count={count}; expected 1')
+              text = text.replace(old, new)
+
+          pattern = re.compile(
+              r"\}\) : super\(\s*"
+              r"store: store,\s*"
+              r"lexicalStore: lexicalStore,\s*"
+              r"representationBuilder: representationBuilder,\s*"
+              r"clock: now,\s*"
+              r"\);"
+          )
+          text, count = pattern.subn('}) : super(clock: now);', text)
+          if count != 1:
+              raise SystemExit(f'super initializer replacement count={count}; expected 1')
+          engine.write_text(text)
 
           test_file = Path('pilot/flutter_phone_loop/test/r47_okf_shadow_lab_test.dart')
           test_text = test_file.read_text()
           unused = "import 'package:pocketgallery_phone_pilot/okf/okf_models.dart';\n"
-          if test_text.count(unused) != 1:
-              raise SystemExit(f'unused import replacement count={test_text.count(unused)}; expected 1')
+          count = test_text.count(unused)
+          if count != 1:
+              raise SystemExit(f'unused import replacement count={count}; expected 1')
           test_file.write_text(test_text.replace(unused, ''))
           PY
 
