@@ -1,0 +1,113 @@
+name: R4.7 OKF Lint Fix
+
+on:
+  push:
+    branches:
+      - codex/r47-okf-gallery
+    paths:
+      - '.github/workflows/r47-okf-lint-fix.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: r47-okf-lint-fix
+  cancel-in-progress: false
+
+jobs:
+  fix-and-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: codex/r47-okf-gallery
+          fetch-depth: 0
+
+      - name: Apply exactly two lint-only edits
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          engine = Path('pilot/flutter_phone_loop/lib/okf/okf_experiment_engine.dart')
+          text = engine.read_text()
+          old = """  OkfAwareRetrievalExperimentEngine({
+              required LineageStore store,
+              required LexicalFtsStore lexicalStore,
+              required RepresentationBuilder representationBuilder,
+              required this.okfStore,
+              this.signalPolicy = const OkfSignalPolicy(),
+              DateTime Function()? now,
+            }) : super(
+                   store: store,
+                   lexicalStore: lexicalStore,
+                   representationBuilder: representationBuilder,
+                   clock: now,
+                 );
+          """
+          new = """  OkfAwareRetrievalExperimentEngine({
+              required super.store,
+              required super.lexicalStore,
+              required super.representationBuilder,
+              required this.okfStore,
+              this.signalPolicy = const OkfSignalPolicy(),
+              DateTime Function()? now,
+            }) : super(clock: now);
+          """
+          if text.count(old) != 1:
+              raise SystemExit(f'constructor replacement count={text.count(old)}; expected 1')
+          engine.write_text(text.replace(old, new))
+
+          test_file = Path('pilot/flutter_phone_loop/test/r47_okf_shadow_lab_test.dart')
+          test_text = test_file.read_text()
+          unused = "import 'package:pocketgallery_phone_pilot/okf/okf_models.dart';\n"
+          if test_text.count(unused) != 1:
+              raise SystemExit(f'unused import replacement count={test_text.count(unused)}; expected 1')
+          test_file.write_text(test_text.replace(unused, ''))
+          PY
+
+          git diff --check
+          git diff -- pilot/flutter_phone_loop/lib/okf/okf_experiment_engine.dart pilot/flutter_phone_loop/test/r47_okf_shadow_lab_test.dart
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Resolve dependencies
+        working-directory: pilot/flutter_phone_loop
+        run: flutter pub get
+
+      - name: Format only touched R4.7 files
+        working-directory: pilot/flutter_phone_loop
+        run: |
+          dart format lib/okf/okf_experiment_engine.dart test/r47_okf_shadow_lab_test.dart
+          git diff --check
+
+      - name: Analyze full Flutter package
+        working-directory: pilot/flutter_phone_loop
+        run: flutter analyze
+
+      - name: Run all R4.7 tests
+        working-directory: pilot/flutter_phone_loop
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t TESTS < <(find test -maxdepth 1 -type f -name 'r47*.dart' -print | sort)
+          test "${#TESTS[@]}" -gt 0
+          flutter test "${TESTS[@]}"
+
+      - name: Commit verified lint-only fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            pilot/flutter_phone_loop/lib/okf/okf_experiment_engine.dart \
+            pilot/flutter_phone_loop/test/r47_okf_shadow_lab_test.dart
+          git diff --cached --check
+          git commit -m "fix(r47): satisfy OKF analyzer gate"
+          git push origin HEAD:codex/r47-okf-gallery
