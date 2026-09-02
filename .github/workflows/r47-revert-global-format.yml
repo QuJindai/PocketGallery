@@ -1,0 +1,69 @@
+name: R4.7 Revert Global Format Churn
+
+on:
+  push:
+    branches:
+      - codex/r47-okf-gallery
+    paths:
+      - '.github/workflows/r47-revert-global-format.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  recover-format:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: codex/r47-okf-gallery
+          fetch-depth: 0
+
+      - name: Revert the accidental global formatter commit without committing yet
+        run: |
+          set -euo pipefail
+          git revert --no-commit cc98ffba1a668a658a7af9ea8849f97d19d1c3e6
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Resolve project language configuration
+        working-directory: pilot/flutter_phone_loop
+        run: flutter pub get
+
+      - name: Format only R4.7-owned Dart changes under project package config
+        working-directory: pilot/flutter_phone_loop
+        run: |
+          set -euo pipefail
+          dart format \
+            lib/okf/okf_models.dart \
+            lib/okf/okf_parser.dart \
+            lib/okf/okf_store.dart \
+            lib/okf/okf_signal_policy.dart \
+            lib/okf/okf_experiment_engine.dart \
+            lib/lineage/import_lineage.dart \
+            lib/services/document_importer.dart \
+            lib/services/knowledge_engine.dart \
+            lib/experiments/retrieval_strategy.dart \
+            lib/ui/microscope/retrieval_experiment_center_page.dart \
+            test/r47_okf_parser_test.dart \
+            test/r47_okf_integration_contract_test.dart \
+            test/r47_okf_shadow_lab_test.dart
+
+      - name: Commit baseline-noise removal plus scoped R4.7 formatting
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -u pilot/flutter_phone_loop
+          echo 'Changed tracked files:'
+          git diff --cached --name-status
+          if git diff --cached --quiet; then
+            echo 'No tracked format recovery changes'
+            exit 0
+          fi
+          git commit -m "style(r47): remove baseline format churn and scope OKF formatting"
+          git push origin HEAD:codex/r47-okf-gallery
