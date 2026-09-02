@@ -1,7 +1,7 @@
 # PocketGallery R4.7 full-gate diagnostic
 
-- source_commit: fd26fd2430bd9829ba80413b3961db76cb909dbd
-- workflow_run: 33615341467
+- source_commit: 1ac326881863c8a41003c43b25ddb1c7cbb3a3e9
+- workflow_run: 33615834926
 - flutter: Flutter 3.47.2 • channel stable • https://github.com/flutter/flutter.git
 
 ## manifest
@@ -123,15 +123,71 @@ Try `flutter pub outdated` for more information.
 exit_code: 1
 
 ```text
+Changed lib/acceptance/handset_acceptance_runner.dart
+Changed lib/acceptance/handset_acceptance_store.dart
+Changed lib/experiments/retrieval_experiment_engine.dart
+Changed lib/lineage/r45_vector_migration.dart
+Changed lib/observability/trace_vector_space_service.dart
 Changed lib/okf/okf_experiment_engine.dart
-Changed lib/okf/okf_parser.dart
-Changed lib/okf/okf_signal_policy.dart
-Changed lib/okf/okf_store.dart
-Changed lib/services/document_importer.dart
-Changed lib/ui/microscope/retrieval_experiment_center_page.dart
-Changed test/r47_okf_integration_contract_test.dart
+Changed lib/services/golden_gate_executor.dart
+Changed lib/services/golden_test_report_store.dart
+Changed lib/services/lexical_fts_store.dart
+Changed lib/ui/chat_page.dart
+Changed lib/ui/handset_acceptance_page.dart
+Changed lib/ui/handset_acceptance_widgets.dart
+Changed lib/ui/microscope/experiment_run_detail_page.dart
+Changed lib/ui/microscope/lineage_dashboard_visuals.dart
+Changed lib/ui/microscope/rag_lineage_dashboard_page.dart
+Changed lib/ui/model_settings_page.dart
+Changed test/r2_auto_model_bootstrap_test.dart
+Changed test/r31_phone_recovery_test.dart
+Changed test/r32_oauth_resume_test.dart
+Changed test/r33_device_code_ux_test.dart
+Changed test/r3_model_cache_contract_test.dart
+Changed test/r3_oauth_device_flow_test.dart
+Changed test/r401_phone_realworld_recovery_test.dart
+Changed test/r402_chat_attachment_test.dart
+Changed test/r403_embedding_runtime_recovery_test.dart
+Changed test/r41_microscope_ui_test.dart
+Changed test/r41_upgrade_contract_test.dart
+Changed test/r41_vector_observation_test.dart
+Changed test/r42_upgrade_persistence_regression_test.dart
+Changed test/r43_realworld_phone_regression_test.dart
+Changed test/r44_embedding_repair_regression_test.dart
+Changed test/r45_retrieval_quality_regression_test.dart
+Changed test/r46_context_generation_lineage_test.dart
+Changed test/r46_corpus_context_regression_test.dart
+Changed test/r46_import_lineage_test.dart
+Changed test/r46_lineage_store_test.dart
+Changed test/r46_retrieval_runtime_test.dart
+Changed test/r46_upgrade_golden_contract_test.dart
+Changed test/r46_vector_health_test.dart
+Changed test/r46_vector_index_test.dart
+Changed test/r46_vector_migration_test.dart
+Changed test/r46_vector_migration_wiring_test.dart
+Changed test/r46bc_release_contract_test.dart
+Changed test/r46bc_trace_report_test.dart
 Changed test/r47_okf_shadow_lab_test.dart
-Formatted 204 files (8 changed) in 0.61 seconds.
+Changed test/r48_phone_acceptance_regression_test.dart
+Changed test/r49_vector_space_page_test.dart
+Changed test/r4_chat_session_store_test.dart
+Changed test/r4_gemma_chat_contract_test.dart
+Changed test/r4_knowledge_engine_compat_test.dart
+Changed test/r4_knowledge_retriever_test.dart
+Changed test/r4_model_settings_ui_test.dart
+Changed test/r4_upgrade_contract_test.dart
+Changed test/r50_android_host_contract_test.dart
+Changed test/r50_device_resource_sampler_test.dart
+Changed test/r50_frame_timing_test.dart
+Changed test/r50_golden_trace_handoff_test.dart
+Changed test/r50_handset_acceptance_runner_test.dart
+Changed test/r50_handset_acceptance_ui_test.dart
+Changed test/r50_handset_report_redaction_test.dart
+Changed test/r50_handset_vector_interaction_page_test.dart
+Changed test/r50_release_contract_test.dart
+Changed test/r50_release_readiness_adjudicator_test.dart
+Changed test/r50_vector_truth_test.dart
+Formatted 204 files (64 changed) in 0.60 seconds.
 ```
 
 ## Result
