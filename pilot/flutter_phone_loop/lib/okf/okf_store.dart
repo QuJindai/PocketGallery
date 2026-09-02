@@ -272,11 +272,11 @@ class OkfStore {
             candidateId: row['candidate_id'] as String,
             chunkId: row['chunk_id'] as String,
             documentId: row['document_id'] as String,
-            baseScore: row['base_score'] as double,
-            trustAdjustment: row['trust_adjustment'] as double,
-            freshnessAdjustment: row['freshness_adjustment'] as double,
-            linkAdjustment: row['link_adjustment'] as double,
-            finalScore: row['final_score'] as double,
+            baseScore: (row['base_score'] as num).toDouble(),
+            trustAdjustment: (row['trust_adjustment'] as num).toDouble(),
+            freshnessAdjustment: (row['freshness_adjustment'] as num).toDouble(),
+            linkAdjustment: (row['link_adjustment'] as num).toDouble(),
+            finalScore: (row['final_score'] as num).toDouble(),
             reason: row['reason'] as String,
           ),
         )
@@ -284,7 +284,7 @@ class OkfStore {
   }
 
   Future<void> close() async {
-    if (_ownsDatabase) _db?.dispose();
+    if (_ownsDatabase) _db?.close();
     _db = null;
     _initialized = false;
   }
