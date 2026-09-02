@@ -92,3 +92,5 @@ jobs:
           git add docs/superpowers/diagnostics/r47-full-gate-diagnostic.md
           git commit -m "docs(r47): record full gate diagnostic" || exit 0
           git push origin HEAD:codex/r47-okf-gallery
+
+# second diagnostic pass after formatter repair
