@@ -156,3 +156,5 @@ jobs:
             pilot/flutter_phone_loop/build/app/outputs/flutter-apk/PG_R47_OKF_EVIDENCE.json
           if-no-files-found: error
           retention-days: 14
+
+# rerun after diagnosed format repair and manifest refresh
