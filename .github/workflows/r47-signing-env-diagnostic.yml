@@ -1,0 +1,103 @@
+name: R4.7 Signing Environment Diagnostic
+
+on:
+  push:
+    branches:
+      - codex/r47-okf-gallery
+    paths:
+      - '.github/workflows/r47-signing-env-diagnostic.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  diagnose-signing:
+    runs-on: ubuntu-latest
+    environment: pocketgallery-canonical-signing
+    env:
+      EXPECTED_SIGNER_SHA256: 81af4a5ef94c236774f0e193b2a4b248805b36c14cc36e2a56df8e451a712541
+      POCKETGALLERY_SIGNING_KEYSTORE_B64: ${{ secrets.POCKETGALLERY_SIGNING_KEYSTORE_B64 }}
+      POCKETGALLERY_SIGNING_STORE_PASSWORD: ${{ secrets.POCKETGALLERY_SIGNING_STORE_PASSWORD }}
+      POCKETGALLERY_SIGNING_KEY_PASSWORD: ${{ secrets.POCKETGALLERY_SIGNING_KEY_PASSWORD }}
+      POCKETGALLERY_SIGNING_KEY_ALIAS: ${{ secrets.POCKETGALLERY_SIGNING_KEY_ALIAS }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Probe signing environment safely
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          REPORT=/tmp/r47-signing-env-diagnostic.txt
+          KEYSTORE="$RUNNER_TEMP/r47-signing-probe.keystore"
+          CERT="$RUNNER_TEMP/r47-signing-probe.der"
+          cleanup() {
+            rm -f "$KEYSTORE" "$CERT"
+            unset POCKETGALLERY_SIGNING_KEYSTORE_B64
+            unset POCKETGALLERY_SIGNING_STORE_PASSWORD
+            unset POCKETGALLERY_SIGNING_KEY_PASSWORD
+            unset POCKETGALLERY_SIGNING_KEY_ALIAS
+          }
+          trap cleanup EXIT
+
+          has_keystore=false
+          has_store_password=false
+          has_key_password=false
+          has_alias=false
+          [[ -n "$POCKETGALLERY_SIGNING_KEYSTORE_B64" ]] && has_keystore=true
+          [[ -n "$POCKETGALLERY_SIGNING_STORE_PASSWORD" ]] && has_store_password=true
+          [[ -n "$POCKETGALLERY_SIGNING_KEY_PASSWORD" ]] && has_key_password=true
+          [[ -n "$POCKETGALLERY_SIGNING_KEY_ALIAS" ]] && has_alias=true
+
+          decode_ok=false
+          cert_export_ok=false
+          actual_signer_sha256=""
+          signer_match=false
+
+          if [[ "$has_keystore" = true ]]; then
+            set +e
+            printf '%s' "$POCKETGALLERY_SIGNING_KEYSTORE_B64" | base64 --decode > "$KEYSTORE" 2>/dev/null
+            rc=$?
+            set -e
+            [[ $rc -eq 0 && -s "$KEYSTORE" ]] && decode_ok=true
+          fi
+
+          if [[ "$decode_ok" = true && "$has_store_password" = true && "$has_alias" = true ]]; then
+            set +e
+            keytool -exportcert \
+              -keystore "$KEYSTORE" \
+              -storepass "$POCKETGALLERY_SIGNING_STORE_PASSWORD" \
+              -alias "$POCKETGALLERY_SIGNING_KEY_ALIAS" \
+              -file "$CERT" >/dev/null 2>&1
+            rc=$?
+            set -e
+            if [[ $rc -eq 0 && -s "$CERT" ]]; then
+              cert_export_ok=true
+              actual_signer_sha256="$(sha256sum "$CERT" | awk '{print $1}')"
+              [[ "$actual_signer_sha256" = "$EXPECTED_SIGNER_SHA256" ]] && signer_match=true
+            fi
+          fi
+
+          {
+            echo "run_id=$GITHUB_RUN_ID"
+            echo "source_sha=$(git rev-parse HEAD)"
+            echo "has_keystore=$has_keystore"
+            echo "has_store_password=$has_store_password"
+            echo "has_key_password=$has_key_password"
+            echo "has_alias=$has_alias"
+            echo "decode_ok=$decode_ok"
+            echo "cert_export_ok=$cert_export_ok"
+            echo "expected_signer_sha256=$EXPECTED_SIGNER_SHA256"
+            echo "actual_signer_sha256=$actual_signer_sha256"
+            echo "signer_match=$signer_match"
+          } | tee "$REPORT"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          mkdir -p docs/superpowers/diagnostics
+          cp "$REPORT" docs/superpowers/diagnostics/r47-signing-env-diagnostic.txt
+          git add docs/superpowers/diagnostics/r47-signing-env-diagnostic.txt
+          git commit -m "docs(r47): record signing environment diagnostic" || exit 0
+          git push origin HEAD:codex/r47-okf-gallery
