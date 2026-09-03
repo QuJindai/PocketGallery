@@ -1,0 +1,81 @@
+name: R4.7 OKF A-F Static Fix
+
+on:
+  push:
+    branches:
+      - codex/r47-okf-af-benchmark
+    paths:
+      - '.github/workflows/r47-okf-af-static-fix.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: codex/r47-okf-af-benchmark
+          fetch-depth: 0
+      - name: Apply static-only edits
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          runner = Path('pilot/flutter_phone_loop/lib/okf/okf_af_runner.dart')
+          text = runner.read_text()
+          needle = "import '../core/models.dart';\n"
+          replacement = "import '../core/evidence.dart';\nimport '../core/models.dart';\n"
+          if text.count(needle) != 1 or "../core/evidence.dart" in text:
+              raise SystemExit('runner import contract mismatch')
+          runner.write_text(text.replace(needle, replacement))
+
+          core = Path('pilot/flutter_phone_loop/lib/okf/okf_af_benchmark.dart')
+          text = core.read_text()
+          replacements = [
+              ("  OkfAfCorpus._({\n    required this.concepts,\n    required this.ordinaryChunks,\n  });\n\n  final Map<String, _AfConcept> concepts;\n  final List<_AfOrdinaryChunk> ordinaryChunks;\n",
+               "  OkfAfCorpus._({\n    required Map<String, _AfConcept> concepts,\n    required List<_AfOrdinaryChunk> ordinaryChunks,\n  }) : _concepts = concepts,\n       _ordinaryChunks = ordinaryChunks;\n\n  final Map<String, _AfConcept> _concepts;\n  final List<_AfOrdinaryChunk> _ordinaryChunks;\n"),
+              ("corpus.ordinaryChunks", "corpus._ordinaryChunks"),
+              ("corpus.concepts", "corpus._concepts"),
+              ("        markdown: entry.value,\n", ""),
+              ("    required this.markdown,\n", ""),
+              ("  final String markdown;\n", ""),
+          ]
+          for old, new in replacements:
+              count = text.count(old)
+              if count < 1:
+                  raise SystemExit(f'missing patch target: {old[:60]!r}')
+              text = text.replace(old, new)
+          core.write_text(text)
+          PY
+          git diff --check
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - working-directory: pilot/flutter_phone_loop
+        run: flutter pub get
+      - name: Format touched files
+        working-directory: pilot/flutter_phone_loop
+        run: dart format lib/okf/okf_af_benchmark.dart lib/okf/okf_af_runner.dart
+      - name: Analyze
+        working-directory: pilot/flutter_phone_loop
+        run: flutter analyze
+      - name: Focused tests
+        working-directory: pilot/flutter_phone_loop
+        run: flutter test test/r47_okf_af_benchmark_test.dart test/r47_okf_af_ui_test.dart
+      - name: Commit verified fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add pilot/flutter_phone_loop/lib/okf/okf_af_benchmark.dart pilot/flutter_phone_loop/lib/okf/okf_af_runner.dart
+          git diff --cached --check
+          git commit -m "fix(r47): make A-F benchmark analyzer clean"
+          git push origin HEAD:codex/r47-okf-af-benchmark
