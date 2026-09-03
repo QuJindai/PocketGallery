@@ -1,0 +1,151 @@
+name: R4.7 Manifest Refresh Diagnostic
+
+on:
+  push:
+    branches:
+      - codex/r47-okf-gallery
+    paths:
+      - '.github/workflows/r47-manifest-refresh-diagnostic.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: r47-manifest-refresh-diagnostic
+  cancel-in-progress: false
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: codex/r47-okf-gallery
+          fetch-depth: 0
+
+      - name: Regenerate manifests in working tree
+        id: manifests
+        working-directory: pilot/flutter_phone_loop
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash scripts/generate_manifests.sh inner > /tmp/r47-inner.sha256
+          cp /tmp/r47-inner.sha256 MANIFEST.sha256
+          bash scripts/generate_manifests.sh outer > /tmp/r47-outer.sha256
+          cp /tmp/r47-outer.sha256 ../../DROPIN_MANIFEST.sha256
+          git diff --check
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Resolve dependencies
+        working-directory: pilot/flutter_phone_loop
+        run: flutter pub get
+
+      - name: Analyze
+        id: analyze
+        working-directory: pilot/flutter_phone_loop
+        shell: bash
+        run: |
+          set +e
+          flutter analyze 2>&1 | tee /tmp/r47-analyze.log
+          rc=${PIPESTATUS[0]}
+          echo "rc=$rc" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Full tests with captured output
+        id: tests
+        working-directory: pilot/flutter_phone_loop
+        shell: bash
+        run: |
+          set +e
+          flutter test 2>&1 | tee /tmp/r47-full-test.log
+          rc=${PIPESTATUS[0]}
+          echo "rc=$rc" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Recheck generated manifests after tests
+        id: recheck
+        working-directory: pilot/flutter_phone_loop
+        shell: bash
+        run: |
+          set +e
+          bash scripts/generate_manifests.sh inner > /tmp/r47-inner-after.sha256
+          inner_rc=$?
+          bash scripts/generate_manifests.sh outer > /tmp/r47-outer-after.sha256
+          outer_rc=$?
+          diff -u MANIFEST.sha256 /tmp/r47-inner-after.sha256 > /tmp/r47-inner.diff 2>&1
+          inner_diff_rc=$?
+          diff -u ../../DROPIN_MANIFEST.sha256 /tmp/r47-outer-after.sha256 > /tmp/r47-outer.diff 2>&1
+          outer_diff_rc=$?
+          echo "inner_gen_rc=$inner_rc" >> "$GITHUB_OUTPUT"
+          echo "outer_gen_rc=$outer_rc" >> "$GITHUB_OUTPUT"
+          echo "inner_diff_rc=$inner_diff_rc" >> "$GITHUB_OUTPUT"
+          echo "outer_diff_rc=$outer_diff_rc" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Build safe diagnostic report
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          REPORT="$RUNNER_TEMP/r47-manifest-refresh-diagnostic-${GITHUB_RUN_ID}.txt"
+          {
+            echo "run_id=$GITHUB_RUN_ID"
+            echo "source_sha=$(git rev-parse HEAD)"
+            echo "analyze_exit=${{ steps.analyze.outputs.rc }}"
+            echo "full_tests_exit=${{ steps.tests.outputs.rc }}"
+            echo "inner_gen_exit=${{ steps.recheck.outputs.inner_gen_rc }}"
+            echo "outer_gen_exit=${{ steps.recheck.outputs.outer_gen_rc }}"
+            echo "inner_diff_exit=${{ steps.recheck.outputs.inner_diff_rc }}"
+            echo "outer_diff_exit=${{ steps.recheck.outputs.outer_diff_rc }}"
+            echo
+            echo "===== TEST FAILURE LINES ====="
+            grep -E -B 8 -A 18 '(^| )FAILED|TestFailure|Expected:|Actual:|Some tests failed|[0-9]+ tests passed, [0-9]+ failed|\[E\]' /tmp/r47-full-test.log | tail -n 220 || true
+            echo
+            echo "===== FULL TEST TAIL ====="
+            tail -n 160 /tmp/r47-full-test.log || true
+            echo
+            echo "===== INNER DIFF ====="
+            cat /tmp/r47-inner.diff 2>/dev/null || true
+            echo
+            echo "===== OUTER DIFF ====="
+            cat /tmp/r47-outer.diff 2>/dev/null || true
+            echo
+            echo "===== GIT STATUS ====="
+            git status --short
+          } > "$REPORT"
+          cp "$REPORT" /tmp/r47-manifest-refresh-diagnostic.txt
+
+      - name: Persist diagnostic to isolated readback branch
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          REPORT=/tmp/r47-manifest-refresh-diagnostic.txt
+          test -s "$REPORT"
+          git fetch origin r47-signing-diagnostic-readback
+          git checkout -B r47-signing-diagnostic-readback origin/r47-signing-diagnostic-readback
+          mkdir -p docs/superpowers/diagnostics
+          cp "$REPORT" "docs/superpowers/diagnostics/r47-manifest-refresh-${GITHUB_RUN_ID}.txt"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "docs/superpowers/diagnostics/r47-manifest-refresh-${GITHUB_RUN_ID}.txt"
+          git commit -m "diag: R4.7 manifest refresh ${GITHUB_RUN_ID}"
+          git push origin HEAD:r47-signing-diagnostic-readback
+
+      - name: Fail on real blocker
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${{ steps.analyze.outputs.rc }}" = "0"
+          test "${{ steps.tests.outputs.rc }}" = "0"
+          test "${{ steps.recheck.outputs.inner_gen_rc }}" = "0"
+          test "${{ steps.recheck.outputs.outer_gen_rc }}" = "0"
+          test "${{ steps.recheck.outputs.inner_diff_rc }}" = "0"
+          test "${{ steps.recheck.outputs.outer_diff_rc }}" = "0"
