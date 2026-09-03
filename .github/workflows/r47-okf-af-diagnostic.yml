@@ -1,0 +1,71 @@
+name: R4.7 OKF A-F Diagnostic
+
+on:
+  push:
+    branches:
+      - codex/r47-okf-af-benchmark
+    paths:
+      - '.github/workflows/r47-okf-af-diagnostic.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Resolve dependencies
+        working-directory: pilot/flutter_phone_loop
+        run: flutter pub get
+      - name: Capture analyze and focused tests
+        id: checks
+        working-directory: pilot/flutter_phone_loop
+        shell: bash
+        run: |
+          set +e
+          flutter analyze 2>&1 | tee /tmp/af-analyze.log
+          ANALYZE=${PIPESTATUS[0]}
+          flutter test test/r47_okf_af_benchmark_test.dart test/r47_okf_af_ui_test.dart 2>&1 | tee /tmp/af-tests.log
+          TESTS=${PIPESTATUS[0]}
+          echo "analyze=$ANALYZE" >> "$GITHUB_OUTPUT"
+          echo "tests=$TESTS" >> "$GITHUB_OUTPUT"
+          exit 0
+      - name: Persist safe diagnostics
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT=/tmp/r47-okf-af-diagnostic.txt
+          {
+            echo "source_sha=$GITHUB_SHA"
+            echo "analyze_exit=${{ steps.checks.outputs.analyze }}"
+            echo "tests_exit=${{ steps.checks.outputs.tests }}"
+            echo
+            echo "===== ANALYZE ====="
+            tail -n 120 /tmp/af-analyze.log
+            echo
+            echo "===== FOCUSED TESTS ====="
+            tail -n 180 /tmp/af-tests.log
+          } > "$OUT"
+          BASE_SHA="$(git ls-remote origin refs/heads/r47-signing-diagnostic-readback | awk '{print $1}')"
+          if [[ -z "$BASE_SHA" ]]; then
+            BASE_SHA="$(git rev-parse HEAD)"
+            git push origin "$BASE_SHA":refs/heads/r47-signing-diagnostic-readback
+          fi
+          EXISTING_SHA="$(gh api "repos/${GITHUB_REPOSITORY}/contents/docs/superpowers/diagnostics/R47_OKF_AF_DIAGNOSTIC.txt?ref=r47-signing-diagnostic-readback" --jq .sha 2>/dev/null || true)"
+          CONTENT="$(base64 -w0 "$OUT")"
+          ARGS=(--method PUT "repos/${GITHUB_REPOSITORY}/contents/docs/superpowers/diagnostics/R47_OKF_AF_DIAGNOSTIC.txt" -f message="ci: update R4.7 A-F diagnostic" -f content="$CONTENT" -f branch="r47-signing-diagnostic-readback")
+          if [[ -n "$EXISTING_SHA" ]]; then ARGS+=(-f sha="$EXISTING_SHA"); fi
+          gh api "${ARGS[@]}" >/dev/null
+      - name: Enforce diagnostic result
+        run: |
+          test "${{ steps.checks.outputs.analyze }}" = "0"
+          test "${{ steps.checks.outputs.tests }}" = "0"
