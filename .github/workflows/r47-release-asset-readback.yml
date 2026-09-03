@@ -1,0 +1,74 @@
+name: R4.7 Release Asset Readback
+
+on:
+  push:
+    branches:
+      - r47-signing-diagnostic-readback
+    paths:
+      - '.github/workflows/r47-release-asset-readback.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  readback:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: r47-signing-diagnostic-readback
+          fetch-depth: 0
+
+      - name: Read release metadata and proof
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: r47-okf-canonical-33697950981
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/r47-release
+          gh release download "$TAG" \
+            --pattern 'R47_OKF_SIGNED_BUILD_PROOF.txt' \
+            --pattern 'PocketGallery-R47-OKF-Gallery-arm64.apk.sha256' \
+            --dir /tmp/r47-release
+          gh api "repos/${GITHUB_REPOSITORY}/releases/tags/$TAG" > /tmp/r47-release/release.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          meta=json.loads(Path('/tmp/r47-release/release.json').read_text())
+          assets={a['name']:a for a in meta.get('assets',[])}
+          required=['PocketGallery-R47-OKF-Gallery-arm64.apk','PocketGallery-R47-OKF-Gallery-arm64.apk.sha256','R47_OKF_SIGNED_BUILD_PROOF.txt']
+          for name in required:
+              if name not in assets:
+                  raise SystemExit(f'missing release asset: {name}')
+          proof=Path('/tmp/r47-release/R47_OKF_SIGNED_BUILD_PROOF.txt').read_text().strip()
+          sidecar=Path('/tmp/r47-release/PocketGallery-R47-OKF-Gallery-arm64.apk.sha256').read_text().strip()
+          out=[]
+          out.append(f"tag={meta['tag_name']}")
+          out.append(f"prerelease={str(meta.get('prerelease')).lower()}")
+          out.append(f"published_at={meta.get('published_at')}")
+          for name in required:
+              a=assets[name]
+              out.append(f"asset={name}|size={a.get('size')}|download_count={a.get('download_count')}|url={a.get('browser_download_url')}")
+          out.append('')
+          out.append('===== BUILD PROOF =====')
+          out.append(proof)
+          out.append('')
+          out.append('===== SHA SIDECAR =====')
+          out.append(sidecar)
+          Path('/tmp/r47-release/R47_RELEASE_READBACK.txt').write_text('\n'.join(out)+'\n')
+          PY
+
+      - name: Persist readback evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p docs/superpowers/diagnostics
+          cp /tmp/r47-release/R47_RELEASE_READBACK.txt docs/superpowers/diagnostics/R47_RELEASE_READBACK.txt
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/superpowers/diagnostics/R47_RELEASE_READBACK.txt
+          git diff --cached --check
+          git commit -m "evidence: R4.7 canonical release asset readback"
+          git push origin HEAD:r47-signing-diagnostic-readback
