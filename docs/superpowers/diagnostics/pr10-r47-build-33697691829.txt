@@ -1,0 +1,47 @@
+run_id=33697691829
+ref=refs/pull/10/merge
+carrier_outcome=success
+cache_outcome=success
+cache_hit=true
+signer_exit=0
+signer_sha256=81af4a5ef94c236774f0e193b2a4b248805b36c14cc36e2a56df8e451a712541
+target_resolve_exit=0
+target_sha=9778d50a64e927c77befe5c5e5e6285c18203472
+target_checkout_outcome=success
+flutter_setup_outcome=success
+pub_get_exit=0
+analyze_exit=0
+focused_tests_exit=0
+android_bootstrap_exit=0
+
+===== FLUTTER ANALYZE =====
+Analyzing flutter_phone_loop...                                 
+No issues found! (ran in 17.0s)
+
+===== FOCUSED TEST TAIL =====
+flutter_gemma: Downloading litertlm native libs from https://github.com/DenisovAV/flutter_gemma/releases/download/native-v0.16.0/litertlm-linux_x86_64.tar.gz ...
+
+flutter_gemma: Checksum verified (litertlm-linux_x86_64.tar.gz)
+
+flutter_gemma: litertlm libs cached to /home/runner/.cache/flutter_gemma/native/linux_x86_64
+
+flutter_gemma_rag_sqlite: downloading sqlite-vec 0.1.9 for linux_x86_64 from https://github.com/DenisovAV/flutter_gemma/releases/download/native-sqlite-vec-v0.1.9/sqlite-vec-linux_x86_64.tar.gz ...
+
+flutter_gemma_rag_sqlite: sqlite-vec linux_x86_64 ready (checksum verified)
+
+
+::group::✅ Passing tests
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r47_okf_integration_contract_test.dart: OKF markdown keeps normal chunks and adds a sidecar graph
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r47_okf_parser_test.dart: OKF v0.2 requires type when parsed explicitly
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r47_okf_integration_contract_test.dart: ordinary markdown import remains OKF-free
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r47_okf_parser_test.dart: verified source freshness and relative links become typed signals
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r47_okf_parser_test.dart: stale and deprecated states fail closed for freshness
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r47_okf_parser_test.dart: tryParseMarkdown does not classify ordinary markdown as OKF
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r47_okf_integration_contract_test.dart: OKF store round-trips the sidecar graph in SQLite
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r47_okf_integration_contract_test.dart: OKF experiment is registered as on-demand SHADOW only
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r47_okf_shadow_lab_test.dart: OKF signal policy is bounded, explainable, and penalizes stale facts
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r47_okf_shadow_lab_test.dart: OKF SHADOW reranks candidates without mutating ACTIVE evidence
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r47_okf_shadow_lab_test.dart: Gallery exposes a human-readable three-arm OKF Lab
+::endgroup::
+
+🎉 11 tests passed.
