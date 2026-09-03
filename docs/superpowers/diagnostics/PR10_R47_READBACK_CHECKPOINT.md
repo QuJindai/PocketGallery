@@ -1,1 +1,1 @@
-R4.7 post-edit analyzer readback checkpoint after run 33697299033.
+R4.7 full-regression diagnostic readback checkpoint after run 33697950971.
