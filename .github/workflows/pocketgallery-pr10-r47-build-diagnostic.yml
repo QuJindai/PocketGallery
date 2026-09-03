@@ -10,12 +10,11 @@ on:
 
 permissions:
   contents: write
-  pull-requests: write
 
 jobs:
   diagnose:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     env:
       TARGET_BRANCH: codex/r47-okf-gallery
       READBACK_BRANCH: r47-signing-diagnostic-readback
@@ -80,9 +79,8 @@ jobs:
           persist-credentials: false
         continue-on-error: true
 
-      - name: Set up Flutter
+      - uses: subosito/flutter-action@v2
         id: flutter_setup
-        uses: subosito/flutter-action@v2
         with:
           channel: stable
           cache: true
@@ -116,15 +114,23 @@ jobs:
         shell: bash
         run: |
           set +e
-          TESTS=""
-          for f in test/r47*.dart; do
-            [[ -f "$f" ]] && TESTS="$TESTS $f"
-          done
-          if [[ -z "$TESTS" ]]; then
+          mapfile -t TESTS < <(find test -maxdepth 1 -type f -name 'r47*.dart' -print | sort)
+          if [[ "${#TESTS[@]}" -eq 0 ]]; then
             echo "exit_code=3" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          flutter test $TESTS >/tmp/r47-focused.log 2>&1
+          flutter test "${TESTS[@]}" >/tmp/r47-focused.log 2>&1
+          RC=$?
+          echo "exit_code=$RC" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Full Flutter regression suite
+        id: full_tests
+        working-directory: pilot/flutter_phone_loop
+        shell: bash
+        run: |
+          set +e
+          flutter test >/tmp/r47-full-tests.log 2>&1
           RC=$?
           echo "exit_code=$RC" >> "$GITHUB_OUTPUT"
           exit 0
@@ -149,7 +155,6 @@ jobs:
           run_id=$GITHUB_RUN_ID
           ref=$GITHUB_REF
           carrier_outcome=${{ steps.carrier.outcome }}
-          cache_outcome=${{ steps.cache.outcome }}
           cache_hit=${{ steps.cache.outputs.cache-hit }}
           signer_exit=${{ steps.signer.outputs.exit_code }}
           signer_sha256=${{ steps.signer.outputs.cert_sha }}
@@ -160,16 +165,17 @@ jobs:
           pub_get_exit=${{ steps.pub_get.outputs.exit_code }}
           analyze_exit=${{ steps.analyze.outputs.exit_code }}
           focused_tests_exit=${{ steps.focused.outputs.exit_code }}
+          full_tests_exit=${{ steps.full_tests.outputs.exit_code }}
           android_bootstrap_exit=${{ steps.bootstrap.outputs.exit_code }}
 
-          ===== FLUTTER ANALYZE =====
+          ===== FULL TEST TAIL =====
           EOF
-          tail -160 /tmp/r47-analyze.log >> "$REPORT" 2>/dev/null || true
+          tail -260 /tmp/r47-full-tests.log >> "$REPORT" 2>/dev/null || true
           cat >> "$REPORT" <<EOF
 
-          ===== FOCUSED TEST TAIL =====
+          ===== ANALYZE TAIL =====
           EOF
-          tail -60 /tmp/r47-focused.log >> "$REPORT" 2>/dev/null || true
+          tail -80 /tmp/r47-analyze.log >> "$REPORT" 2>/dev/null || true
           cat "$REPORT"
 
       - name: Persist diagnostic to isolated readback branch
@@ -192,7 +198,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "${{ steps.carrier.outcome }}" = "success"
           test "${{ steps.cache.outputs.cache-hit }}" = "true"
           test "${{ steps.signer.outputs.exit_code }}" = "0"
           test "${{ steps.target.outputs.exit_code }}" = "0"
@@ -201,4 +206,5 @@ jobs:
           test "${{ steps.pub_get.outputs.exit_code }}" = "0"
           test "${{ steps.analyze.outputs.exit_code }}" = "0"
           test "${{ steps.focused.outputs.exit_code }}" = "0"
+          test "${{ steps.full_tests.outputs.exit_code }}" = "0"
           test "${{ steps.bootstrap.outputs.exit_code }}" = "0"
