@@ -26,31 +26,36 @@ class HybridRanker {
       final a = byId.putIfAbsent(hit.chunk.id, () => _Accumulator(hit.chunk));
       a.lexicalRank = i + 1;
       a.channels.add('fts5');
-      a.score += lexicalWeight / (rrfK + i + 1);
-      a.score += 0.018 * hit.score.clamp(0.0, 1.0).toDouble();
+      final contribution = lexicalWeight / (rrfK + i + 1) +
+          0.018 * hit.score.clamp(0.0, 1.0).toDouble();
+      a.lexicalContribution += contribution;
+      a.score += contribution;
     }
     for (var i = 0; i < semantic.length; i++) {
       final hit = semantic[i];
       final a = byId.putIfAbsent(hit.chunk.id, () => _Accumulator(hit.chunk));
       a.semanticRank = i + 1;
       a.channels.add('embedding');
-      a.score += semanticWeight / (rrfK + i + 1);
-      a.score += 0.026 * hit.score.clamp(0.0, 1.0).toDouble();
+      final contribution = semanticWeight / (rrfK + i + 1) +
+          0.026 * hit.score.clamp(0.0, 1.0).toDouble();
+      a.semanticContribution += contribution;
+      a.score += contribution;
     }
 
-    // Cheap deterministic rerank: exact engineering identifiers and query terms
-    // get a small boost. This never replaces embeddings; it only reranks the
-    // already-fused candidates.
     final terms = _terms(query);
     for (final a in byId.values) {
-      if (a.channels.length > 1) a.score += dualChannelBonus;
+      if (a.channels.length > 1) {
+        a.dualChannelContribution = dualChannelBonus;
+        a.score += dualChannelBonus;
+      }
       final lower = a.chunk.text.toLowerCase();
       var matched = 0;
       for (final term in terms) {
         if (lower.contains(term)) matched++;
       }
       if (terms.isNotEmpty) {
-        a.score += 0.025 * (matched / terms.length);
+        a.exactTermContribution = 0.025 * (matched / terms.length);
+        a.score += a.exactTermContribution;
       }
     }
 
@@ -61,13 +66,20 @@ class HybridRanker {
         return a.chunk.id.compareTo(b.chunk.id);
       });
 
-    return list.take(limit).map((a) => HybridHit(
-      chunk: a.chunk,
-      score: a.score,
-      channels: Set.unmodifiable(a.channels),
-      lexicalRank: a.lexicalRank,
-      semanticRank: a.semanticRank,
-    )).toList();
+    return list
+        .take(limit)
+        .map((a) => HybridHit(
+              chunk: a.chunk,
+              score: a.score,
+              channels: Set.unmodifiable(a.channels),
+              lexicalRank: a.lexicalRank,
+              semanticRank: a.semanticRank,
+              lexicalContribution: a.lexicalContribution,
+              semanticContribution: a.semanticContribution,
+              dualChannelContribution: a.dualChannelContribution,
+              exactTermContribution: a.exactTermContribution,
+            ))
+        .toList();
   }
 
   List<String> _terms(String query) {
@@ -92,4 +104,8 @@ class _Accumulator {
   final Set<String> channels = {};
   int? lexicalRank;
   int? semanticRank;
+  double lexicalContribution = 0;
+  double semanticContribution = 0;
+  double dualChannelContribution = 0;
+  double exactTermContribution = 0;
 }

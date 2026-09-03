@@ -3,6 +3,8 @@ import 'package:flutter_gemma/flutter_gemma.dart';
 
 import '../core/models.dart';
 import '../services/knowledge_engine.dart';
+import 'microscope/chunk_explorer_page.dart';
+import 'microscope/retrieval_benchmark_page.dart';
 
 class KnowledgePage extends StatefulWidget {
   const KnowledgePage({super.key, required this.engine});
@@ -106,6 +108,22 @@ class _KnowledgePageState extends State<KnowledgePage> {
     if (mounted) setState(() => status = '全部 Embedding 索引已重建');
   }
 
+  Future<void> _openHealth({String? documentId}) async {
+    await Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => ChunkExplorerPage(
+        engine: widget.engine,
+        initialDocumentId: documentId,
+      ),
+    ));
+    await _reload();
+  }
+
+  Future<void> _openBenchmark() async {
+    await Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => RetrievalBenchmarkPage(engine: widget.engine),
+    ));
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -146,6 +164,51 @@ class _KnowledgePageState extends State<KnowledgePage> {
                     icon: const Icon(Icons.sync),
                     label: const Text('重建全部 Embedding'),
                   ),
+                  const SizedBox(height: 6),
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(10),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          const Row(
+                            children: [
+                              Icon(Icons.biotech_outlined, size: 20),
+                              SizedBox(width: 8),
+                              Text(
+                                'RAG 显微镜',
+                                style: TextStyle(fontWeight: FontWeight.w600),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          const Text(
+                            '查看真实 FTS5、向量、Chunk、索引健康与检索基准。',
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: FilledButton.tonalIcon(
+                                  onPressed: busy ? null : () => _openHealth(),
+                                  icon: const Icon(Icons.monitor_heart_outlined),
+                                  label: const Text('索引健康'),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: FilledButton.tonalIcon(
+                                  onPressed: busy ? null : _openBenchmark,
+                                  icon: const Icon(Icons.science_outlined),
+                                  label: const Text('检索基准'),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -174,6 +237,7 @@ class _KnowledgePageState extends State<KnowledgePage> {
                             ? 'Embedding READY'
                             : 'Embedding 待补建';
                         return ListTile(
+                          onTap: () => _openHealth(documentId: doc.documentId),
                           leading: Icon(doc.chunkCount == 0
                               ? Icons.image_not_supported_outlined
                               : Icons.description_outlined),
@@ -182,13 +246,19 @@ class _KnowledgePageState extends State<KnowledgePage> {
                           isThreeLine: true,
                           trailing: PopupMenuButton<String>(
                             onSelected: (value) {
-                              if (value == 'embedding') {
+                              if (value == 'inspect') {
+                                _openHealth(documentId: doc.documentId);
+                              } else if (value == 'embedding') {
                                 _run(() => _rebuild(doc));
                               } else if (value == 'delete') {
                                 _run(() => _delete(doc));
                               }
                             },
                             itemBuilder: (context) => const [
+                              PopupMenuItem(
+                                value: 'inspect',
+                                child: Text('Chunk Explorer'),
+                              ),
                               PopupMenuItem(
                                 value: 'embedding',
                                 child: Text('重建 Embedding'),

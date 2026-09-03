@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 
 import '../services/golden_test_runner.dart';
+import '../services/golden_test_state.dart';
 import '../services/knowledge_engine.dart';
 import '../services/model_setup_service.dart';
 
@@ -26,6 +29,7 @@ class _ModelSettingsPageState extends State<ModelSettingsPage>
   bool diagnosticBusy = false;
   bool _licensePageAutoOpened = false;
   GoldenTestReport? report;
+  GoldenTestSnapshot? diagnosticSnapshot;
   String diagnosticStatus = '诊断未运行';
 
   @override
@@ -129,13 +133,24 @@ class _ModelSettingsPageState extends State<ModelSettingsPage>
     }
     setState(() {
       diagnosticBusy = true;
+      report = null;
+      diagnosticSnapshot = null;
       diagnosticStatus = 'Phone Golden Test 运行中…';
     });
     try {
-      final result = await GoldenTestRunner(widget.engine).run();
+      final result = await GoldenTestRunner(widget.engine).run(
+        onProgress: (snapshot) {
+          if (!mounted) return;
+          setState(() {
+            diagnosticSnapshot = snapshot;
+            diagnosticStatus = 'Phone Golden Test · ${snapshot.percent}%';
+          });
+        },
+      );
       if (!mounted) return;
       setState(() {
         report = result;
+        diagnosticSnapshot = result.snapshot;
         diagnosticStatus = result.passed
             ? 'PHONE_FUNCTION_LOOP = PASS'
             : 'PHONE_FUNCTION_LOOP = FAIL';
@@ -303,6 +318,13 @@ class _ModelSettingsPageState extends State<ModelSettingsPage>
                   enabled: gemmaReady && embeddingReady && !diagnosticBusy,
                   onTap: _runGolden,
                 ),
+                if (diagnosticSnapshot != null)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                    child: GoldenTestProgressPanel(
+                      snapshot: diagnosticSnapshot!,
+                    ),
+                  ),
                 ListTile(
                   leading: const Icon(Icons.sync),
                   title: const Text('重建全部 Embedding 索引'),
@@ -322,7 +344,7 @@ class _ModelSettingsPageState extends State<ModelSettingsPage>
                     }
                   },
                 ),
-                if (report != null)
+                if (report != null && diagnosticSnapshot == null)
                   for (final gate in report!.results)
                     ListTile(
                       dense: true,
@@ -367,5 +389,220 @@ class _ModelSettingsPageState extends State<ModelSettingsPage>
         ModelSetupPhase.downloadingTokenizer => 'Tokenizer 下载中',
         ModelSetupPhase.failed => 'ERROR',
         _ => '准备中',
-      };
+  };
+}
+
+class GoldenTestProgressPanel extends StatefulWidget {
+  const GoldenTestProgressPanel({
+    super.key,
+    required this.snapshot,
+    this.now,
+  });
+
+  final GoldenTestSnapshot snapshot;
+
+  /// Fixed wall clock for deterministic widget tests. Production callers leave
+  /// this null so elapsed time refreshes once per second during a run.
+  final DateTime? now;
+
+  @override
+  State<GoldenTestProgressPanel> createState() =>
+      _GoldenTestProgressPanelState();
+}
+
+class _GoldenTestProgressPanelState extends State<GoldenTestProgressPanel> {
+  Timer? _ticker;
+
+  @override
+  void initState() {
+    super.initState();
+    _syncTicker();
+  }
+
+  @override
+  void didUpdateWidget(covariant GoldenTestProgressPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _syncTicker();
+  }
+
+  void _syncTicker() {
+    _ticker?.cancel();
+    _ticker = null;
+    if (widget.now != null ||
+        widget.snapshot.phase == GoldenRunPhase.completed) {
+      return;
+    }
+    _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _ticker?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final snapshot = widget.snapshot;
+    final gateCount = snapshot.gates.length;
+    final current = snapshot.currentGate;
+    final currentIndex = current == null
+        ? -1
+        : snapshot.gates.indexWhere((gate) => gate.name == current.name);
+    final elapsedEnd = snapshot.phase == GoldenRunPhase.completed
+        ? snapshot.updatedAt
+        : widget.now ?? DateTime.now();
+    final elapsed = elapsedEnd.isBefore(snapshot.startedAt)
+        ? Duration.zero
+        : elapsedEnd.difference(snapshot.startedAt);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            const Expanded(
+              child: Text(
+                'Phone Golden Test · F1–F7',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+            Text(
+              '${snapshot.percent}%',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        LinearProgressIndicator(value: snapshot.percent / 100),
+        const SizedBox(height: 8),
+        Text(_currentLabel(snapshot, current, currentIndex, gateCount)),
+        Text('已完成：${snapshot.completedCount}/$gateCount'),
+        Text('已用时：${_formatDuration(elapsed)}'),
+        const Text('检查点：PG_GOLDEN_LAST.json · 已保存'),
+        const SizedBox(height: 6),
+        const Text(
+          'F6/F7 需在实体手机使用已激活的 Gemma 4 与 EmbeddingGemma 执行。',
+          style: TextStyle(fontSize: 12),
+        ),
+        const Divider(),
+        for (final gate in snapshot.gates) _gateRow(gate),
+        if (snapshot.phase == GoldenRunPhase.completed) ...[
+          const Divider(),
+          Text(
+            snapshot.passed
+                ? 'PHONE_FUNCTION_LOOP = PASS'
+                : 'PHONE_FUNCTION_LOOP = FAIL',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: snapshot.passed ? Colors.green : Colors.red,
+            ),
+          ),
+          if (snapshot.cleanupError != null)
+            Text(
+              '清理失败：${snapshot.cleanupError}',
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+            ),
+        ],
+      ],
+    );
+  }
+
+  String _currentLabel(
+    GoldenTestSnapshot snapshot,
+    GoldenGateSnapshot? current,
+    int currentIndex,
+    int gateCount,
+  ) {
+    if (current != null) {
+      return '当前：F${currentIndex + 1}/$gateCount · ${current.label}';
+    }
+    if (snapshot.phase == GoldenRunPhase.cleaningUp) return '当前：清理阶段';
+    return '当前：已完成';
+  }
+
+  Widget _gateRow(GoldenGateSnapshot gate) {
+    final presentation = _gatePresentation(gate.status);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(presentation.icon, size: 20, color: presentation.color),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('${gate.name} · ${gate.label}'),
+                if (gate.detail.isNotEmpty)
+                  Text(
+                    gate.detail,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(presentation.label),
+        ],
+      ),
+    );
+  }
+}
+
+_GoldenGatePresentation _gatePresentation(GoldenGateStatus status) {
+  return switch (status) {
+    GoldenGateStatus.pending => const _GoldenGatePresentation(
+        Icons.schedule_outlined,
+        '等待',
+        Colors.grey,
+      ),
+    GoldenGateStatus.running => const _GoldenGatePresentation(
+        Icons.sync,
+        '运行中',
+        Colors.blue,
+      ),
+    GoldenGateStatus.passed => const _GoldenGatePresentation(
+        Icons.check_circle,
+        '通过',
+        Colors.green,
+      ),
+    GoldenGateStatus.failed => const _GoldenGatePresentation(
+        Icons.cancel,
+        '失败',
+        Colors.red,
+      ),
+    GoldenGateStatus.timedOut => const _GoldenGatePresentation(
+        Icons.timer_off,
+        '超时',
+        Colors.orange,
+      ),
+    GoldenGateStatus.blocked => const _GoldenGatePresentation(
+        Icons.block,
+        '已阻断',
+        Colors.deepOrange,
+      ),
+  };
+}
+
+class _GoldenGatePresentation {
+  const _GoldenGatePresentation(this.icon, this.label, this.color);
+
+  final IconData icon;
+  final String label;
+  final Color color;
+}
+
+String _formatDuration(Duration duration) {
+  final hours = duration.inHours;
+  final minutes = duration.inMinutes.remainder(60).toString().padLeft(2, '0');
+  final seconds = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
+  if (hours > 0) return '${hours.toString().padLeft(2, '0')}:$minutes:$seconds';
+  return '$minutes:$seconds';
 }

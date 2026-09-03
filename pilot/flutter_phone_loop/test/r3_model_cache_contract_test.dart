@@ -23,7 +23,7 @@ void main() {
     expect(source, isNot(contains('/cache/')));
   });
 
-  test('R3 application identity and signing chain are stable for upgrades', () async {
+  test('application identity and signing chain fail closed for upgrades', () async {
     final bootstrap = await File('scripts/bootstrap_android.sh').readAsString();
     final workflow =
         await File('../../.github/workflows/pocketgallery-phone-pilot-apk.yml')
@@ -37,7 +37,11 @@ void main() {
     expect(workflow, contains('actions/cache@v5'));
     expect(workflow, contains('~/.android/pocketgallery-r3-signing'));
     expect(workflow, contains('pocketgallery-r3-signing-v1'));
-    expect(workflow, contains('Prepare persistent R3 signing identity'));
+    expect(workflow, contains('CANONICAL_SIGNER_SHA256='));
+    expect(workflow, contains('SIGNING_IDENTITY_MISSING'));
+    expect(workflow, contains('SIGNING_IDENTITY_MISMATCH'));
+    expect(workflow, isNot(contains('keytool -genkeypair')));
+    expect(workflow, isNot(contains('openssl rand -hex')));
     expect(workflow, contains('POCKETGALLERY_SIGNING_KEYSTORE'));
     expect(workflow, contains('apksigner'));
     expect(workflow, contains('APK_SIGNER_SHA256'));

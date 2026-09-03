@@ -6,48 +6,72 @@ import 'package:path_provider/path_provider.dart';
 
 import '../chat/chat_models.dart';
 import '../core/models.dart';
+import '../observability/vector_observation_store.dart';
 import 'lexical_fts_store.dart';
 
 class SemanticStore {
-  SemanticStore(this.lexicalStore);
+  SemanticStore(
+    this.lexicalStore, {
+    VectorObservationStore? observationStore,
+  }) : observationStore = observationStore ?? VectorObservationStore();
+
+  static const embeddingModelIdentity =
+      'EmbeddingGemma-300M_seq256_mixed-precision';
+
   final LexicalFtsStore lexicalStore;
+  final VectorObservationStore observationStore;
   bool _initialized = false;
 
   Future<void> initialize() async {
     if (_initialized) return;
     final dir = await getApplicationDocumentsDirectory();
     await FlutterGemma.rag.initialize(p.join(dir.path, 'pocketgallery_vectors.db'));
+    await observationStore.initialize();
     _initialized = true;
   }
 
-  /// flutter_gemma keeps two embedding states: an active persisted model spec
-  /// and the materialized runtime singleton. `hasActiveEmbedder()` only proves
-  /// the former, while RAG auto-embedding requires the latter. Materialize (or
-  /// reuse) the runtime immediately before every vector operation so an app
-  /// restart/runtime eviction cannot leave a false READY state.
-  Future<void> _ensureEmbeddingRuntime() async {
+  Future<EmbeddingModel> _ensureEmbeddingRuntime() async {
     if (!FlutterGemma.hasActiveEmbedder()) {
       throw StateError(
         'EmbeddingGemma model identity is not active. Prepare the embedding model first.',
       );
     }
-    await FlutterGemma.getActiveEmbedder();
+    return FlutterGemma.getActiveEmbedder();
   }
 
   Future<void> removeIds(Iterable<String> ids) async {
     await initialize();
-    for (final id in ids) {
+    final materialized = ids.toList(growable: false);
+    for (final id in materialized) {
       await FlutterGemma.rag.removeDocument(id: id);
     }
+    await observationStore.removeChunkIds(materialized);
   }
 
-  Future<void> addChunks(Iterable<PgChunk> chunks) async {
+  Future<void> addChunks(
+    Iterable<PgChunk> chunks, {
+    void Function(int completed, int total, PgChunk current)? onProgress,
+  }) async {
     await initialize();
-    await _ensureEmbeddingRuntime();
-    for (final c in chunks) {
-      await FlutterGemma.rag.addDocument(
+    final embedder = await _ensureEmbeddingRuntime();
+    final materialized = chunks.toList(growable: false);
+
+    for (var i = 0; i < materialized.length; i++) {
+      final c = materialized[i];
+      final embedding = await embedder.generateEmbedding(
+        c.text,
+        taskType: TaskType.retrievalDocument,
+      );
+      await observationStore.putChunkVector(
+        chunkId: c.id,
+        documentId: c.documentId,
+        vector: embedding,
+        modelIdentity: embeddingModelIdentity,
+      );
+      await FlutterGemma.rag.addDocumentWithEmbedding(
         id: c.id,
         content: c.text,
+        embedding: embedding,
         metadata: jsonEncode({
           'documentId': c.documentId,
           'sourceName': c.sourceName,
@@ -55,7 +79,17 @@ class SemanticStore {
           'ordinal': c.ordinal,
         }),
       );
+      // Emit only after both durable observation and RAG writes succeed. If a
+      // later chunk fails or the app is killed, already completed chunks stay
+      // checkpointed and the next repair run will skip them.
+      onProgress?.call(i + 1, materialized.length, c);
     }
+  }
+
+  Future<List<double>> observeQueryVector(String query) async {
+    await initialize();
+    final embedder = await _ensureEmbeddingRuntime();
+    return embedder.generateEmbedding(query);
   }
 
   Future<List<RetrievalHit>> search(
@@ -93,5 +127,6 @@ class SemanticStore {
   Future<void> clear() async {
     await initialize();
     await FlutterGemma.rag.clear();
+    await observationStore.clear();
   }
 }

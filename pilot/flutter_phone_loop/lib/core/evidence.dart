@@ -1,18 +1,36 @@
 import 'models.dart';
 
 class EvidencePackBuilder {
-  const EvidencePackBuilder({this.maxEvidence = 5, this.maxCharsPerEvidence = 1400});
+  const EvidencePackBuilder({
+    this.maxEvidence = 5,
+    this.maxCharsPerEvidence = 1400,
+    this.minRelativeScore = 0.72,
+  });
 
   final int maxEvidence;
   final int maxCharsPerEvidence;
+  final double minRelativeScore;
 
-  List<EvidenceItem> build(List<HybridHit> hits) {
+  List<EvidenceItem> build(
+    List<HybridHit> hits, {
+    bool conservative = true,
+    int? maxItems,
+  }) {
+    final itemLimit = maxItems ?? maxEvidence;
+    if (hits.isEmpty || itemLimit <= 0) return const [];
+
     final out = <EvidenceItem>[];
-    for (var i = 0; i < hits.length && i < maxEvidence; i++) {
+    final topScore = hits.first.score;
+    for (final hit in hits) {
+      if (out.length >= itemLimit) break;
+      if (conservative && out.isNotEmpty && topScore > 0) {
+        final relative = hit.score / topScore;
+        if (relative < minRelativeScore) break;
+      }
       out.add(EvidenceItem(
-        anchor: 'E${i + 1}',
-        chunk: hits[i].chunk,
-        score: hits[i].score,
+        anchor: 'E${out.length + 1}',
+        chunk: hit.chunk,
+        score: hit.score,
       ));
     }
     return out;

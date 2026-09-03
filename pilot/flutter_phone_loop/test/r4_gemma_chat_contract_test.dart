@@ -15,12 +15,35 @@ void main() {
     expect(selected.first.id, isNot('m0'));
   });
 
-  test('Gemma chat service keeps one native chat for active session', () async {
+  test('budgeter reserves the current user turn before selecting history', () {
+    final budgeter = const ContextBudgeter();
+    final messages = List.generate(20, (i) => ChatMessage.user(
+      id: 'm$i', sessionId: 's', text: '历史${'内容' * 220}',
+    ));
+    final selected = budgeter.selectHistory(
+      messages,
+      evidenceTokens: 1600,
+      currentTurnTokens: 1800,
+    );
+    final historyTokens = selected
+        .map((m) => budgeter.estimateTokens(m.text))
+        .fold<int>(0, (a, b) => a + b);
+    expect(
+      historyTokens,
+      lessThanOrEqualTo(budgeter.availableHistoryTokens(
+        evidenceTokens: 1600,
+        currentTurnTokens: 1800,
+      )),
+    );
+  });
+
+  test('Gemma chat service rebuilds and invalidates native chat every turn', () async {
     final source = await File('lib/services/gemma_chat_service.dart').readAsString();
     expect(source, contains('InferenceChat? _chat'));
-    expect(source, contains('_activeSessionId'));
-    expect(source, contains('addQueryChunk'));
+    expect(source, contains('_createTurnChat'));
+    expect(source, contains('await _closeNativeChat();'));
+    expect(source, contains('finally'));
     expect(source, contains('generateChatResponse'));
-    expect(source, contains('isUser: false'));
+    expect(source, isNot(contains('_activeSessionId')));
   });
 }

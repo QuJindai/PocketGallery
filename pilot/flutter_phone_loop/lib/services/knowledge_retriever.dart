@@ -4,6 +4,8 @@ import '../chat/chat_models.dart';
 import '../core/evidence.dart';
 import '../core/hybrid_ranker.dart';
 import '../core/models.dart';
+import '../observability/retrieval_trace.dart';
+import '../observability/retrieval_trace_recorder.dart';
 import 'lexical_fts_store.dart';
 import 'semantic_store.dart';
 
@@ -15,7 +17,15 @@ class RetrievalBundle {
     required this.evidence,
     required this.lexicalOnly,
     this.autoRelevantOverride,
+    this.traceDraft,
   });
+
+  static const semanticOnlyAutoStrongThreshold = 0.62;
+  static const semanticOnlyAutoFloor = 0.52;
+  static const semanticOnlyAutoGap = 0.035;
+  static const semanticOnlyKnowledgeStrongThreshold = 0.58;
+  static const semanticOnlyKnowledgeFloor = 0.50;
+  static const semanticOnlyKnowledgeGap = 0.025;
 
   final List<RetrievalHit> lexicalHits;
   final List<RetrievalHit> semanticHits;
@@ -23,13 +33,37 @@ class RetrievalBundle {
   final List<EvidenceItem> evidence;
   final bool lexicalOnly;
   final bool? autoRelevantOverride;
+  final RetrievalTraceDraft? traceDraft;
+
+  double? get topSemanticScore =>
+      semanticHits.isEmpty ? null : semanticHits.first.score;
+
+  double get semanticTopGap {
+    if (semanticHits.length < 2) return 0;
+    return semanticHits.first.score - semanticHits[1].score;
+  }
 
   bool get relevantForAuto {
     final override = autoRelevantOverride;
     if (override != null) return override;
     if (evidence.isEmpty || hybridHits.isEmpty) return false;
-    final top = hybridHits.first;
-    return top.channels.length > 1 || top.score >= 0.03;
+
+    if (hybridHits.first.channels.length > 1) return true;
+    if (lexicalHits.isNotEmpty) return true;
+
+    final top = topSemanticScore ?? 0;
+    return top >= semanticOnlyAutoStrongThreshold ||
+        (top >= semanticOnlyAutoFloor && semanticTopGap >= semanticOnlyAutoGap);
+  }
+
+  bool get relevantForKnowledge {
+    if (evidence.isEmpty || hybridHits.isEmpty) return false;
+    if (hybridHits.first.channels.length > 1) return true;
+    if (lexicalHits.isNotEmpty) return true;
+    final top = topSemanticScore ?? 0;
+    return top >= semanticOnlyKnowledgeStrongThreshold ||
+        (top >= semanticOnlyKnowledgeFloor &&
+            semanticTopGap >= semanticOnlyKnowledgeGap);
   }
 }
 
@@ -61,14 +95,19 @@ class KnowledgeRetriever implements KnowledgeRetrievalGateway {
     KnowledgeScope scope = const KnowledgeScope.all(),
     int limit = 8,
   }) async {
-    // A corpus/document summary is not a keyword-search problem. In lexical-only
-    // mode a query such as "总结知识库" cannot match English source text, even
-    // though the documents are present. Build deterministic cross-document
-    // coverage evidence from existing chunks so Gemma can summarize the local
-    // corpus before EmbeddingGemma is available as well as after it is ready.
+    final startedAt = DateTime.now().toUtc();
+
     if (_isCorpusSummaryIntent(query)) {
+      final fusionWatch = Stopwatch()..start();
       final coverage = await _buildCorpusCoverage(scope, limit);
-      final evidence = evidenceBuilder.build(coverage);
+      fusionWatch.stop();
+      final evidenceWatch = Stopwatch()..start();
+      final evidence = evidenceBuilder.build(
+        coverage,
+        conservative: false,
+        maxItems: limit,
+      );
+      evidenceWatch.stop();
       return RetrievalBundle(
         lexicalHits: const <RetrievalHit>[],
         semanticHits: const <RetrievalHit>[],
@@ -76,15 +115,38 @@ class KnowledgeRetriever implements KnowledgeRetrievalGateway {
         evidence: evidence,
         lexicalOnly: !FlutterGemma.hasActiveEmbedder(),
         autoRelevantOverride: evidence.isNotEmpty,
+        traceDraft: RetrievalTraceDraft(
+          startedAt: startedAt,
+          timings: TraceStageTiming(
+            fusionMs: fusionWatch.elapsedMilliseconds,
+            evidenceMs: evidenceWatch.elapsedMilliseconds,
+          ),
+          lexicalHits: const [],
+          semanticHits: const [],
+          hybridHits: RetrievalTraceRecorder.hybrid(coverage),
+        ),
       );
     }
 
-    final lexical = await lexicalStore.search(
+    final lexicalWatch = Stopwatch()..start();
+    final lexicalInspection = await lexicalStore.inspect(
       query,
       topK: limit * 2,
       scope: scope,
     );
+    lexicalWatch.stop();
+    final lexical = [
+      for (final hit in lexicalInspection.hits)
+        RetrievalHit(
+          chunk: hit.chunk,
+          score: hit.affinity,
+          channel: 'fts5',
+          rank: hit.rank,
+        ),
+    ];
+
     final embedderReady = FlutterGemma.hasActiveEmbedder();
+    final semanticWatch = Stopwatch()..start();
     final semantic = embedderReady
         ? await semanticStore.search(
             query,
@@ -92,19 +154,34 @@ class KnowledgeRetriever implements KnowledgeRetrievalGateway {
             scope: scope,
           )
         : const <RetrievalHit>[];
+    semanticWatch.stop();
+
+    final fusionWatch = Stopwatch()..start();
     final hybrid = ranker.fuse(
       query: query,
       lexical: lexical,
       semantic: semantic,
       limit: limit,
     );
-    final evidence = evidenceBuilder.build(hybrid);
+    fusionWatch.stop();
 
-    // A specific-document scope is an explicit user attachment/selection. In
-    // auto mode it should outrank the generic relevance heuristic. If the user
-    // says something vague such as "总结一下", keyword/vector retrieval may
-    // return nothing; fall back to representative chunks from those selected
-    // documents instead of silently answering from the bare model.
+    final evidenceWatch = Stopwatch()..start();
+    final evidence = evidenceBuilder.build(hybrid);
+    evidenceWatch.stop();
+
+    final baseDraft = RetrievalTraceDraft(
+      startedAt: startedAt,
+      timings: TraceStageTiming(
+        lexicalMs: lexicalWatch.elapsedMilliseconds,
+        semanticMs: semanticWatch.elapsedMilliseconds,
+        fusionMs: fusionWatch.elapsedMilliseconds,
+        evidenceMs: evidenceWatch.elapsedMilliseconds,
+      ),
+      lexicalHits: RetrievalTraceRecorder.lexical(lexicalInspection.hits),
+      semanticHits: RetrievalTraceRecorder.semantic(semantic),
+      hybridHits: RetrievalTraceRecorder.hybrid(hybrid),
+    );
+
     if (!scope.isAll) {
       if (evidence.isNotEmpty) {
         return RetrievalBundle(
@@ -114,10 +191,19 @@ class KnowledgeRetriever implements KnowledgeRetrievalGateway {
           evidence: evidence,
           lexicalOnly: !embedderReady,
           autoRelevantOverride: true,
+          traceDraft: baseDraft,
         );
       }
+      final fallbackWatch = Stopwatch()..start();
       final coverage = await _buildCorpusCoverage(scope, limit);
-      final coverageEvidence = evidenceBuilder.build(coverage);
+      fallbackWatch.stop();
+      final fallbackEvidenceWatch = Stopwatch()..start();
+      final coverageEvidence = evidenceBuilder.build(
+        coverage,
+        conservative: false,
+        maxItems: limit,
+      );
+      fallbackEvidenceWatch.stop();
       return RetrievalBundle(
         lexicalHits: lexical,
         semanticHits: semantic,
@@ -125,6 +211,18 @@ class KnowledgeRetriever implements KnowledgeRetrievalGateway {
         evidence: coverageEvidence,
         lexicalOnly: !embedderReady,
         autoRelevantOverride: coverageEvidence.isNotEmpty,
+        traceDraft: RetrievalTraceDraft(
+          startedAt: startedAt,
+          timings: baseDraft.timings.copyWith(
+            fusionMs: baseDraft.timings.fusionMs +
+                fallbackWatch.elapsedMilliseconds,
+            evidenceMs: baseDraft.timings.evidenceMs +
+                fallbackEvidenceWatch.elapsedMilliseconds,
+          ),
+          lexicalHits: baseDraft.lexicalHits,
+          semanticHits: baseDraft.semanticHits,
+          hybridHits: RetrievalTraceRecorder.hybrid(coverage),
+        ),
       );
     }
 
@@ -134,6 +232,7 @@ class KnowledgeRetriever implements KnowledgeRetrievalGateway {
       hybridHits: hybrid,
       evidence: evidence,
       lexicalOnly: !embedderReady,
+      traceDraft: baseDraft,
     );
   }
 
@@ -171,10 +270,6 @@ class KnowledgeRetriever implements KnowledgeRetrievalGateway {
       byDocument[documentId]!.sort((a, b) => a.ordinal.compareTo(b.ordinal));
     }
 
-    // Round-robin across documents, and within each document sample beginning,
-    // middle, end, then quarter points. This avoids a long first document
-    // monopolizing the evidence budget and gives "summarize knowledge base" a
-    // useful corpus-wide view even without vector retrieval.
     const fractions = <double>[0, 0.5, 1, 0.25, 0.75, 0.125, 0.875];
     final selected = <PgChunk>[];
     final seenIds = <String>{};
@@ -189,8 +284,6 @@ class KnowledgeRetriever implements KnowledgeRetrievalGateway {
       if (selected.length >= limit) break;
     }
 
-    // Very small documents can exhaust the fraction schedule. Fill any
-    // remaining slots deterministically from still-unselected chunks.
     if (selected.length < limit) {
       for (final documentId in documentIds) {
         for (final chunk in byDocument[documentId]!) {

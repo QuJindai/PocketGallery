@@ -1,62 +1,51 @@
-# PocketGallery Phone Pilot R1
+# PocketGallery Phone Pilot R4.8
 
-这是一个**手机功能闭环 Pilot**，目标不是替代原生 PocketGallery，而是最快把核心链路在手机上跑通：
+这是 PocketGallery 的手机功能闭环 Pilot，核心链路为：
 
-`TXT/MD/PDF -> Chunk -> FTS5(trigram/BM25) + EmbeddingGemma -> Hybrid/Rerank -> Evidence -> Gemma 4 -> Citation`
+`TXT/MD/PDF → Chunk → FTS5 + EmbeddingGemma → Hybrid/Rerank → Evidence → Gemma 4 → Citation`
 
-## 为什么单独做 Pilot
+## 升级与模型复用
 
-PocketGallery 主仓目前是 Google AI Edge Gallery 下游基线，Knowledge Layer 尚未落地。
-为了不被原生 Embedding/JNI 接口整合拖慢，Pilot 使用当前成熟开源组件验证完整功能，再把已验证的数据结构和检索算法回填原生 `overlay/Android`。
+- 设置页会自动检查、下载并激活 Gemma 4、EmbeddingGemma 和 tokenizer，不再手工选择模型文件。
+- 同包名、同签名的 R4.x APK 可原位升级；已保存的 Hugging Face OAuth、已接受的模型许可、本机模型文件、聊天与知识库数据会继续复用。
+- 已完成授权且模型已下载时，升级后不会重复登录或重复下载。只有模型缺失、损坏或上游版本策略变化时才重新准备。
 
-## 组装组件
+## 使用流程
 
-- `flutter_gemma`：模型管理、Gemma API
-- `flutter_gemma_litertlm`：LiteRT-LM + `LiteRtEmbeddingBackend`
-- `flutter_gemma_rag_sqlite`：sqlite-vec/vec0 语义向量检索
-- `sqlite3`：独立 FTS5 trigram/BM25 关键词检索
-- `pdfrx`：PDF 文本提取
-- `file_picker`：Android 文件选择
-- PocketGallery 自有：Chunk、RRF/Hybrid、轻量 rerank、Evidence、Citation、Golden Test
+1. 安装或原位升级 APK，打开“模型 / 设置”，等待 Gemma 4 与 EmbeddingGemma 显示 READY。
+2. 导入 TXT、MD 或可提取文字的 PDF；扫描件需要先 OCR。
+3. 在 Chat 中选择自动、本地知识或纯模型模式并提问。
+4. 在“模型 / 设置 → 高级 / 诊断”运行 `Run Phone Golden Test`。
+5. 查看确定性进度、当前关卡、已完成数量、耗时、逐关状态和最终 PASS/FAIL。
 
-## 本机需要的三个模型文件
+## Phone Golden Test F1–F7
 
-1. Gemma 4 E2B `.litertlm`（第一轮推荐 E2B）
-2. EmbeddingGemma `.tflite`
-3. EmbeddingGemma `sentencepiece.model`
+| Gate | 真实验证内容 | 超时 |
+|---|---|---:|
+| F1 | 安装临时语料并验证导入/Chunk | 45 秒 |
+| F2 | FTS5 精确工程码召回 | 30 秒 |
+| F3 | Embedding 语义改写召回 | 90 秒 |
+| F4 | Hybrid/Rerank 排序 | 90 秒 |
+| F5 | Evidence 与 E1 锚点 | 20 秒 |
+| F6 | 真实 `ChatOrchestrator → GemmaChatService` 回答与有效引用 | 240 秒 |
+| F7 | 同一逻辑会话的重证据第二轮；必须读到第六个不同来源的 `PG_EVIDENCE_LAST_6` 并引用 E6 | 240 秒 |
 
-在 App 内各选择一次，点击“初始化本机模型”。
+状态包括等待、运行中、通过、失败、超时和已阻断。F1 失败会阻断 F2–F7；F6 失败会阻断 F7。任何超时、异常、阻断或清理失败都会令总体结果失败。
 
-## 功能操作
+每次状态变化都会先保存，再更新界面。最新检查点位于 App Documents 的 `PG_GOLDEN_LAST.json`（schemaVersion 2）；写入使用临时文件和备份切换，中断后可从主文件或 `.bak` 恢复。测试结束会移除全部 `pg_golden_*` 临时语料。
 
-1. 初始化 Gemma + EmbeddingGemma
-2. 导入 TXT / MD / PDF
-3. 输入问题，点击“检索并回答”
-4. UI 同时显示 FTS5、Embedding、Hybrid 命中数量和 Evidence 来源
-5. 点击 `Run Phone Golden Test`，程序自动判定核心 Gate，无需人工判断答案好坏
+F6/F7 必须在已激活真实模型的实体手机执行。GitHub Actions 负责验证状态机、报告恢复、严格断言、Widget UI、静态分析、回归测试和 APK 构建，不能替代实体手机上的 LiteRT 推理结果。
 
-Golden Test 自动覆盖：
+## Chunk 与向量说明
 
-- F1 文档导入/Chunk
-- F2 FTS5 精确工程码召回
-- F3 Embedding 语义改写召回
-- F4 Hybrid/Rerank
-- F5 Evidence
-- F6 本机 Gemma + Citation
-
-结果保存到 App Documents 的 `PG_GOLDEN_LAST.json`。
+Chunk 是可引用、可排序的文本单元；向量是该文本的数值表示，两者不是同一概念。当前实现通常为每个 Chunk 生成一条向量 observation，但这只是当前索引映射，不应把“一个 Chunk”等同于“一个向量”。
 
 ## 构建
 
-已有 Flutter >= 3.44：
+使用 Flutter 3.44 或更高版本：
 
 ```bash
 bash scripts/build_debug_apk.sh
 ```
 
-或者直接把工程放到 GitHub，Actions 会生成 `PocketGallery-Phone-Pilot-debug-apk` artifact。
-
-## 边界
-
-R1 不把温度、TTFT、长期稳定性、断网压力作为阻塞 Gate。当前只证明功能链路。
-FTS5 和 Embedding 都是真实执行路径；没有 embedding 时不会退化成“伪语义检索”。
+GitHub Actions 会构建仅包含 `arm64-v8a` 的 Phone Pilot 更新 APK，并验证包名、versionCode、ABI、固定签名证书和 SHA-256。

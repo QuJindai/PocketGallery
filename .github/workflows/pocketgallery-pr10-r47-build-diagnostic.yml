@@ -1,0 +1,210 @@
+name: PocketGallery PR10 R4.7 Build Diagnostic
+
+on:
+  pull_request:
+    branches:
+      - feature/phone-pilot-r4-chat-first
+    paths:
+      - '.github/workflows/pocketgallery-pr10-r47-build-diagnostic.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      TARGET_BRANCH: codex/r47-okf-gallery
+      READBACK_BRANCH: r47-signing-diagnostic-readback
+      CANONICAL_SIGNER_SHA256: 81af4a5ef94c236774f0e193b2a4b248805b36c14cc36e2a56df8e451a712541
+    steps:
+      - name: Checkout carrier
+        id: carrier
+        uses: actions/checkout@v4
+        continue-on-error: true
+
+      - name: Restore signer cache
+        id: cache
+        uses: actions/cache@v5
+        with:
+          path: ~/.android/pocketgallery-r3-signing
+          key: pocketgallery-r3-signing-v1
+        continue-on-error: true
+
+      - name: Verify signer
+        id: signer
+        shell: bash
+        run: |
+          set +e
+          SIGN_DIR="$HOME/.android/pocketgallery-r3-signing"
+          PASS=""
+          CERT_SHA=""
+          if [[ -s "$SIGN_DIR/password" ]]; then
+            PASS="$(<"$SIGN_DIR/password")"
+            echo "::add-mask::$PASS"
+          fi
+          if [[ -s "$SIGN_DIR/r3.keystore" && -n "$PASS" ]]; then
+            keytool -exportcert -keystore "$SIGN_DIR/r3.keystore" -storepass "$PASS" -alias pocketgallery-r3 -file "$RUNNER_TEMP/diag-cert.der" >/dev/null 2>&1
+            RC=$?
+            if [[ $RC -eq 0 && -s "$RUNNER_TEMP/diag-cert.der" ]]; then
+              CERT_SHA="$(sha256sum "$RUNNER_TEMP/diag-cert.der" | awk '{print $1}')"
+            fi
+          fi
+          [[ "$CERT_SHA" = "$CANONICAL_SIGNER_SHA256" ]]
+          RC=$?
+          echo "cert_sha=$CERT_SHA" >> "$GITHUB_OUTPUT"
+          echo "exit_code=$RC" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Resolve target
+        id: target
+        shell: bash
+        run: |
+          set +e
+          TARGET_SHA="$(git ls-remote --exit-code origin "refs/heads/$TARGET_BRANCH" 2>/dev/null | awk '{print $1}')"
+          RC=$?
+          [[ -n "$TARGET_SHA" ]] || RC=2
+          echo "sha=$TARGET_SHA" >> "$GITHUB_OUTPUT"
+          echo "exit_code=$RC" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Checkout target
+        id: target_checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.target.outputs.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+        continue-on-error: true
+
+      - uses: subosito/flutter-action@v2
+        id: flutter_setup
+        with:
+          channel: stable
+          cache: true
+        continue-on-error: true
+
+      - name: Flutter pub get
+        id: pub_get
+        working-directory: pilot/flutter_phone_loop
+        shell: bash
+        run: |
+          set +e
+          flutter pub get >/tmp/r47-pub-get.log 2>&1
+          RC=$?
+          echo "exit_code=$RC" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Flutter analyze
+        id: analyze
+        working-directory: pilot/flutter_phone_loop
+        shell: bash
+        run: |
+          set +e
+          flutter analyze >/tmp/r47-analyze.log 2>&1
+          RC=$?
+          echo "exit_code=$RC" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Focused R4.7 tests
+        id: focused
+        working-directory: pilot/flutter_phone_loop
+        shell: bash
+        run: |
+          set +e
+          mapfile -t TESTS < <(find test -maxdepth 1 -type f -name 'r47*.dart' -print | sort)
+          if [[ "${#TESTS[@]}" -eq 0 ]]; then
+            echo "exit_code=3" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          flutter test "${TESTS[@]}" >/tmp/r47-focused.log 2>&1
+          RC=$?
+          echo "exit_code=$RC" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Full Flutter regression suite
+        id: full_tests
+        working-directory: pilot/flutter_phone_loop
+        shell: bash
+        run: |
+          set +e
+          flutter test >/tmp/r47-full-tests.log 2>&1
+          RC=$?
+          echo "exit_code=$RC" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Bootstrap Android
+        id: bootstrap
+        working-directory: pilot/flutter_phone_loop
+        shell: bash
+        run: |
+          set +e
+          bash scripts/bootstrap_android.sh >/tmp/r47-bootstrap.log 2>&1
+          RC=$?
+          echo "exit_code=$RC" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Build diagnostic report
+        if: always()
+        shell: bash
+        run: |
+          REPORT=/tmp/r47-build-diagnostic.txt
+          cat > "$REPORT" <<EOF
+          run_id=$GITHUB_RUN_ID
+          ref=$GITHUB_REF
+          carrier_outcome=${{ steps.carrier.outcome }}
+          cache_hit=${{ steps.cache.outputs.cache-hit }}
+          signer_exit=${{ steps.signer.outputs.exit_code }}
+          signer_sha256=${{ steps.signer.outputs.cert_sha }}
+          target_resolve_exit=${{ steps.target.outputs.exit_code }}
+          target_sha=${{ steps.target.outputs.sha }}
+          target_checkout_outcome=${{ steps.target_checkout.outcome }}
+          flutter_setup_outcome=${{ steps.flutter_setup.outcome }}
+          pub_get_exit=${{ steps.pub_get.outputs.exit_code }}
+          analyze_exit=${{ steps.analyze.outputs.exit_code }}
+          focused_tests_exit=${{ steps.focused.outputs.exit_code }}
+          full_tests_exit=${{ steps.full_tests.outputs.exit_code }}
+          android_bootstrap_exit=${{ steps.bootstrap.outputs.exit_code }}
+
+          ===== FULL TEST TAIL =====
+          EOF
+          tail -260 /tmp/r47-full-tests.log >> "$REPORT" 2>/dev/null || true
+          cat >> "$REPORT" <<EOF
+
+          ===== ANALYZE TAIL =====
+          EOF
+          tail -80 /tmp/r47-analyze.log >> "$REPORT" 2>/dev/null || true
+          cat "$REPORT"
+
+      - name: Persist diagnostic to isolated readback branch
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          FILE="docs/superpowers/diagnostics/pr10-r47-build-${GITHUB_RUN_ID}.txt"
+          CONTENT="$(base64 -w0 /tmp/r47-build-diagnostic.txt)"
+          gh api --method PUT \
+            "repos/${GITHUB_REPOSITORY}/contents/${FILE}" \
+            -f message="docs: persist PR10 R4.7 build diagnostic ${GITHUB_RUN_ID}" \
+            -f content="$CONTENT" \
+            -f branch="$READBACK_BRANCH" >/dev/null
+
+      - name: Enforce diagnostic gate
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${{ steps.cache.outputs.cache-hit }}" = "true"
+          test "${{ steps.signer.outputs.exit_code }}" = "0"
+          test "${{ steps.target.outputs.exit_code }}" = "0"
+          test "${{ steps.target_checkout.outcome }}" = "success"
+          test "${{ steps.flutter_setup.outcome }}" = "success"
+          test "${{ steps.pub_get.outputs.exit_code }}" = "0"
+          test "${{ steps.analyze.outputs.exit_code }}" = "0"
+          test "${{ steps.focused.outputs.exit_code }}" = "0"
+          test "${{ steps.full_tests.outputs.exit_code }}" = "0"
+          test "${{ steps.bootstrap.outputs.exit_code }}" = "0"

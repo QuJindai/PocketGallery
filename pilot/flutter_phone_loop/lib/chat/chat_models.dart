@@ -78,6 +78,7 @@ class ChatMessage {
     this.retrievalMode,
     this.evidenceJson,
     this.citedAnchorsJson,
+    this.traceId,
   });
 
   factory ChatMessage.user({
@@ -102,6 +103,7 @@ class ChatMessage {
     String? retrievalMode,
     String? evidenceJson,
     String? citedAnchorsJson,
+    String? traceId,
   }) =>
       ChatMessage(
         id: id,
@@ -112,6 +114,7 @@ class ChatMessage {
         retrievalMode: retrievalMode,
         evidenceJson: evidenceJson,
         citedAnchorsJson: citedAnchorsJson,
+        traceId: traceId,
       );
 
   final String id;
@@ -122,6 +125,7 @@ class ChatMessage {
   final String? retrievalMode;
   final String? evidenceJson;
   final String? citedAnchorsJson;
+  final String? traceId;
 
   List<EvidenceItem> get evidence {
     final raw = evidenceJson;
