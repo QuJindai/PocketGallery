@@ -56,3 +56,5 @@ jobs:
           git diff --cached --check
           git commit -m "fix(r47): make A-F benchmark analyzer clean"
           git push origin HEAD:codex/r47-okf-af-benchmark
+
+      # Analyzer-clean v3: private storage uses private initializing formals.
