@@ -1,0 +1,12 @@
+source_sha=b242614e23e645d0d1d16629411cf93d26214297
+analyze_exit=1
+
+Analyzing flutter_phone_loop...                                 
+
+   info • Invalid use of a private type in a public API. Try making the private type public, or making the API that uses the private type also be private • lib/okf/okf_af_benchmark.dart:136:21 • library_private_types_in_public_api
+   info • Invalid use of a private type in a public API. Try making the private type public, or making the API that uses the private type also be private • lib/okf/okf_af_benchmark.dart:137:14 • library_private_types_in_public_api
+  error • Undefined class 'CitationResolver'. Try changing the name to the name of an existing class, or creating a class with the name 'CitationResolver' • lib/okf/okf_af_runner.dart:38:5 • undefined_class
+  error • The method 'CitationResolver' isn't defined for the type 'OkfAfRunner'. Try correcting the name to the name of an existing method, or defining a method named 'CitationResolver' • lib/okf/okf_af_runner.dart:39:47 • undefined_method
+  error • Undefined class 'CitationResolver'. Try changing the name to the name of an existing class, or creating a class with the name 'CitationResolver' • lib/okf/okf_af_runner.dart:43:9 • undefined_class
+
+5 issues found. (ran in 17.2s)
