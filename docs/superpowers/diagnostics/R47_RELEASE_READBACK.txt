@@ -1,0 +1,19 @@
+tag=r47-okf-canonical-33697950981
+prerelease=true
+published_at=2026-09-03T06:48:33Z
+asset=PocketGallery-R47-OKF-Gallery-arm64.apk|size=237324818|download_count=0|url=https://github.com/QuJindai/PocketGallery/releases/download/r47-okf-canonical-33697950981/PocketGallery-R47-OKF-Gallery-arm64.apk
+asset=PocketGallery-R47-OKF-Gallery-arm64.apk.sha256|size=106|download_count=0|url=https://github.com/QuJindai/PocketGallery/releases/download/r47-okf-canonical-33697950981/PocketGallery-R47-OKF-Gallery-arm64.apk.sha256
+asset=R47_OKF_SIGNED_BUILD_PROOF.txt|size=382|download_count=0|url=https://github.com/QuJindai/PocketGallery/releases/download/r47-okf-canonical-33697950981/R47_OKF_SIGNED_BUILD_PROOF.txt
+
+===== BUILD PROOF =====
+SOURCE_SHA=2b22010fd6fbdc0cc1317dff6c36d9faa40c7702
+SOURCE_TREE=923d5024b4edb5317cfc9be2134414270fbda141
+APK_PACKAGE=com.qujindai.pocketgallery_phone_pilot.r3
+APK_VERSION_CODE=2023
+APK_VERSION_NAME=0.5.0
+APK_ABIS=arm64-v8a
+APK_SIGNER_SHA256=81af4a5ef94c236774f0e193b2a4b248805b36c14cc36e2a56df8e451a712541
+APK_SHA256=c4b37f63e48c03d17556c30d3d5a27c01509f66ce88ad74a76b3e0f200e3b02d
+
+===== SHA SIDECAR =====
+c4b37f63e48c03d17556c30d3d5a27c01509f66ce88ad74a76b3e0f200e3b02d  PocketGallery-R47-OKF-Gallery-arm64.apk
