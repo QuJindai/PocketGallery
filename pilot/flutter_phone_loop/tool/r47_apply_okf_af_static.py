@@ -32,10 +32,9 @@ replace_once(
   final List<_AfOrdinaryChunk> ordinaryChunks;
 """,
     """  OkfAfCorpus._({
-    required Map<String, _AfConcept> concepts,
-    required List<_AfOrdinaryChunk> ordinaryChunks,
-  }) : _concepts = concepts,
-       _ordinaryChunks = ordinaryChunks;
+    required this._concepts,
+    required this._ordinaryChunks,
+  });
 
   final Map<String, _AfConcept> _concepts;
   final List<_AfOrdinaryChunk> _ordinaryChunks;
