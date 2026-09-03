@@ -1,0 +1,90 @@
+name: R4.7 OKF A-F Patch Diagnostic
+
+on:
+  push:
+    branches:
+      - codex/r47-okf-af-benchmark
+    paths:
+      - '.github/workflows/r47-okf-af-patch-diagnostic.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: codex/r47-okf-af-benchmark
+      - name: Apply patch
+        id: patch
+        working-directory: pilot/flutter_phone_loop
+        shell: bash
+        run: |
+          set +e
+          python3 tool/r47_apply_okf_af_static.py > /tmp/patch.log 2>&1
+          echo "code=$?" >> "$GITHUB_OUTPUT"
+          exit 0
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - working-directory: pilot/flutter_phone_loop
+        run: flutter pub get
+      - name: Analyze
+        id: analyze
+        working-directory: pilot/flutter_phone_loop
+        shell: bash
+        run: |
+          set +e
+          dart format lib/okf/okf_af_benchmark.dart lib/okf/okf_af_runner.dart >/tmp/format.log 2>&1
+          flutter analyze > /tmp/analyze.log 2>&1
+          echo "code=$?" >> "$GITHUB_OUTPUT"
+          exit 0
+      - name: Focused tests
+        id: tests
+        working-directory: pilot/flutter_phone_loop
+        shell: bash
+        run: |
+          set +e
+          flutter test test/r47_okf_af_benchmark_test.dart test/r47_okf_af_ui_test.dart > /tmp/tests.log 2>&1
+          echo "code=$?" >> "$GITHUB_OUTPUT"
+          exit 0
+      - name: Persist diagnostic
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT=/tmp/out.txt
+          {
+            echo "source_sha=$GITHUB_SHA"
+            echo "patch_exit=${{ steps.patch.outputs.code }}"
+            echo "analyze_exit=${{ steps.analyze.outputs.code }}"
+            echo "tests_exit=${{ steps.tests.outputs.code }}"
+            echo
+            echo "===== PATCH ====="
+            cat /tmp/patch.log || true
+            echo
+            echo "===== ANALYZE ====="
+            tail -n 160 /tmp/analyze.log || true
+            echo
+            echo "===== TESTS ====="
+            tail -n 220 /tmp/tests.log || true
+          } > "$OUT"
+          PATH_URL="repos/${GITHUB_REPOSITORY}/contents/docs/superpowers/diagnostics/R47_OKF_AF_PATCH_DIAGNOSTIC.txt"
+          EXISTING="$(gh api "$PATH_URL?ref=r47-signing-diagnostic-readback" --jq .sha 2>/dev/null || true)"
+          CONTENT="$(base64 -w0 "$OUT")"
+          if [[ -n "$EXISTING" ]]; then
+            gh api --method PUT "$PATH_URL" -f message="ci: update A-F patch diagnostic" -f content="$CONTENT" -f branch="r47-signing-diagnostic-readback" -f sha="$EXISTING" >/dev/null
+          else
+            gh api --method PUT "$PATH_URL" -f message="ci: add A-F patch diagnostic" -f content="$CONTENT" -f branch="r47-signing-diagnostic-readback" >/dev/null
+          fi
+      - name: Enforce
+        run: |
+          test "${{ steps.patch.outputs.code }}" = "0"
+          test "${{ steps.analyze.outputs.code }}" = "0"
+          test "${{ steps.tests.outputs.code }}" = "0"
