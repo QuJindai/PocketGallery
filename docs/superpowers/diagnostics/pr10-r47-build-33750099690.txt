@@ -1,0 +1,281 @@
+run_id=33750099690
+ref=refs/pull/10/merge
+carrier_outcome=success
+cache_hit=true
+signer_exit=0
+signer_sha256=81af4a5ef94c236774f0e193b2a4b248805b36c14cc36e2a56df8e451a712541
+target_resolve_exit=0
+target_sha=2b22010fd6fbdc0cc1317dff6c36d9faa40c7702
+target_checkout_outcome=success
+flutter_setup_outcome=success
+pub_get_exit=0
+analyze_exit=0
+focused_tests_exit=0
+full_tests_exit=0
+android_bootstrap_exit=0
+
+===== FULL TEST TAIL =====
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r4_chat_orchestrator_test.dart: auto falls back to pure model when evidence is irrelevant
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r4_chat_orchestrator_test.dart: auto injects relevant local evidence
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r4_chat_orchestrator_test.dart: forced knowledge without evidence never calls model
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r4_chat_orchestrator_test.dart: second turn receives first user and assistant pair
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r401_phone_realworld_recovery_test.dart: R4.0.1 corpus summary gets cross-document evidence without embedding
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r401_phone_realworld_recovery_test.dart: R4.0.1 separates OAuth success from Gemma license acceptance
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r401_phone_realworld_recovery_test.dart: R4.0.1 resumes download after returning from license page without new OAuth
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r46_lineage_ui_test.dart: RAG Lineage renders captured timings and honest unknowns
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r46_lineage_ui_test.dart: microscope teaches identities and is reachable from chat and knowledge
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_android_host_contract_test.dart: bootstrap installs the first-party diagnostics host safely
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_handset_report_store_test.dart: checkpoint and private baseline survive interrupted atomic swaps
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r46c_strategy_descriptor_test.dart: R4.6-C strategy registry freezes active control and shadow variants
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_handset_acceptance_runner_test.dart: candidate 2023 with a valid 2022 baseline passes every gate
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_handset_acceptance_runner_test.dart: missing baseline stays BLOCKED and writes helper baseline after H8
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_handset_acceptance_runner_test.dart: non-target or non-canonical helper never establishes a baseline
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_handset_acceptance_runner_test.dart: H7 render failure outranks an H3 missing-baseline block
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_handset_acceptance_runner_test.dart: missing model blocks dependent gates but still finalizes a report
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_handset_acceptance_runner_test.dart: interrupt is cooperative, idempotent, and cleans up the active run
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_handset_acceptance_runner_test.dart: keepScreenOn false executes even when setup throws
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_handset_acceptance_runner_test.dart: interrupt after awaited H9 capture blocks terminal merge
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_handset_acceptance_runner_test.dart: interrupt while H8 stop is awaited cannot publish PASS
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_handset_acceptance_runner_test.dart: cleanup boundary closes before H10 report persistence
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_handset_acceptance_runner_test.dart: screen release failure is terminal FAIL evidence, never a thrown PASS
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_handset_acceptance_runner_test.dart: resource stop failure is terminal FAIL evidence, never a thrown PASS
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_handset_acceptance_runner_test.dart: runtime cleanup gives both native shutdown calls a hard timeout
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_handset_acceptance_runner_test.dart: a hung resource stop times out into a terminal cleanup failure
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_handset_acceptance_runner_test.dart: a hung screen release times out into a terminal cleanup failure
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_handset_acceptance_runner_test.dart: nested Golden progress maps monotonically into the H4 55 percent window
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_handset_acceptance_runner_test.dart: H9 detects same-run durable-state mutation
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_handset_acceptance_runner_test.dart: stale checkpoint recovery cleans fixtures once and blocks unfinished gates
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_handset_acceptance_runner_test.dart: recovery cleanup failure prevents a new run and forces FAIL
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_handset_acceptance_runner_test.dart: every run allocates a fresh ID instead of selective rerun state
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r46_retrieval_runtime_test.dart: active retrieval executes FTS, one query embedding, vector search, fusion and lineage
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r46c_multivector_parent_child_test.dart: heading and sentence hits preserve their parent chunk identity
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r48_phone_acceptance_regression_test.dart: R4.8 bounded phone acceptance two passing gates emit the fixed monotonic progress sequence
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r48_phone_acceptance_regression_test.dart: R4.8 bounded phone acceptance a gate timeout is terminal, calls timeout cleanup, and cannot pass
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r48_phone_acceptance_regression_test.dart: R4.8 bounded phone acceptance a timed-out gate records an unresolved native operation
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r48_phone_acceptance_regression_test.dart: R4.8 bounded phone acceptance a failed dependency blocks its consumer without invoking it
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r48_phone_acceptance_regression_test.dart: R4.8 bounded phone acceptance cleanup failure is recorded and forces an overall failure
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r48_phone_acceptance_regression_test.dart: R4.8 bounded phone acceptance a hung gate-timeout cleanup has a terminal boundary
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r48_phone_acceptance_regression_test.dart: R4.8 bounded phone acceptance a hung final cleanup has a terminal evidence boundary
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r48_phone_acceptance_regression_test.dart: R4.8 bounded phone acceptance snapshot JSON round-trip preserves terminal gate evidence
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r48_phone_acceptance_regression_test.dart: R4.8 bounded phone acceptance a checkpoint is durable before its progress becomes visible
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r48_phone_acceptance_regression_test.dart: R4.8 recoverable checkpoints save writes valid JSON and leaves no temporary file
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r48_phone_acceptance_regression_test.dart: R4.8 recoverable checkpoints readLast falls back to a valid backup after an interrupted swap
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r48_phone_acceptance_regression_test.dart: R4.8 recoverable checkpoints readLast returns null when primary and backup are both malformed
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r48_phone_acceptance_regression_test.dart: R4.8 strict F7 assertion rejects a non-empty second turn that never reaches E6
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r48_phone_acceptance_regression_test.dart: R4.8 strict F7 assertion rejects an out-of-pack citation even when E6 is present
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r48_phone_acceptance_regression_test.dart: R4.8 strict F7 assertion rejects model-only retrieval even with the sentinel and E6
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r48_phone_acceptance_regression_test.dart: R4.8 strict F7 assertion passes only the final sentinel with a valid E6 knowledge citation
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r48_phone_acceptance_regression_test.dart: R4.8 live phone progress UI focused Phone Golden Test remains under Advanced diagnostics
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r48_phone_acceptance_regression_test.dart: R4.8 live phone progress UI renders determinate live progress and checkpoint state
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r46c_benchmark_case_detail_test.dart: case detail shows expected IDs actual ranks and unavailable facts
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r48_phone_acceptance_regression_test.dart: R4.8 live phone progress UI renders all six gate statuses with distinct icons
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r48_phone_acceptance_regression_test.dart: R4.8 live phone progress UI renders the final PASS verdict after completed cleanup
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r48_phone_acceptance_regression_test.dart: R4.8 release contract build number advances beyond the R4.7 APK
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r46_context_generation_lineage_test.dart: context decision accounts for the actual selected history, evidence and query
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r46_context_generation_lineage_test.dart: unsupported backend generation metrics stay null
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r46_context_generation_lineage_test.dart: streamed text tokens produce measured generation telemetry
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r46_context_generation_lineage_test.dart: one streamed token has no measurable decode rate
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r46_router_evidence_lineage_test.dart: router policy preserves the shipped R4.7 thresholds rejects weak semantic noise in auto mode
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r46_router_evidence_lineage_test.dart: router policy preserves the shipped R4.7 thresholds accepts strong, gapped, lexical and dual-channel evidence
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r46_router_evidence_lineage_test.dart: router policy preserves the shipped R4.7 thresholds knowledge mode uses its existing lower floor and gap
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r46_router_evidence_lineage_test.dart: evidence policy keeps latest five-item behavior and explains drops caps ordinary evidence at five
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r46_router_evidence_lineage_test.dart: evidence policy keeps latest five-item behavior and explains drops records relative-score and token-budget drops
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r3_oauth_device_flow_test.dart: R3 replaces pasted Hugging Face token with OAuth Device Code flow
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r3_oauth_device_flow_test.dart: R3 model setup consumes OAuth access token without exposing it in UI
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r41_trace_store_test.dart: retrieval trace round-trips real scores ranks timings and citations
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r41_trace_store_test.dart: trace persistence caps every candidate channel at twenty
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r46c_resumable_build_test.dart: sentence representation build checkpoints and resumes missing only
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r46_vector_health_test.dart: ACTIVE health requires persisted body vectors, commit and real search
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r46_vector_health_test.dart: Chunk Explorer separates legacy observations from R4.6 ACTIVE health
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r402_chat_attachment_test.dart: R4.0.2 chat picker accepts multiple TXT MD PDF files
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r402_chat_attachment_test.dart: R4.0.2 chat uploads import into knowledge base and bind current session
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r402_chat_attachment_test.dart: R4.0.2 attachment switches pure-model chat to auto knowledge mode
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r402_chat_attachment_test.dart: R4.0.2 attachment chips detach from chat without deleting library file
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r402_chat_attachment_test.dart: R4.0.2 explicit attachment scope falls back to document evidence on vague prompts
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r41_index_health_test.dart: index health detects zero chunks duplicate SHA and missing vectors
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r31_phone_recovery_test.dart: R3.1 continues through OAuth after the gated-model license step
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r31_phone_recovery_test.dart: R3.1 reports textless PDFs instead of silently accepting zero chunks
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r31_phone_recovery_test.dart: R3.1 retrieval status distinguishes authorization from active preparation
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r31_phone_recovery_test.dart: R3.1+ stays on the stable R3 Android identity and advances app version
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r43_realworld_phone_regression_test.dart: semantic-only weak retrieval does not auto-attach local evidence
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r43_realworld_phone_regression_test.dart: real chat rebuilds a bounded native session for every turn
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r43_realworld_phone_regression_test.dart: prompt evidence is bounded before native prefill
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r43_realworld_phone_regression_test.dart: Golden Test exercises the real chat orchestrator path
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r43_realworld_phone_regression_test.dart: retrieval benchmark prepares and cleans temporary golden corpus
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r43_realworld_phone_regression_test.dart: forced knowledge can reject weak semantic-only evidence
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r2_auto_model_bootstrap_test.dart: R2 makes automatic model preparation the default UI path
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r2_auto_model_bootstrap_test.dart: R2 model setup service exposes automatic bootstrap behavior
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r2_auto_model_bootstrap_test.dart: R2 semantic safety guard remains after R4 retrieval split
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r2_auto_model_bootstrap_test.dart: pilot app identity remains isolated from the original R1 package
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r47_okf_integration_contract_test.dart: OKF markdown keeps normal chunks and adds a sidecar graph
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r47_okf_integration_contract_test.dart: ordinary markdown import remains OKF-free
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r47_okf_integration_contract_test.dart: OKF store round-trips the sidecar graph in SQLite
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r47_okf_integration_contract_test.dart: OKF experiment is registered as on-demand SHADOW only
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r46_lineage_store_test.dart: chunk and embedding identities are distinct and one chunk can own many embeddings
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r46_lineage_store_test.dart: query embedding is first class without a chunk identity
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r46_lineage_store_test.dart: lineage schema contains resumable build state and strategy scoped decisions
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r46_lineage_store_test.dart: runtime first-class records round-trip without collapsing identities
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r46_lineage_store_test.dart: trace events are immutable by sequence and retention keeps persistent chunk vectors
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r46bc_stage_details_test.dart: decision pages expose captured ranks router budget and citation
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r46c_experiment_detail_test.dart: experiment detail compares lanes and drills into filtered rows
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r47_okf_shadow_lab_test.dart: OKF signal policy is bounded, explainable, and penalizes stale facts
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r47_okf_shadow_lab_test.dart: OKF SHADOW reranks candidates without mutating ACTIVE evidence
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r46_vector_migration_test.dart: healthy R4.5 body vector is reused while missing stale and invalid vectors are generated
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r47_okf_shadow_lab_test.dart: Gallery exposes a human-readable three-arm OKF Lab
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r46_vector_migration_test.dart: rerun after vector-index interruption resumes persisted embedding without generating twice
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r46bc_release_contract_test.dart: R4.6 B/C release preserves upgrade identity at build 20 or later
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r46bc_lineage_enrichment_test.dart: lineage source records resolve directly by chunk and section id
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r46bc_lineage_enrichment_test.dart: candidate and evidence reads are isolated by strategy and lane
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r46bc_lineage_enrichment_test.dart: experiment run progress and result survive a store round trip
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r46bc_lineage_enrichment_test.dart: context selection exposes real token allocation for each evidence
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_preservation_probe_test.dart: private upgrade snapshots detect loss and expose only aggregates
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r46c_local_benchmark_store_test.dart: local real-corpus benchmark cases survive a database restart
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r46c_local_benchmark_store_test.dart: a local case requires an explicit expected document or chunk
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r46c_local_benchmark_store_test.dart: router and citation metrics stay unavailable without observations
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r4_chat_ui_test.dart: R4 main shell is chat first with three modes
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r49_vector_space_page_test.dart: Trace vector view is readable, truthful and phone-safe
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r49_vector_space_page_test.dart: live microscope reuses rotatable 3D without claiming Trace truth
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r3_model_cache_contract_test.dart: installed Gemma and Embedding models bypass network download paths
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r3_model_cache_contract_test.dart: model bootstrap does not use temporary cache storage
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r3_model_cache_contract_test.dart: application identity and signing chain fail closed for upgrades
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r4_knowledge_engine_compat_test.dart: R4 keeps R3 diagnostics and exposes document management
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r46bc_stage_navigation_test.dart: all ten trace stages open a truthful drill-down page
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r42_upgrade_persistence_regression_test.dart: distributable APK signing identity is pinned and cache miss fails closed
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r42_upgrade_persistence_regression_test.dart: next pilot build is a monotonic in-place update over R4.1
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r42_upgrade_persistence_regression_test.dart: canceled model downloads recover automatically without OAuth reset
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r42_upgrade_persistence_regression_test.dart: frozen R3 and R4 regression gates remain present
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_handset_vector_interaction_page_test.dart: real plot gestures unlock all task chips and viewport confirmation
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r46c_feature_reranker_test.dart: feature reranker exposes hand-computable contributions
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_handset_vector_interaction_page_test.dart: ninety-second timeout returns USER_ACTION_INCOMPLETE
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r46c_feature_reranker_test.dart: rerank features persist individually for microscope inspection
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_handset_vector_interaction_page_test.dart: lifecycle interruption returns APP_BACKGROUND_INTERRUPTION
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_handset_vector_interaction_page_test.dart: guided page is overflow-free on both supported phone layouts
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r46_upgrade_golden_contract_test.dart: integrated R4.6/R4.7 release advances identity and CI guards
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r46_upgrade_golden_contract_test.dart: Phone Golden F8-F10 verify persisted runtime facts
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r46_upgrade_golden_contract_test.dart: F8-F10 stay wired after F7 and F11 is not a placeholder pass
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r46_query_embedding_identity_test.dart: one captured query vector is persisted and passed unchanged to search
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_release_readiness_adjudicator_test.dart: R5.0 same-commit release readiness matching automated, device, and sidecar evidence is MERGE_READY
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_release_readiness_adjudicator_test.dart: R5.0 same-commit release readiness each well-shaped evidence mismatch emits its one stable reason
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_release_readiness_adjudicator_test.dart: R5.0 same-commit release readiness all mismatch reasons retain the release-contract order
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_release_readiness_adjudicator_test.dart: R5.0 same-commit release readiness digest hex is normalized but source commit comparison stays exact
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_release_readiness_adjudicator_test.dart: R5.0 strict evidence parsing rejects unknown schemas and missing or wrong-typed fields
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_release_readiness_adjudicator_test.dart: R5.0 strict evidence parsing rejects malformed commits and SHA-256 digests
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_release_readiness_adjudicator_test.dart: R5.0 strict evidence parsing rejects missing duplicate and unknown H gate names
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_release_readiness_adjudicator_test.dart: R5.0 strict evidence parsing rejects missing duplicate and unknown nested F gate names
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_release_readiness_adjudicator_test.dart: R5.0 strict evidence parsing rejects nested Golden evidence without explicit cleanup state
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_release_readiness_adjudicator_test.dart: R5.0 strict evidence parsing rejects missing malformed or empty nested Golden reason codes
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_release_readiness_adjudicator_test.dart: R5.0 strict evidence parsing rejects nested Golden reason codes inconsistent with status
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_release_readiness_adjudicator_test.dart: R5.0 strict evidence parsing accepts status-consistent nested Golden reason codes
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/hybrid_core_test.dart: dual-channel hit wins hybrid fusion
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/hybrid_core_test.dart: evidence anchors and citation parsing stay deterministic
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_acceptance_state_test.dart: a failed gate outranks blocked gates in the device verdict
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_acceptance_state_test.dart: an incomplete run remains blocked when no gate has failed
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_acceptance_state_test.dart: nested Golden progress occupies only the fixed H4 weight
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_acceptance_state_test.dart: schema version one round trips every evidence field
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_acceptance_state_test.dart: an unknown acceptance schema is rejected
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_acceptance_state_test.dart: release source identity accepts only forty hexadecimal characters
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r41_pca_projector_test.dart: PCA projects one-dimensional variance deterministically
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r41_pca_projector_test.dart: PCA output is stable across repeated runs
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r41_pca_projector_test.dart: PCA rejects inconsistent vector dimensions
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_release_readiness_adjudicator_test.dart: R5.0 adjudicator CLI --help prints usage and exits zero
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r41_upgrade_contract_test.dart: R4.x remains an in-place R3-signed upgrade without model redownload
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r41_upgrade_contract_test.dart: R4.1 persistence migrations are additive
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r41_retrieval_evaluator_test.dart: metrics match hand-computable rankings
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r41_retrieval_evaluator_test.dart: zero executed cases returns no fabricated metric
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r41_retrieval_evaluator_test.dart: source name can act as benchmark relevance label
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r41_retrieval_evaluator_test.dart: ranking comparison reports per-case and top1 changes
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_release_readiness_adjudicator_test.dart: R5.0 adjudicator CLI writes ready output atomically and exits zero
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_frame_timing_test.dart: summary excludes ten warm-up frames and computes nearest-rank P95
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_frame_timing_test.dart: empty post-warm-up sample is unavailable rather than a zero P95
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_frame_timing_test.dart: render gate enforces duration, frames, P95, and severe-jank limits
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_frame_timing_test.dart: sampler registers once and unregisters exactly once
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r46_chat_lineage_integration_test.dart: one Auto knowledge turn persists the complete R4.6 lineage lifecycle
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r46_chat_lineage_integration_test.dart: model failure keeps retrieval evidence and marks the same trace failed
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r46_chat_lineage_integration_test.dart: rerunning a trace creates a new real turn with the same query and scope
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_release_readiness_adjudicator_test.dart: R5.0 adjudicator CLI evidence mismatch writes a decision and exits two
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r46c_shadow_isolation_test.dart: on-demand shadow run reuses query vector and cannot mutate ACTIVE
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r46c_shadow_isolation_test.dart: shadow failure remains inspectable and leaves trace complete
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r46c_shadow_isolation_test.dart: shadow ignores same-dimension embeddings from a stale model
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r46c_shadow_isolation_test.dart: shadow fails closed when the experiment model differs from query
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r41_vector_observation_test.dart: vector observations round-trip Float32 values and metadata
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r41_vector_observation_test.dart: semantic index writes one explicit vector to observation and RAG paths
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_device_resource_sampler_test.dart: ResourceAcceptanceSummary accepts MODERATE thermal state and the exact PSS growth limit
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_device_resource_sampler_test.dart: ResourceAcceptanceSummary rejects SEVERE thermal state
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_device_resource_sampler_test.dart: ResourceAcceptanceSummary rejects Android low-memory state
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_device_resource_sampler_test.dart: ResourceAcceptanceSummary rejects available memory below Android threshold
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_device_resource_sampler_test.dart: ResourceAcceptanceSummary rejects final PSS growth above 512 MiB
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_device_resource_sampler_test.dart: ResourceAcceptanceSummary keeps battery temperature and peak PSS as evidence only
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_device_resource_sampler_test.dart: sampler maps read errors to required evidence unavailable
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_device_resource_sampler_test.dart: stopIfRunning captures one final sample and is idempotent
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_device_resource_sampler_test.dart: native resource reads have a bounded capture timeout
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_device_resource_sampler_test.dart: a hung native resource read fails closed within the capture bound
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_release_readiness_adjudicator_test.dart: R5.0 adjudicator CLI missing arguments exit sixty-four without creating output
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_oauth_credential_state_test.dart: credential inspection is expired, local-only, and non-mutating
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_oauth_credential_state_test.dart: credential inspection distinguishes missing, malformed, and valid expiry
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r46_import_lineage_test.dart: new markdown import records exact heading and chunk provenance
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r46_import_lineage_test.dart: empty text import reports an explicit zero-chunk diagnostic
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r46_import_lineage_test.dart: vector migration never downgrades exact import lineage to legacy
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r46_import_lineage_test.dart: KnowledgeEngine commits lexical and exact lineage before vector work
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r44_embedding_repair_regression_test.dart: missing-vector repair filters existing observations before embedding
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r44_embedding_repair_regression_test.dart: Chunk Explorer exposes real repair progress instead of a frozen label
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r44_embedding_repair_regression_test.dart: repair remains resumable and does not clear healthy vectors
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r44_embedding_repair_regression_test.dart: document deletion cannot leave reserved Golden documents in lexical DB
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r44_embedding_repair_regression_test.dart: R4.4+ keeps a monotonic install version for in-place update
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_vector_interaction_evidence_test.dart: accumulator applies rotation, zoom, point, and viewport thresholds
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_vector_interaction_evidence_test.dart: pitch alone can satisfy the rotation threshold
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r47_okf_parser_test.dart: OKF v0.2 requires type when parsed explicitly
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r47_okf_parser_test.dart: verified source freshness and relative links become typed signals
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r47_okf_parser_test.dart: stale and deprecated states fail closed for freshness
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r47_okf_parser_test.dart: tryParseMarkdown does not classify ordinary markdown as OKF
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_vector_interaction_evidence_test.dart: production plot emits one real event per completed gesture
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r41_fts_inspector_test.dart: two-character CJK remains searchable and inspector labels fallback
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r41_fts_inspector_test.dart: FTS inspector exposes REAL bm25 and highlighted snippet
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r41_fts_inspector_test.dart: scope is honored by inspector
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_vector_interaction_evidence_test.dart: Trace vector view forwards production interaction events
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r4_knowledge_ui_test.dart: knowledge page exposes required library management actions
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_handset_report_redaction_test.dart: redacted report retains release truth but drops private text
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_handset_report_redaction_test.dart: release summary maps failed and blocked phone loops independently
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_handset_report_redaction_test.dart: prohibited keys are rejected recursively at the export boundary
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_handset_report_redaction_test.dart: merge-candidate encoding rejects an ineligible baseline
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_handset_report_redaction_test.dart: nested cleanup and gate reasons are explicit without private detail
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_handset_report_redaction_test.dart: exported stable Golden reasons round-trip through adjudication
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_handset_report_redaction_test.dart: exporter canonicalizes a status-mismatched generic reason
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_golden_trace_handoff_test.dart: Golden report carries trace metadata without rewriting F10
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_golden_trace_handoff_test.dart: trace handoff awaits capture before the caller can clean up
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_golden_trace_handoff_test.dart: interrupt keeps the first reason and shares close and cleanup futures
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_golden_trace_handoff_test.dart: sequential model closes are not suppressed after one close finishes
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r46_vector_index_test.dart: explicit vector adapter indexes by embedding id and searches the supplied query vector
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r46_vector_index_test.dart: document scope is enforced after deterministic overfetch without changing the query vector
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r46_vector_index_test.dart: probe exposes initialization truth and R4.6 database identity without pretending search verification
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_handset_acceptance_ui_test.dart: R5.0 prominent handset entry entry stays above Advanced while models are unavailable and opens one full-screen route
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_handset_acceptance_ui_test.dart: R5.0 prominent handset entry entry waits for checkpoint recovery before exposing an interrupted result
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_handset_acceptance_ui_test.dart: R5.0 handset dashboard running H4 renders determinate outer progress and expandable real F1-F10 progress
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_handset_acceptance_ui_test.dart: R5.0 handset dashboard awaiting H6 opens the real guided high-dimensional 3D route
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_handset_acceptance_ui_test.dart: R5.0 handset dashboard running post-checks expose frame and handset resource evidence
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_handset_acceptance_ui_test.dart: R5.0 handset dashboard PASS uses the green terminal card and only three run actions
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_handset_acceptance_ui_test.dart: R5.0 handset dashboard FAIL stays distinct from BLOCKED and explains remediation
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_handset_acceptance_ui_test.dart: R5.0 handset dashboard missing models are not pre-checked and become truthful BLOCKED only after start
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_handset_acceptance_ui_test.dart: R5.0 lifecycle and redacted export leaving resumed state interrupts the single active run
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_handset_acceptance_ui_test.dart: R5.0 lifecycle and redacted export active run exposes one visible cancel-and-cleanup action
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_handset_acceptance_ui_test.dart: R5.0 lifecycle and redacted export system back interrupts and retains an active acceptance route
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_handset_acceptance_ui_test.dart: R5.0 lifecycle and redacted export disposing an active page performs best-effort interruption
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_handset_acceptance_ui_test.dart: R5.0 lifecycle and redacted export export saves exact allow-listed bytes and never renders a token
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r46bc_trace_report_test.dart: trace snapshot uses the persisted query vector and resolves all facts
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r46bc_trace_report_test.dart: redacted report is deterministic and excludes raw vectors and secrets
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r49_vector_space_3d_math_test.dart: VectorProjection3d yaw rotates PC1 from screen width into camera depth
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r49_vector_space_3d_math_test.dart: VectorProjection3d pitch rotates PC2 into camera depth
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r49_vector_space_3d_math_test.dart: VectorProjection3d far points are ordered before near points for canvas painting
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r49_vector_space_3d_math_test.dart: VectorProjection3d zoom expands distance from the center without changing identity
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r49_vector_space_3d_math_test.dart: VectorProjection3d degenerate and non-finite values produce finite screen coordinates
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r49_vector_space_3d_math_test.dart: VectorProjection3d camera bounds protect the phone interaction envelope
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_golden_trace_handoff_test.dart: hanging model shutdown is bounded and recorded as cleanup evidence
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_golden_trace_handoff_test.dart: interrupt close timeout is latched across terminal cleanup
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_golden_trace_handoff_test.dart: late interruption preserves terminal failure and cleanup evidence
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r50_golden_trace_handoff_test.dart: Gemma model acquisition cannot resurrect a closed service
+::endgroup::
+
+🎉 333 tests passed.
+
+===== ANALYZE TAIL =====
+Analyzing flutter_phone_loop...                                 
+No issues found! (ran in 16.9s)
