@@ -1,0 +1,47 @@
+name: R4.7 OKF A-F Mobile Benchmark
+
+on:
+  push:
+    branches:
+      - codex/r47-okf-af-benchmark
+    paths:
+      - 'pilot/flutter_phone_loop/**'
+      - '.github/workflows/r47-okf-af-benchmark.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: r47-okf-af-benchmark-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  benchmark-contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Resolve dependencies
+        working-directory: pilot/flutter_phone_loop
+        run: flutter pub get
+      - name: Analyze
+        working-directory: pilot/flutter_phone_loop
+        run: flutter analyze
+      - name: A-F focused contracts
+        working-directory: pilot/flutter_phone_loop
+        run: |
+          flutter test \
+            test/r47_okf_af_benchmark_test.dart \
+            test/r47_okf_af_ui_test.dart
+      - name: Existing R4.7 OKF regression
+        working-directory: pilot/flutter_phone_loop
+        run: |
+          flutter test \
+            test/r47_okf_parser_test.dart \
+            test/r47_okf_integration_contract_test.dart \
+            test/r47_okf_shadow_lab_test.dart
