@@ -1,0 +1,72 @@
+source_sha=009f3143d5061f220a87cb6350a28101097c6d84
+analyze_exit=1
+tests_exit=1
+
+===== ANALYZE =====
+Analyzing flutter_phone_loop...                                 
+
+   info • Invalid use of a private type in a public API. Try making the private type public, or making the API that uses the private type also be private • lib/okf/okf_af_benchmark.dart:136:21 • library_private_types_in_public_api
+   info • Invalid use of a private type in a public API. Try making the private type public, or making the API that uses the private type also be private • lib/okf/okf_af_benchmark.dart:137:14 • library_private_types_in_public_api
+  error • Undefined class 'CitationResolver'. Try changing the name to the name of an existing class, or creating a class with the name 'CitationResolver' • lib/okf/okf_af_runner.dart:38:5 • undefined_class
+  error • The method 'CitationResolver' isn't defined for the type 'OkfAfRunner'. Try correcting the name to the name of an existing method, or defining a method named 'CitationResolver' • lib/okf/okf_af_runner.dart:39:47 • undefined_method
+  error • Undefined class 'CitationResolver'. Try changing the name to the name of an existing class, or creating a class with the name 'CitationResolver' • lib/okf/okf_af_runner.dart:43:9 • undefined_class
+
+5 issues found. (ran in 12.9s)
+
+===== FOCUSED TESTS =====
+flutter_gemma: Downloading litertlm native libs from https://github.com/DenisovAV/flutter_gemma/releases/download/native-v0.16.0/litertlm-linux_x86_64.tar.gz ...
+
+flutter_gemma: Checksum verified (litertlm-linux_x86_64.tar.gz)
+
+flutter_gemma: litertlm libs cached to /home/runner/.cache/flutter_gemma/native/linux_x86_64
+
+flutter_gemma_rag_sqlite: downloading sqlite-vec 0.1.9 for linux_x86_64 from https://github.com/DenisovAV/flutter_gemma/releases/download/native-sqlite-vec-v0.1.9/sqlite-vec-linux_x86_64.tar.gz ...
+
+flutter_gemma_rag_sqlite: sqlite-vec linux_x86_64 ready (checksum verified)
+
+
+::group::✅ Passing tests
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r47_okf_af_benchmark_test.dart: A-F lane contract is stable and ordered
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r47_okf_af_benchmark_test.dart: A bare-model lane supplies no external evidence
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r47_okf_af_benchmark_test.dart: D passage retrieval is finer grained than C concept retrieval
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r47_okf_af_benchmark_test.dart: E graph lane assembles route current timing and bottleneck rule
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r47_okf_af_benchmark_test.dart: F trust freshness lane rejects deprecated R18 and keeps verified R19
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r47_okf_af_benchmark_test.dart: synthetic benchmark covers fact multi-hop conflict and provenance
+lib/okf/okf_af_runner.dart:43:9: Error: Type 'CitationResolver' not found.
+  final CitationResolver citationResolver;
+        ^^^^^^^^^^^^^^^^
+lib/okf/okf_af_runner.dart:38:5: Error: Type 'CitationResolver' not found.
+    CitationResolver? citationResolver,
+    ^^^^^^^^^^^^^^^^
+lib/okf/okf_af_runner.dart:38:5: Error: 'CitationResolver' isn't a type.
+    CitationResolver? citationResolver,
+    ^^^^^^^^^^^^^^^^
+lib/okf/okf_af_runner.dart:39:47: Error: Method not found: 'CitationResolver'.
+  }) : citationResolver = citationResolver ?? CitationResolver();
+                                              ^^^^^^^^^^^^^^^^
+lib/okf/okf_af_runner.dart:43:9: Error: 'CitationResolver' isn't a type.
+  final CitationResolver citationResolver;
+        ^^^^^^^^^^^^^^^^
+::endgroup::
+::group::❌ loading /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r47_okf_af_ui_test.dart (failed)
+Failed to load "/home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r47_okf_af_ui_test.dart":
+Compilation failed for testPath=/home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r47_okf_af_ui_test.dart: lib/okf/okf_af_runner.dart:43:9: Error: Type 'CitationResolver' not found.
+  final CitationResolver citationResolver;
+        ^^^^^^^^^^^^^^^^
+lib/okf/okf_af_runner.dart:38:5: Error: Type 'CitationResolver' not found.
+    CitationResolver? citationResolver,
+    ^^^^^^^^^^^^^^^^
+lib/okf/okf_af_runner.dart:38:5: Error: 'CitationResolver' isn't a type.
+    CitationResolver? citationResolver,
+    ^^^^^^^^^^^^^^^^
+lib/okf/okf_af_runner.dart:39:47: Error: Method not found: 'CitationResolver'.
+  }) : citationResolver = citationResolver ?? CitationResolver();
+                                              ^^^^^^^^^^^^^^^^
+lib/okf/okf_af_runner.dart:43:9: Error: 'CitationResolver' isn't a type.
+  final CitationResolver citationResolver;
+        ^^^^^^^^^^^^^^^^
+.
+
+::endgroup::
+
+::error::6 tests passed, 1 failed.
