@@ -5,6 +5,7 @@ import '../chat/chat_orchestrator.dart';
 import '../core/models.dart';
 import '../services/knowledge_engine.dart';
 import 'microscope/chunk_explorer_page.dart';
+import 'microscope/okf_af_benchmark_page.dart';
 import 'microscope/rag_lineage_dashboard_page.dart';
 import 'microscope/retrieval_benchmark_page.dart';
 import 'microscope/retrieval_experiment_center_page.dart';
@@ -156,6 +157,14 @@ class _KnowledgePageState extends State<KnowledgePage> {
     );
   }
 
+  Future<void> _openOkfAfBenchmark() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => OkfAfBenchmarkPage(engine: widget.engine),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -229,9 +238,7 @@ class _KnowledgePageState extends State<KnowledgePage> {
                               Expanded(
                                 child: FilledButton.tonalIcon(
                                   onPressed: busy ? null : () => _openHealth(),
-                                  icon: const Icon(
-                                    Icons.monitor_heart_outlined,
-                                  ),
+                                  icon: const Icon(Icons.monitor_heart_outlined),
                                   label: const Text('索引健康'),
                                 ),
                               ),
@@ -247,12 +254,17 @@ class _KnowledgePageState extends State<KnowledgePage> {
                           ),
                           const SizedBox(height: 8),
                           FilledButton.tonalIcon(
-                            key: const ValueKey<String>(
-                              'open-retrieval-experiment-center',
-                            ),
+                            key: const ValueKey<String>('open-retrieval-experiment-center'),
                             onPressed: busy ? null : _openExperiments,
                             icon: const Icon(Icons.science_outlined),
                             label: const Text('Experiment Center'),
+                          ),
+                          const SizedBox(height: 8),
+                          FilledButton.icon(
+                            key: const ValueKey<String>('open-okf-af-benchmark'),
+                            onPressed: busy ? null : _openOkfAfBenchmark,
+                            icon: const Icon(Icons.hub_outlined),
+                            label: const Text('OKF A–F 能力验证'),
                           ),
                         ],
                       ),
