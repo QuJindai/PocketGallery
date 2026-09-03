@@ -1,0 +1,58 @@
+name: R4.7 OKF A-F Static Fix V2
+
+on:
+  push:
+    branches:
+      - codex/r47-okf-af-benchmark
+    paths:
+      - '.github/workflows/r47-okf-af-static-fix-v2.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: codex/r47-okf-af-benchmark
+          fetch-depth: 0
+
+      - name: Apply exact A-F static fixes
+        working-directory: pilot/flutter_phone_loop
+        run: python3 tool/r47_apply_okf_af_static.py
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Resolve dependencies
+        working-directory: pilot/flutter_phone_loop
+        run: flutter pub get
+
+      - name: Format touched files
+        working-directory: pilot/flutter_phone_loop
+        run: dart format lib/okf/okf_af_benchmark.dart lib/okf/okf_af_runner.dart
+
+      - name: Analyze
+        working-directory: pilot/flutter_phone_loop
+        run: flutter analyze
+
+      - name: Focused A-F contracts
+        working-directory: pilot/flutter_phone_loop
+        run: flutter test test/r47_okf_af_benchmark_test.dart test/r47_okf_af_ui_test.dart
+
+      - name: Commit verified source fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add pilot/flutter_phone_loop/lib/okf/okf_af_benchmark.dart pilot/flutter_phone_loop/lib/okf/okf_af_runner.dart
+          git diff --cached --check
+          git commit -m "fix(r47): make A-F benchmark analyzer clean"
+          git push origin HEAD:codex/r47-okf-af-benchmark
