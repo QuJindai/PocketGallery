@@ -1,4 +1,5 @@
 name: PocketGallery PR10 R4.7 Canonical Build
+# retrigger: analyzer-clean R4.7 source verified by run 33697430271
 
 on:
   pull_request:
