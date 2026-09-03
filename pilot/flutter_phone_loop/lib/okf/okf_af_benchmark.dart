@@ -128,13 +128,10 @@ class OkfAfEvidence {
 }
 
 class OkfAfCorpus {
-  OkfAfCorpus._({
-    required this.concepts,
-    required this.ordinaryChunks,
-  });
+  OkfAfCorpus._({required this._concepts, required this._ordinaryChunks});
 
-  final Map<String, _AfConcept> concepts;
-  final List<_AfOrdinaryChunk> ordinaryChunks;
+  final Map<String, _AfConcept> _concepts;
+  final List<_AfOrdinaryChunk> _ordinaryChunks;
 
   factory OkfAfCorpus.syntheticFrTest() {
     const parser = OkfParser();
@@ -270,10 +267,8 @@ X7路线见 [X7](../vehicles/x7.md)，1线当前时间见 [R19](../lines/line1-r
 }
 
 class OkfAfRetriever {
-  OkfAfRetriever({
-    required this.corpus,
-    DateTime Function()? now,
-  }) : _now = now ?? DateTime.now;
+  OkfAfRetriever({required this.corpus, DateTime Function()? now})
+    : _now = now ?? DateTime.now;
 
   final OkfAfCorpus corpus;
   final DateTime Function() _now;
@@ -298,7 +293,7 @@ class OkfAfRetriever {
 
   List<OkfAfEvidence> _ordinary(String query, int limit) {
     final results = <OkfAfEvidence>[];
-    for (final item in corpus.ordinaryChunks) {
+    for (final item in corpus._ordinaryChunks) {
       final score = _lexicalScore(query, item.text, item.sourceName);
       if (score <= 0) continue;
       results.add(
@@ -325,14 +320,10 @@ class OkfAfRetriever {
 
   List<OkfAfEvidence> _concepts(String query, int limit) {
     final results = <OkfAfEvidence>[];
-    for (final concept in corpus.concepts.values) {
+    for (final concept in corpus._concepts.values) {
       final document = concept.parsed.document;
       final title = document.title ?? concept.id;
-      final score = _lexicalScore(
-        query,
-        '$title\n${concept.body}',
-        title,
-      );
+      final score = _lexicalScore(query, '$title\n${concept.body}', title);
       if (score <= 0) continue;
       results.add(
         OkfAfEvidence(
@@ -362,7 +353,7 @@ class OkfAfRetriever {
     required bool trustedOnly,
   }) {
     final results = <OkfAfEvidence>[];
-    for (final concept in corpus.concepts.values) {
+    for (final concept in corpus._concepts.values) {
       if (trustedOnly && !_eligible(concept)) continue;
       final document = concept.parsed.document;
       final title = document.title ?? concept.id;
@@ -424,7 +415,7 @@ class OkfAfRetriever {
     final seeds = base.take(3).map((item) => item.conceptId).toSet();
     for (final seed in seeds) {
       for (final neighborId in _neighbors(seed)) {
-        final concept = corpus.concepts[neighborId];
+        final concept = corpus._concepts[neighborId];
         if (concept == null || (trustedOnly && !_eligible(concept))) continue;
         final passages = _splitPassages(concept);
         if (passages.isEmpty) continue;
@@ -456,11 +447,7 @@ class OkfAfRetriever {
             sourceName: concept.parsed.document.sourceName,
             locator: 'okf://${concept.id}#${best.heading}',
             ordinal: best.ordinal,
-            text: _passagePromptText(
-              concept,
-              best,
-              includeTrust: trustedOnly,
-            ),
+            text: _passagePromptText(concept, best, includeTrust: trustedOnly),
           ),
           conceptId: concept.id,
           score: score,
@@ -476,9 +463,7 @@ class OkfAfRetriever {
       }
     }
 
-    return _sort(byConcept.values.toList())
-        .take(limit)
-        .toList(growable: false);
+    return _sort(byConcept.values.toList()).take(limit).toList(growable: false);
   }
 
   bool _eligible(_AfConcept concept) {
@@ -496,13 +481,13 @@ class OkfAfRetriever {
 
   Set<String> _neighbors(String conceptId) {
     final neighbors = <String>{};
-    final concept = corpus.concepts[conceptId];
+    final concept = corpus._concepts[conceptId];
     if (concept == null) return neighbors;
     for (final link in concept.parsed.links) {
       final resolved = _resolveLink(conceptId, link.target);
       if (resolved != null) neighbors.add(resolved);
     }
-    for (final other in corpus.concepts.values) {
+    for (final other in corpus._concepts.values) {
       if (other.id == conceptId) continue;
       for (final link in other.parsed.links) {
         if (_resolveLink(other.id, link.target) == conceptId) {
@@ -537,7 +522,7 @@ class OkfAfRetriever {
     if (resolved.isEmpty) return null;
     var id = resolved.join('/');
     if (id.endsWith('.md')) id = id.substring(0, id.length - 3);
-    return corpus.concepts.containsKey(id) ? id : null;
+    return corpus._concepts.containsKey(id) ? id : null;
   }
 
   List<_AfPassage> _splitPassages(_AfConcept concept) {
@@ -549,11 +534,7 @@ class OkfAfRetriever {
       final text = buffer.join('\n').trim();
       if (text.isEmpty) return;
       passages.add(
-        _AfPassage(
-          heading: heading,
-          ordinal: passages.length,
-          text: text,
-        ),
+        _AfPassage(heading: heading, ordinal: passages.length, text: text),
       );
       buffer.clear();
     }

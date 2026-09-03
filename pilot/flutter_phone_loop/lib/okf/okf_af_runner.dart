@@ -1,3 +1,4 @@
+import '../core/evidence.dart';
 import '../core/models.dart';
 import '../lineage/generation_models.dart';
 import '../services/gemma_service.dart';
