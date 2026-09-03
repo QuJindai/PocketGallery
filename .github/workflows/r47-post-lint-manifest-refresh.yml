@@ -25,17 +25,20 @@ jobs:
           ref: codex/r47-okf-gallery
           fetch-depth: 0
 
-      - name: Regenerate inner and outer integrity manifests
+      - name: Regenerate inner then outer integrity manifests
         working-directory: pilot/flutter_phone_loop
         shell: bash
         run: |
           set -euo pipefail
+          # Outer hashes MANIFEST.sha256, so inner must be finalized first.
           bash scripts/generate_manifests.sh inner > /tmp/r47-inner.sha256
-          bash scripts/generate_manifests.sh outer > /tmp/r47-outer.sha256
           test -s /tmp/r47-inner.sha256
-          test -s /tmp/r47-outer.sha256
           cp /tmp/r47-inner.sha256 MANIFEST.sha256
+
+          bash scripts/generate_manifests.sh outer > /tmp/r47-outer.sha256
+          test -s /tmp/r47-outer.sha256
           cp /tmp/r47-outer.sha256 ../../DROPIN_MANIFEST.sha256
+
           diff -u /tmp/r47-inner.sha256 MANIFEST.sha256
           diff -u /tmp/r47-outer.sha256 ../../DROPIN_MANIFEST.sha256
           git diff --check
@@ -64,8 +67,10 @@ jobs:
         run: |
           set -euo pipefail
           bash scripts/generate_manifests.sh inner > /tmp/r47-inner-after.sha256
-          bash scripts/generate_manifests.sh outer > /tmp/r47-outer-after.sha256
           diff -u MANIFEST.sha256 /tmp/r47-inner-after.sha256
+
+          # Recompute outer only after confirming inner is unchanged.
+          bash scripts/generate_manifests.sh outer > /tmp/r47-outer-after.sha256
           diff -u ../../DROPIN_MANIFEST.sha256 /tmp/r47-outer-after.sha256
 
       - name: Commit verified manifest refresh
@@ -76,5 +81,6 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add pilot/flutter_phone_loop/MANIFEST.sha256 DROPIN_MANIFEST.sha256
           git diff --cached --check
+          git diff --cached --quiet && { echo "Manifests already current"; exit 0; }
           git commit -m "chore(r47): refresh integrity manifests after lint fix"
           git push origin HEAD:codex/r47-okf-gallery
