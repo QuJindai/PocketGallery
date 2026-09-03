@@ -1,0 +1,39 @@
+source_sha=99b23f9a28144ff78787d68e7575dd3b0c2bc9d7
+patch_exit=0
+analyze_exit=1
+tests_exit=0
+
+===== PATCH =====
+A-F static fixes applied
+
+===== ANALYZE =====
+Analyzing flutter_phone_loop...                                 
+
+   info • Use an initializing formal to assign a parameter to a field. Try using an initialing formal ('this._concepts') to initialize the field • lib/okf/okf_af_benchmark.dart:134:8 • prefer_initializing_formals
+   info • Use an initializing formal to assign a parameter to a field. Try using an initialing formal ('this._ordinaryChunks') to initialize the field • lib/okf/okf_af_benchmark.dart:135:8 • prefer_initializing_formals
+
+2 issues found. (ran in 17.8s)
+
+===== TESTS =====
+flutter_gemma: Downloading litertlm native libs from https://github.com/DenisovAV/flutter_gemma/releases/download/native-v0.16.0/litertlm-linux_x86_64.tar.gz ...
+
+flutter_gemma: Checksum verified (litertlm-linux_x86_64.tar.gz)
+
+flutter_gemma: litertlm libs cached to /home/runner/.cache/flutter_gemma/native/linux_x86_64
+
+flutter_gemma_rag_sqlite: downloading sqlite-vec 0.1.9 for linux_x86_64 from https://github.com/DenisovAV/flutter_gemma/releases/download/native-sqlite-vec-v0.1.9/sqlite-vec-linux_x86_64.tar.gz ...
+
+flutter_gemma_rag_sqlite: sqlite-vec linux_x86_64 ready (checksum verified)
+
+
+::group::✅ Passing tests
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r47_okf_af_benchmark_test.dart: A-F lane contract is stable and ordered
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r47_okf_af_benchmark_test.dart: A bare-model lane supplies no external evidence
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r47_okf_af_benchmark_test.dart: D passage retrieval is finer grained than C concept retrieval
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r47_okf_af_benchmark_test.dart: E graph lane assembles route current timing and bottleneck rule
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r47_okf_af_benchmark_test.dart: F trust freshness lane rejects deprecated R18 and keeps verified R19
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r47_okf_af_benchmark_test.dart: synthetic benchmark covers fact multi-hop conflict and provenance
+✅ /home/runner/work/PocketGallery/PocketGallery/pilot/flutter_phone_loop/test/r47_okf_af_ui_test.dart: A-F lab exposes six same-model lanes and aggregate actions
+::endgroup::
+
+🎉 7 tests passed.
