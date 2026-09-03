@@ -20,55 +20,137 @@ jobs:
         with:
           ref: codex/r47-okf-af-benchmark
           fetch-depth: 0
+
       - name: Apply static-only edits
+        id: patch
         shell: bash
         run: |
-          set -euo pipefail
-          python3 - <<'PY'
+          set +e
+          python3 - <<'PY' 2>&1 | tee /tmp/af-patch.log
           from pathlib import Path
 
           runner = Path('pilot/flutter_phone_loop/lib/okf/okf_af_runner.dart')
           text = runner.read_text()
           needle = "import '../core/models.dart';\n"
           replacement = "import '../core/evidence.dart';\nimport '../core/models.dart';\n"
-          if text.count(needle) != 1 or "../core/evidence.dart" in text:
-              raise SystemExit('runner import contract mismatch')
-          runner.write_text(text.replace(needle, replacement))
+          if "../core/evidence.dart" not in text:
+              if text.count(needle) != 1:
+                  raise SystemExit('runner import contract mismatch')
+              text = text.replace(needle, replacement)
+          runner.write_text(text)
 
           core = Path('pilot/flutter_phone_loop/lib/okf/okf_af_benchmark.dart')
           text = core.read_text()
-          replacements = [
-              ("  OkfAfCorpus._({\n    required this.concepts,\n    required this.ordinaryChunks,\n  });\n\n  final Map<String, _AfConcept> concepts;\n  final List<_AfOrdinaryChunk> ordinaryChunks;\n",
-               "  OkfAfCorpus._({\n    required Map<String, _AfConcept> concepts,\n    required List<_AfOrdinaryChunk> ordinaryChunks,\n  }) : _concepts = concepts,\n       _ordinaryChunks = ordinaryChunks;\n\n  final Map<String, _AfConcept> _concepts;\n  final List<_AfOrdinaryChunk> _ordinaryChunks;\n"),
-              ("corpus.ordinaryChunks", "corpus._ordinaryChunks"),
-              ("corpus.concepts", "corpus._concepts"),
-              ("        markdown: entry.value,\n", ""),
-              ("    required this.markdown,\n", ""),
-              ("  final String markdown;\n", ""),
-          ]
-          for old, new in replacements:
-              count = text.count(old)
-              if count < 1:
-                  raise SystemExit(f'missing patch target: {old[:60]!r}')
-              text = text.replace(old, new)
+          old_ctor = """  OkfAfCorpus._({
+    required this.concepts,
+    required this.ordinaryChunks,
+  });
+
+  final Map<String, _AfConcept> concepts;
+  final List<_AfOrdinaryChunk> ordinaryChunks;
+"""
+          new_ctor = """  OkfAfCorpus._({
+    required Map<String, _AfConcept> concepts,
+    required List<_AfOrdinaryChunk> ordinaryChunks,
+  }) : _concepts = concepts,
+       _ordinaryChunks = ordinaryChunks;
+
+  final Map<String, _AfConcept> _concepts;
+  final List<_AfOrdinaryChunk> _ordinaryChunks;
+"""
+          if old_ctor in text:
+              text = text.replace(old_ctor, new_ctor, 1)
+          elif '_concepts = concepts' not in text:
+              raise SystemExit('corpus constructor contract mismatch')
+
+          text = text.replace('corpus.ordinaryChunks', 'corpus._ordinaryChunks')
+          text = text.replace('corpus.concepts', 'corpus._concepts')
+          text = text.replace('        markdown: entry.value,\n', '')
+          text = text.replace('    required this.markdown,\n', '')
+          text = text.replace('  final String markdown;\n', '')
           core.write_text(text)
           PY
-          git diff --check
+          CODE=${PIPESTATUS[0]}
+          echo "code=$CODE" >> "$GITHUB_OUTPUT"
+          git diff --check 2>&1 | tee -a /tmp/af-patch.log
+          DIFF_CODE=${PIPESTATUS[0]}
+          if [[ "$CODE" = "0" && "$DIFF_CODE" != "0" ]]; then CODE="$DIFF_CODE"; fi
+          echo "final_code=$CODE" >> "$GITHUB_OUTPUT"
+          exit 0
+
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
           cache: true
-      - working-directory: pilot/flutter_phone_loop
+
+      - name: Resolve dependencies
+        working-directory: pilot/flutter_phone_loop
         run: flutter pub get
+
       - name: Format touched files
+        if: steps.patch.outputs.final_code == '0'
         working-directory: pilot/flutter_phone_loop
         run: dart format lib/okf/okf_af_benchmark.dart lib/okf/okf_af_runner.dart
-      - name: Analyze
+
+      - name: Analyze after patch
+        id: analyze
+        if: steps.patch.outputs.final_code == '0'
         working-directory: pilot/flutter_phone_loop
-        run: flutter analyze
-      - name: Focused tests
+        shell: bash
+        run: |
+          set +e
+          flutter analyze 2>&1 | tee /tmp/af-static-analyze.log
+          echo "code=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Focused tests after patch
+        id: tests
+        if: steps.patch.outputs.final_code == '0'
         working-directory: pilot/flutter_phone_loop
-        run: flutter test test/r47_okf_af_benchmark_test.dart test/r47_okf_af_ui_test.dart
+        shell: bash
+        run: |
+          set +e
+          flutter test test/r47_okf_af_benchmark_test.dart test/r47_okf_af_ui_test.dart 2>&1 | tee /tmp/af-static-tests.log
+          echo "code=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Persist static-fix diagnostics
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT=/tmp/af-static-fix.txt
+          {
+            echo "source_sha=$GITHUB_SHA"
+            echo "patch_exit=${{ steps.patch.outputs.final_code }}"
+            echo "analyze_exit=${{ steps.analyze.outputs.code }}"
+            echo "tests_exit=${{ steps.tests.outputs.code }}"
+            echo
+            echo "===== PATCH ====="
+            tail -n 100 /tmp/af-patch.log 2>/dev/null || true
+            echo
+            echo "===== ANALYZE ====="
+            tail -n 160 /tmp/af-static-analyze.log 2>/dev/null || true
+            echo
+            echo "===== TESTS ====="
+            tail -n 220 /tmp/af-static-tests.log 2>/dev/null || true
+          } > "$OUT"
+          PATH_URL="repos/${GITHUB_REPOSITORY}/contents/docs/superpowers/diagnostics/R47_OKF_AF_STATIC_FIX.txt"
+          EXISTING="$(gh api "$PATH_URL?ref=r47-signing-diagnostic-readback" --jq .sha 2>/dev/null || true)"
+          CONTENT="$(base64 -w0 "$OUT")"
+          ARGS=(--method PUT "$PATH_URL" -f message="ci: update R4.7 A-F static-fix diagnostic" -f content="$CONTENT" -f branch="r47-signing-diagnostic-readback")
+          if [[ -n "$EXISTING" ]]; then ARGS+=(-f sha="$EXISTING"); fi
+          gh api "${ARGS[@]}" >/dev/null
+
+      - name: Enforce green gate
+        shell: bash
+        run: |
+          test "${{ steps.patch.outputs.final_code }}" = "0"
+          test "${{ steps.analyze.outputs.code }}" = "0"
+          test "${{ steps.tests.outputs.code }}" = "0"
+
       - name: Commit verified fix
         shell: bash
         run: |
