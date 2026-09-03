@@ -1,0 +1,80 @@
+name: R4.7 Post-Lint Manifest Refresh
+
+on:
+  push:
+    branches:
+      - codex/r47-okf-gallery
+    paths:
+      - '.github/workflows/r47-post-lint-manifest-refresh.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: r47-post-lint-manifest-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh-and-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: codex/r47-okf-gallery
+          fetch-depth: 0
+
+      - name: Regenerate inner and outer integrity manifests
+        working-directory: pilot/flutter_phone_loop
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash scripts/generate_manifests.sh inner > /tmp/r47-inner.sha256
+          bash scripts/generate_manifests.sh outer > /tmp/r47-outer.sha256
+          test -s /tmp/r47-inner.sha256
+          test -s /tmp/r47-outer.sha256
+          cp /tmp/r47-inner.sha256 MANIFEST.sha256
+          cp /tmp/r47-outer.sha256 ../../DROPIN_MANIFEST.sha256
+          diff -u /tmp/r47-inner.sha256 MANIFEST.sha256
+          diff -u /tmp/r47-outer.sha256 ../../DROPIN_MANIFEST.sha256
+          git diff --check
+          git diff -- MANIFEST.sha256 ../../DROPIN_MANIFEST.sha256
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Resolve dependencies
+        working-directory: pilot/flutter_phone_loop
+        run: flutter pub get
+
+      - name: Analyze full package
+        working-directory: pilot/flutter_phone_loop
+        run: flutter analyze
+
+      - name: Full Flutter regression suite
+        working-directory: pilot/flutter_phone_loop
+        run: flutter test
+
+      - name: Recheck manifests after tests
+        working-directory: pilot/flutter_phone_loop
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash scripts/generate_manifests.sh inner > /tmp/r47-inner-after.sha256
+          bash scripts/generate_manifests.sh outer > /tmp/r47-outer-after.sha256
+          diff -u MANIFEST.sha256 /tmp/r47-inner-after.sha256
+          diff -u ../../DROPIN_MANIFEST.sha256 /tmp/r47-outer-after.sha256
+
+      - name: Commit verified manifest refresh
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add pilot/flutter_phone_loop/MANIFEST.sha256 DROPIN_MANIFEST.sha256
+          git diff --cached --check
+          git commit -m "chore(r47): refresh integrity manifests after lint fix"
+          git push origin HEAD:codex/r47-okf-gallery
