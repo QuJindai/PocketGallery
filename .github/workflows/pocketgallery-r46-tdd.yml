@@ -1,0 +1,48 @@
+name: PocketGallery R4.6 TDD
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["feature/phone-pilot-r46-runtime-lineage"]
+    paths:
+      - "pilot/flutter_phone_loop/**"
+      - ".github/workflows/pocketgallery-r46-tdd.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  r46-tdd:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Flutter environment
+        working-directory: pilot/flutter_phone_loop
+        run: flutter --version
+      - name: Resolve dependencies
+        working-directory: pilot/flutter_phone_loop
+        run: flutter pub get
+      - name: Analyze R4.6 batch 1
+        working-directory: pilot/flutter_phone_loop
+        run: flutter analyze
+      - name: R4.6 Tasks 1-3 and frozen regressions
+        working-directory: pilot/flutter_phone_loop
+        run: >-
+          flutter test
+          test/r46_lineage_store_test.dart
+          test/r46_vector_index_test.dart
+          test/r46_vector_migration_test.dart
+          test/r46_vector_migration_wiring_test.dart
+          test/r41_trace_store_test.dart
+          test/r41_vector_observation_test.dart
+          test/r41_upgrade_contract_test.dart
+          test/r403_embedding_runtime_recovery_test.dart
+          test/r44_embedding_repair_regression_test.dart
+          test/r3_model_cache_contract_test.dart
+          test/r4_knowledge_retriever_test.dart
+          test/r4_chat_session_store_test.dart
