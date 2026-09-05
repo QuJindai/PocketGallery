@@ -5,6 +5,7 @@ import '../core/hybrid_ranker.dart';
 import '../core/models.dart';
 import 'document_importer.dart';
 import 'gemma_service.dart';
+import 'knowledge_retriever.dart';
 import 'lexical_fts_store.dart';
 import 'semantic_store.dart';
 
@@ -17,10 +18,17 @@ class KnowledgeEngine {
         importer = importer ?? DocumentImporter(),
         gemma = gemma ?? GemmaService() {
     semanticStore = SemanticStore(this.lexicalStore);
+    retriever = KnowledgeRetriever(
+      lexicalStore: this.lexicalStore,
+      semanticStore: semanticStore,
+      ranker: ranker,
+      evidenceBuilder: evidenceBuilder,
+    );
   }
 
   final LexicalFtsStore lexicalStore;
   late final SemanticStore semanticStore;
+  late final KnowledgeRetriever retriever;
   final DocumentImporter importer;
   final GemmaService gemma;
   final HybridRanker ranker = const HybridRanker();
@@ -36,18 +44,45 @@ class KnowledgeEngine {
     await initialize();
     final doc = await importer.importPath(path);
     final oldIds = await lexicalStore.chunkIdsForDocument(doc.documentId);
-
-    // FTS5 is the always-on path. Semantic indexing is enabled only after an
-    // embedder is active, so importing documents can never fail just because
-    // model preparation is still in progress.
     if (FlutterGemma.hasActiveEmbedder() && oldIds.isNotEmpty) {
       await semanticStore.removeIds(oldIds);
     }
     await lexicalStore.replaceDocument(doc);
-    if (FlutterGemma.hasActiveEmbedder()) {
+    if (FlutterGemma.hasActiveEmbedder() && doc.chunks.isNotEmpty) {
       await semanticStore.addChunks(doc.chunks);
     }
     return doc;
+  }
+
+  Future<List<KnowledgeDocument>> listDocuments() async {
+    await lexicalStore.initialize();
+    return lexicalStore.listDocuments();
+  }
+
+  Future<void> removeDocument(String documentId) async {
+    await initialize();
+    final ids = await lexicalStore.chunkIdsForDocument(documentId);
+    if (FlutterGemma.hasActiveEmbedder() && ids.isNotEmpty) {
+      await semanticStore.removeIds(ids);
+    }
+    await lexicalStore.removeDocument(documentId);
+  }
+
+  Future<void> rebuildDocumentEmbedding(String documentId) async {
+    if (!FlutterGemma.hasActiveEmbedder()) return;
+    await initialize();
+    final chunks = await lexicalStore.chunksForDocument(documentId);
+    if (chunks.isEmpty) return;
+    await semanticStore.removeIds(chunks.map((x) => x.id));
+    await semanticStore.addChunks(chunks);
+  }
+
+  Future<void> rebuildAllEmbeddings() async {
+    if (!FlutterGemma.hasActiveEmbedder()) return;
+    await initialize();
+    final chunks = await lexicalStore.allChunks();
+    await semanticStore.clear();
+    if (chunks.isNotEmpty) await semanticStore.addChunks(chunks);
   }
 
   Future<void> syncSemanticIndex() async {
@@ -59,47 +94,40 @@ class KnowledgeEngine {
 
   Future<KnowledgeAnswer> ask(String question) async {
     await initialize();
-    final lexical = await lexicalStore.search(question);
-    final semantic = FlutterGemma.hasActiveEmbedder()
-        ? await semanticStore.search(question)
-        : const <RetrievalHit>[];
-    final hybrid = ranker.fuse(
-      query: question,
-      lexical: lexical,
-      semantic: semantic,
-      limit: 8,
-    );
-    final evidence = evidenceBuilder.build(hybrid);
-    if (evidence.isEmpty) {
+    final bundle = await retriever.retrieve(question);
+    if (bundle.evidence.isEmpty) {
       return KnowledgeAnswer(
         answer: '未在本地资料中找到足够证据。',
         evidence: const [],
         citedAnchors: const [],
-        lexicalHits: lexical,
-        semanticHits: semantic,
-        hybridHits: hybrid,
+        lexicalHits: bundle.lexicalHits,
+        semanticHits: bundle.semanticHits,
+        hybridHits: bundle.hybridHits,
       );
     }
 
     if (!FlutterGemma.hasActiveModel()) {
       return KnowledgeAnswer(
         answer: '本机 Gemma 正在自动准备；FTS5 本地检索已经可用，请先查看下方 Evidence。模型就绪后会自动启用生成回答。',
-        evidence: evidence,
+        evidence: bundle.evidence,
         citedAnchors: const [],
-        lexicalHits: lexical,
-        semanticHits: semantic,
-        hybridHits: hybrid,
+        lexicalHits: bundle.lexicalHits,
+        semanticHits: bundle.semanticHits,
+        hybridHits: bundle.hybridHits,
       );
     }
 
-    final answer = await gemma.answer(question: question, evidence: evidence);
+    final answer = await gemma.answer(
+      question: question,
+      evidence: bundle.evidence,
+    );
     return KnowledgeAnswer(
       answer: answer,
-      evidence: evidence,
-      citedAnchors: citationResolver.extract(answer, evidence),
-      lexicalHits: lexical,
-      semanticHits: semantic,
-      hybridHits: hybrid,
+      evidence: bundle.evidence,
+      citedAnchors: citationResolver.extract(answer, bundle.evidence),
+      lexicalHits: bundle.lexicalHits,
+      semanticHits: bundle.semanticHits,
+      hybridHits: bundle.hybridHits,
     );
   }
 

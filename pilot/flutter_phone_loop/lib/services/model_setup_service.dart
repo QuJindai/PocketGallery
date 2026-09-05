@@ -7,6 +7,7 @@ enum ModelSetupPhase {
   checking,
   downloadingGemma,
   authorizationRequired,
+  licenseRequired,
   authorizing,
   downloadingEmbedding,
   downloadingTokenizer,
@@ -28,6 +29,7 @@ class ModelSetupSnapshot {
   bool get ready => phase == ModelSetupPhase.ready;
   bool get authorizationRequired =>
       phase == ModelSetupPhase.authorizationRequired;
+  bool get licenseRequired => phase == ModelSetupPhase.licenseRequired;
 }
 
 class ModelSetupService {
@@ -119,13 +121,20 @@ class ModelSetupService {
           !FlutterGemma.hasActiveEmbedder()) {
         return emit(
           ModelSetupPhase.failed,
-          '模型文件已处理，但激活自检未通过。可直接重试，不需要重新下载已就绪模型。',
+          '模型文件已处理，但激活身份自检未通过。可直接重试，不需要重新下载已就绪模型。',
         );
       }
 
+      // `hasActiveEmbedder()` only proves that the persisted active embedding
+      // spec exists. RAG add/search needs flutter_gemma's runtime singleton as
+      // well, so materialize it before reporting READY. This loads the already
+      // installed files and never redownloads the model.
+      emit(ModelSetupPhase.checking, 'Embedding runtime 自检…');
+      await FlutterGemma.getActiveEmbedder();
+
       return emit(
         ModelSetupPhase.ready,
-        '本机模型 READY · Gemma 4 + EmbeddingGemma',
+        '本机模型 READY · Gemma 4 + EmbeddingGemma · Embedding runtime READY',
         progress: 100,
       );
     } catch (e) {
@@ -134,15 +143,15 @@ class ModelSetupService {
         await oauth.clearTokens();
         return emit(
           ModelSetupPhase.authorizationRequired,
-          'Hugging Face 授权已失效，请重新完成一次官方授权。',
+          'Hugging Face OAuth 已失效，请重新完成一次官方授权。',
         );
       }
       if (text.contains('403') ||
           text.contains('forbidden') ||
           text.contains('gated')) {
         return emit(
-          ModelSetupPhase.authorizationRequired,
-          '账号已授权，但还需要接受 EmbeddingGemma 官方许可；接受后继续官方授权。',
+          ModelSetupPhase.licenseRequired,
+          'OAuth 已完成，但 Hugging Face 仍拒绝 EmbeddingGemma gated 文件访问。通常只差接受一次官方 Gemma License；接受后返回 App 会使用现有 OAuth token 自动继续下载，不会重新授权。',
         );
       }
       return emit(
