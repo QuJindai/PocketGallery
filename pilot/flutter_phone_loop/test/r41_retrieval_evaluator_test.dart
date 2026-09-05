@@ -82,4 +82,54 @@ void main() {
     ]);
     expect(metrics!.hitAt1, 1);
   });
+
+  test('ranking comparison reports per-case and top1 changes', () {
+    const evaluator = RetrievalEvaluator();
+    const current = [
+      BenchmarkCaseResult(
+        caseId: 'q1',
+        strategy: RetrievalStrategy.hybrid,
+        hits: [
+          BenchmarkHit(chunkId: 'c1', documentId: 'd1', sourceName: 'a'),
+          BenchmarkHit(chunkId: 'c2', documentId: 'd2', sourceName: 'b'),
+        ],
+      ),
+      BenchmarkCaseResult(
+        caseId: 'q2',
+        strategy: RetrievalStrategy.hybrid,
+        hits: [
+          BenchmarkHit(chunkId: 'c3', documentId: 'd3', sourceName: 'c'),
+          BenchmarkHit(chunkId: 'c4', documentId: 'd4', sourceName: 'd'),
+        ],
+      ),
+    ];
+    const alternate = [
+      BenchmarkCaseResult(
+        caseId: 'q2',
+        strategy: RetrievalStrategy.alternateHybrid,
+        hits: [
+          BenchmarkHit(chunkId: 'c4', documentId: 'd4', sourceName: 'd'),
+          BenchmarkHit(chunkId: 'c3', documentId: 'd3', sourceName: 'c'),
+        ],
+      ),
+      BenchmarkCaseResult(
+        caseId: 'q1',
+        strategy: RetrievalStrategy.alternateHybrid,
+        hits: [
+          BenchmarkHit(chunkId: 'c1', documentId: 'd1', sourceName: 'a'),
+          BenchmarkHit(chunkId: 'c2', documentId: 'd2', sourceName: 'b'),
+        ],
+      ),
+    ];
+
+    final comparison = evaluator.compareRankings(current, alternate);
+
+    expect(comparison.pairedCaseCount, 2);
+    expect(comparison.rankingChangedCases, 1);
+    expect(comparison.top1ChangedCases, 1);
+    expect(
+      comparison.summary,
+      '对比 C · 1/2 cases 排名变化 · 1 top1 变化',
+    );
+  });
 }

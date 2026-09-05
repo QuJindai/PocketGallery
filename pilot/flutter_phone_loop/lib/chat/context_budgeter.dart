@@ -1,5 +1,30 @@
 import '../core/models.dart';
+import '../lineage/generation_models.dart';
 import 'chat_models.dart';
+
+class EvidenceContextSelection {
+  const EvidenceContextSelection({
+    required this.context,
+    required this.includedItemCount,
+    required this.trimmedItemCount,
+    required this.trimDetails,
+  });
+
+  final String context;
+  final int includedItemCount;
+  final int trimmedItemCount;
+  final List<String> trimDetails;
+}
+
+class ContextSelection {
+  const ContextSelection({
+    required this.history,
+    required this.decision,
+  });
+
+  final List<ChatMessage> history;
+  final ContextBudgetDecision decision;
+}
 
 class ContextBudgeter {
   const ContextBudgeter();
@@ -23,6 +48,55 @@ class ContextBudgeter {
     List<EvidenceItem> evidence, {
     int maxTokens = evidenceReserveMax,
     int maxItems = 8,
+  }) =>
+      composeEvidenceContextWithDecision(
+        evidence,
+        maxTokens: maxTokens,
+        maxItems: maxItems,
+      ).context;
+
+  EvidenceContextSelection composeEvidenceContextWithDecision(
+    List<EvidenceItem> evidence, {
+    int maxTokens = evidenceReserveMax,
+    int maxItems = 8,
+  }) {
+    final context = _composeEvidenceContext(
+      evidence,
+      maxTokens: maxTokens,
+      maxItems: maxItems,
+    );
+    final considered = maxItems <= 0
+        ? const <EvidenceItem>[]
+        : evidence.take(maxItems).toList(growable: false);
+    final included = context.isEmpty
+        ? 0
+        : considered
+            .where((item) => context.contains('[${item.anchor}]'))
+            .length;
+    final trimmed = evidence.length - included;
+    final details = <String>[
+      if (evidence.length > considered.length)
+        'evidence_max_items:${evidence.length - considered.length}',
+      if (included < considered.length)
+        'evidence_budget:${considered.length - included}',
+      if (included > 0 &&
+          considered.take(included).any(
+                (item) => !context.contains(item.chunk.text),
+              ))
+        'evidence_body_truncated',
+    ];
+    return EvidenceContextSelection(
+      context: context,
+      includedItemCount: included,
+      trimmedItemCount: trimmed,
+      trimDetails: List<String>.unmodifiable(details),
+    );
+  }
+
+  String _composeEvidenceContext(
+    List<EvidenceItem> evidence, {
+    required int maxTokens,
+    required int maxItems,
   }) {
     if (evidence.isEmpty || maxTokens <= 0 || maxItems <= 0) return '';
 
@@ -177,25 +251,74 @@ class ContextBudgeter {
     List<ChatMessage> messages, {
     int evidenceTokens = 0,
     int currentTurnTokens = 0,
+  }) =>
+      selectHistoryWithDecision(
+        messages,
+        evidenceTokens: evidenceTokens,
+        currentTurnTokens: currentTurnTokens,
+      ).history;
+
+  ContextSelection selectHistoryWithDecision(
+    List<ChatMessage> messages, {
+    int evidenceTokens = 0,
+    int currentTurnTokens = 0,
+    int systemTokens = systemReserve,
+    int evidenceItemCount = 0,
+    int includedEvidenceItemCount = 0,
+    List<String> trimDetails = const <String>[],
   }) {
-    final budget = availableHistoryTokens(
-      evidenceTokens: evidenceTokens,
-      currentTurnTokens: currentTurnTokens,
-    );
-    if (budget <= 0 || messages.isEmpty) return const [];
+    final budget = modelMaxTokens -
+        outputReserve -
+        safetyReserve -
+        systemTokens -
+        evidenceTokens -
+        currentTurnTokens;
 
     var used = 0;
     final selected = <ChatMessage>[];
-    for (var i = messages.length - 1; i >= 0; i--) {
-      final cost = estimateTokens(messages[i].text);
-      if (cost > budget || used + cost > budget) {
-        continue;
+    if (budget > 0) {
+      for (var i = messages.length - 1; i >= 0; i--) {
+        final cost = estimateTokens(messages[i].text);
+        if (cost > budget || used + cost > budget) {
+          continue;
+        }
+        selected.add(messages[i]);
+        used += cost;
+        if (used >= budget) break;
       }
-      selected.add(messages[i]);
-      used += cost;
-      if (used >= budget) break;
     }
-    return selected.reversed.toList(growable: false);
+    final history = selected.reversed.toList(growable: false);
+    final totalPrefill =
+        systemTokens + used + evidenceTokens + currentTurnTokens;
+    final remaining = modelMaxTokens - outputReserve - totalPrefill;
+    if (remaining < 0) {
+      throw StateError(
+        'System, evidence and current query exceed the model context budget',
+      );
+    }
+    final trimmedHistory = messages.length - history.length;
+    final trimmedEvidence =
+        evidenceItemCount - includedEvidenceItemCount;
+    final details = <String>[
+      ...trimDetails,
+      if (trimmedHistory > 0) 'history_messages:$trimmedHistory',
+    ];
+    return ContextSelection(
+      history: history,
+      decision: ContextBudgetDecision(
+        modelContextLimit: modelMaxTokens,
+        systemTokens: systemTokens,
+        historyTokens: used,
+        evidenceTokens: evidenceTokens,
+        queryTokens: currentTurnTokens,
+        outputReserveTokens: outputReserve,
+        totalPrefillTokens: totalPrefill,
+        remainingTokens: remaining,
+        trimmedHistoryMessages: trimmedHistory,
+        trimmedEvidenceItems: trimmedEvidence < 0 ? 0 : trimmedEvidence,
+        trimDetails: List<String>.unmodifiable(details),
+      ),
+    );
   }
 
   String trimTextToTokenBudget(String text, int maxTokens) {

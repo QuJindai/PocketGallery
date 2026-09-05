@@ -6,72 +6,21 @@ import '../core/hybrid_ranker.dart';
 import '../core/models.dart';
 import '../observability/retrieval_trace.dart';
 import '../observability/retrieval_trace_recorder.dart';
+import '../retrieval/retrieval_bundle.dart';
+import '../retrieval/retrieval_execution_context.dart';
+import '../retrieval/retrieval_runtime.dart';
 import 'lexical_fts_store.dart';
 import 'semantic_store.dart';
 
-class RetrievalBundle {
-  const RetrievalBundle({
-    required this.lexicalHits,
-    required this.semanticHits,
-    required this.hybridHits,
-    required this.evidence,
-    required this.lexicalOnly,
-    this.autoRelevantOverride,
-    this.traceDraft,
-  });
-
-  static const semanticOnlyAutoStrongThreshold = 0.62;
-  static const semanticOnlyAutoFloor = 0.52;
-  static const semanticOnlyAutoGap = 0.035;
-  static const semanticOnlyKnowledgeStrongThreshold = 0.58;
-  static const semanticOnlyKnowledgeFloor = 0.50;
-  static const semanticOnlyKnowledgeGap = 0.025;
-
-  final List<RetrievalHit> lexicalHits;
-  final List<RetrievalHit> semanticHits;
-  final List<HybridHit> hybridHits;
-  final List<EvidenceItem> evidence;
-  final bool lexicalOnly;
-  final bool? autoRelevantOverride;
-  final RetrievalTraceDraft? traceDraft;
-
-  double? get topSemanticScore =>
-      semanticHits.isEmpty ? null : semanticHits.first.score;
-
-  double get semanticTopGap {
-    if (semanticHits.length < 2) return 0;
-    return semanticHits.first.score - semanticHits[1].score;
-  }
-
-  bool get relevantForAuto {
-    final override = autoRelevantOverride;
-    if (override != null) return override;
-    if (evidence.isEmpty || hybridHits.isEmpty) return false;
-
-    if (hybridHits.first.channels.length > 1) return true;
-    if (lexicalHits.isNotEmpty) return true;
-
-    final top = topSemanticScore ?? 0;
-    return top >= semanticOnlyAutoStrongThreshold ||
-        (top >= semanticOnlyAutoFloor && semanticTopGap >= semanticOnlyAutoGap);
-  }
-
-  bool get relevantForKnowledge {
-    if (evidence.isEmpty || hybridHits.isEmpty) return false;
-    if (hybridHits.first.channels.length > 1) return true;
-    if (lexicalHits.isNotEmpty) return true;
-    final top = topSemanticScore ?? 0;
-    return top >= semanticOnlyKnowledgeStrongThreshold ||
-        (top >= semanticOnlyKnowledgeFloor &&
-            semanticTopGap >= semanticOnlyKnowledgeGap);
-  }
-}
+export '../retrieval/retrieval_bundle.dart';
+export '../retrieval/retrieval_execution_context.dart';
 
 abstract class KnowledgeRetrievalGateway {
   Future<RetrievalBundle> retrieve(
     String query, {
     KnowledgeScope scope = const KnowledgeScope.all(),
     int limit = 8,
+    RetrievalExecutionContext? execution,
   });
 }
 
@@ -81,6 +30,7 @@ class KnowledgeRetriever implements KnowledgeRetrievalGateway {
     required this.semanticStore,
     HybridRanker? ranker,
     EvidencePackBuilder? evidenceBuilder,
+    this.runtime,
   })  : ranker = ranker ?? const HybridRanker(),
         evidenceBuilder = evidenceBuilder ?? const EvidencePackBuilder();
 
@@ -88,12 +38,14 @@ class KnowledgeRetriever implements KnowledgeRetrievalGateway {
   final SemanticStore semanticStore;
   final HybridRanker ranker;
   final EvidencePackBuilder evidenceBuilder;
+  final RetrievalRuntime? runtime;
 
   @override
   Future<RetrievalBundle> retrieve(
     String query, {
     KnowledgeScope scope = const KnowledgeScope.all(),
     int limit = 8,
+    RetrievalExecutionContext? execution,
   }) async {
     final startedAt = DateTime.now().toUtc();
 
@@ -125,6 +77,22 @@ class KnowledgeRetriever implements KnowledgeRetrievalGateway {
           semanticHits: const [],
           hybridHits: RetrievalTraceRecorder.hybrid(coverage),
         ),
+      );
+    }
+
+    final activeExecution = execution;
+    if (activeExecution != null) {
+      final activeRuntime = runtime;
+      if (activeRuntime == null) {
+        throw StateError(
+          'RetrievalExecutionContext requires an ACTIVE RetrievalRuntime',
+        );
+      }
+      return activeRuntime.execute(
+        query,
+        scope: scope,
+        limit: limit,
+        execution: activeExecution,
       );
     }
 

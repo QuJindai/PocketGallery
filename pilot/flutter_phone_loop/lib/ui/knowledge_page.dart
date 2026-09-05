@@ -4,6 +4,7 @@ import 'package:flutter_gemma/flutter_gemma.dart';
 import '../core/models.dart';
 import '../services/knowledge_engine.dart';
 import 'microscope/chunk_explorer_page.dart';
+import 'microscope/rag_lineage_dashboard_page.dart';
 import 'microscope/retrieval_benchmark_page.dart';
 
 class KnowledgePage extends StatefulWidget {
@@ -124,6 +125,15 @@ class _KnowledgePageState extends State<KnowledgePage> {
     ));
   }
 
+  Future<void> _openLineage() async {
+    await Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => RagLineageDashboardPage(
+        engine: widget.engine,
+        lineageStore: widget.engine.lineageStore,
+      ),
+    ));
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -183,7 +193,13 @@ class _KnowledgePageState extends State<KnowledgePage> {
                           ),
                           const SizedBox(height: 4),
                           const Text(
-                            '查看真实 FTS5、向量、Chunk、索引健康与检索基准。',
+                            '查看真实 RAG Lineage、FTS5、向量、Chunk、索引健康与检索基准。',
+                          ),
+                          const SizedBox(height: 8),
+                          FilledButton.tonalIcon(
+                            onPressed: busy ? null : _openLineage,
+                            icon: const Icon(Icons.account_tree_outlined),
+                            label: const Text('RAG Lineage'),
                           ),
                           const SizedBox(height: 8),
                           Row(

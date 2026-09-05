@@ -465,7 +465,7 @@ class _GoldenTestProgressPanelState extends State<GoldenTestProgressPanel> {
           children: [
             const Expanded(
               child: Text(
-                'Phone Golden Test · F1–F7',
+                'Phone Golden Test · F1–F10',
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
             ),
@@ -484,7 +484,7 @@ class _GoldenTestProgressPanelState extends State<GoldenTestProgressPanel> {
         const Text('检查点：PG_GOLDEN_LAST.json · 已保存'),
         const SizedBox(height: 6),
         const Text(
-          'F6/F7 需在实体手机使用已激活的 Gemma 4 与 EmbeddingGemma 执行。',
+          'F6/F7 需在实体手机使用已激活的 Gemma 4 与 EmbeddingGemma 执行；F8–F10 校验其持久化血缘。',
           style: TextStyle(fontSize: 12),
         ),
         const Divider(),

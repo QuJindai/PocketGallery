@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import '../core/models.dart';
+import '../lineage/generation_models.dart';
 
 enum ChatMode { modelOnly, auto, knowledge }
 
@@ -182,7 +183,7 @@ class ChatMessage {
 }
 
 abstract class ChatModelGateway {
-  Future<String> sendTurn({
+  Future<ChatTurnResult> sendTurn({
     required String sessionId,
     required List<ChatMessage> priorMessages,
     required String userText,

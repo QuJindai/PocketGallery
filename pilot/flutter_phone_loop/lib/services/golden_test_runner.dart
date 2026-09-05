@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:sqlite3/sqlite3.dart';
 
 import '../chat/chat_models.dart';
@@ -6,6 +8,9 @@ import '../chat/chat_session_store.dart';
 import '../core/evidence.dart';
 import '../core/models.dart';
 import '../eval/retrieval_benchmark_fixture.dart';
+import '../lineage/lineage_ids.dart';
+import '../lineage/lineage_models.dart';
+import '../lineage/lineage_store.dart';
 import 'gemma_chat_service.dart';
 import 'golden_gate_executor.dart';
 import 'golden_test_report_store.dart';
@@ -43,6 +48,163 @@ class GoldenTestReport {
         'passed': passed,
         'results': results.map((result) => result.toJson()).toList(),
       };
+}
+
+class GoldenLineageVerifier {
+  const GoldenLineageVerifier();
+
+  static const requiredRuntimeEventKinds = <String>{
+    'trace.started',
+    'fts.search_completed',
+    'embedding.query_completed',
+    'vector.search_completed',
+    'fusion.completed',
+    'candidate.pool_built',
+    'router.evaluated',
+    'evidence.selected',
+    'context.budgeted',
+    'generation.completed',
+    'citation.resolved',
+    'trace.completed',
+  };
+
+  Future<List<GateResult>> verify(
+    LineageStore store,
+    String? traceId,
+  ) async {
+    if (traceId == null || traceId.trim().isEmpty) {
+      return const <GateResult>[
+        GateResult('F8_RUNTIME_LINEAGE', false, 'traceId 未捕获'),
+        GateResult('F9_QUERY_VECTOR_IDENTITY', false, 'traceId 未捕获'),
+        GateResult('F10_CONTEXT_BUDGET', false, 'traceId 未捕获'),
+      ];
+    }
+
+    final trace = await store.traceById(traceId);
+    final events = await store.eventsForTrace(traceId);
+    final activeEvents = trace == null
+        ? const <TraceEventRecord>[]
+        : events
+            .where(
+              (event) =>
+                  event.lane == RetrievalLane.active &&
+                  event.strategyId == trace.activeStrategyId,
+            )
+            .toList(growable: false);
+    final capturedKinds = activeEvents.map((event) => event.kind).toSet();
+    final missingKinds = requiredRuntimeEventKinds.difference(capturedKinds);
+    final f8Passed =
+        trace?.status == TraceStatus.complete && missingKinds.isEmpty;
+    final f8 = GateResult(
+      'F8_RUNTIME_LINEAGE',
+      f8Passed,
+      trace == null
+          ? 'trace row 未捕获 · $traceId'
+          : 'status=${trace.status.name} · ACTIVE events=${capturedKinds.length} · missing=${missingKinds.isEmpty ? 'none' : missingKinds.join(',')}',
+    );
+
+    final queryEmbeddingId = LineageIds.queryEmbeddingId(traceId);
+    final embedding = await store.embeddingById(queryEmbeddingId);
+    final embeddingEvent = _event(activeEvents, 'embedding.query_completed');
+    final vectorEvent = _event(activeEvents, 'vector.search_completed');
+    final embeddingPayload = _payload(embeddingEvent);
+    final vectorPayload = _payload(vectorEvent);
+    var embeddingValid = false;
+    if (embedding != null) {
+      try {
+        embedding.validate();
+        embeddingValid =
+            embedding.embeddingId == queryEmbeddingId &&
+            embedding.sourceKind == 'query' &&
+            embedding.sourceId == traceId &&
+            embedding.chunkId == null &&
+            embedding.representation == EmbeddingRepresentation.query &&
+            embedding.modelIdentity.isNotEmpty &&
+            embedding.taskMode == 'retrieval_query';
+      } catch (_) {
+        embeddingValid = false;
+      }
+    }
+    final f9Passed =
+        embeddingValid &&
+        embeddingPayload['embeddingId'] == queryEmbeddingId &&
+        embeddingPayload['modelIdentity'] == embedding?.modelIdentity &&
+        embeddingPayload['dimension'] == embedding?.dimension &&
+        embeddingPayload['vectorSha256'] == embedding?.vectorSha256 &&
+        vectorPayload['queryEmbeddingId'] == queryEmbeddingId;
+    final f9 = GateResult(
+      'F9_QUERY_VECTOR_IDENTITY',
+      f9Passed,
+      embedding == null
+          ? 'query embedding row 未捕获 · $queryEmbeddingId'
+          : 'id=$queryEmbeddingId · dim=${embedding.dimension} · sha=${_short(embedding.vectorSha256)} · vectorEvent=${vectorPayload['queryEmbeddingId'] ?? '未捕获'}',
+    );
+
+    final budget = await store.promptBudgetForTrace(traceId);
+    final componentSum = budget == null
+        ? null
+        : budget.systemTokens +
+            budget.historyTokens +
+            budget.evidenceTokens +
+            budget.queryTokens;
+    final componentsNonNegative = budget != null &&
+        <int>[
+          budget.systemTokens,
+          budget.historyTokens,
+          budget.evidenceTokens,
+          budget.queryTokens,
+          budget.outputReserveTokens,
+          budget.totalPrefillTokens,
+          budget.remainingTokens,
+        ].every((value) => value >= 0);
+    final f10Passed =
+        budget != null &&
+        budget.lane == RetrievalLane.active &&
+        budget.strategyId == trace?.activeStrategyId &&
+        budget.modelContextLimit > 0 &&
+        componentsNonNegative &&
+        componentSum == budget.totalPrefillTokens &&
+        budget.totalPrefillTokens + budget.outputReserveTokens <=
+            budget.modelContextLimit &&
+        budget.remainingTokens ==
+            budget.modelContextLimit -
+                budget.totalPrefillTokens -
+                budget.outputReserveTokens;
+    final f10 = GateResult(
+      'F10_CONTEXT_BUDGET',
+      f10Passed,
+      budget == null
+          ? 'prompt budget row 未捕获'
+          : 'components=$componentSum · prefill=${budget.totalPrefillTokens} · reserve=${budget.outputReserveTokens} · limit=${budget.modelContextLimit} · remaining=${budget.remainingTokens}',
+    );
+
+    return <GateResult>[f8, f9, f10];
+  }
+
+  TraceEventRecord? _event(
+    List<TraceEventRecord> events,
+    String kind,
+  ) {
+    for (final event in events) {
+      if (event.kind == kind) return event;
+    }
+    return null;
+  }
+
+  Map<String, dynamic> _payload(TraceEventRecord? event) {
+    if (event == null) return const <String, dynamic>{};
+    try {
+      final decoded = jsonDecode(event.payloadJson);
+      return decoded is Map<String, dynamic>
+          ? decoded
+          : const <String, dynamic>{};
+    } catch (_) {
+      return const <String, dynamic>{};
+    }
+  }
+
+  String _short(String value) =>
+      value.length <= 12 ? value : '${value.substring(0, 12)}…';
 }
 
 class GoldenF7Assertion {
@@ -154,6 +316,30 @@ class GoldenTestRunner {
           blockedReason: 'F1 or F6 did not pass',
           run: context.runF7,
         ),
+        GoldenGateSpec(
+          name: 'F8_RUNTIME_LINEAGE',
+          label: 'ACTIVE 运行时血缘闭环',
+          timeout: const Duration(seconds: 10),
+          blockedWhen: _f6DidNotPass,
+          blockedReason: 'F6 lineage source did not pass',
+          run: context.runF8,
+        ),
+        GoldenGateSpec(
+          name: 'F9_QUERY_VECTOR_IDENTITY',
+          label: '查询向量身份一致性',
+          timeout: const Duration(seconds: 10),
+          blockedWhen: _f6DidNotPass,
+          blockedReason: 'F6 lineage source did not pass',
+          run: context.runF9,
+        ),
+        GoldenGateSpec(
+          name: 'F10_CONTEXT_BUDGET',
+          label: '上下文预算守恒',
+          timeout: const Duration(seconds: 10),
+          blockedWhen: _f6DidNotPass,
+          blockedReason: 'F6 lineage source did not pass',
+          run: context.runF10,
+        ),
       ],
       onProgress: onProgress,
       onCheckpoint: (snapshot) async {
@@ -167,6 +353,10 @@ class GoldenTestRunner {
 
   static bool _f1DidNotPass(GoldenTestSnapshot snapshot) =>
       snapshot.gate('F1_IMPORT_CHUNK')?.status != GoldenGateStatus.passed;
+
+  static bool _f6DidNotPass(GoldenTestSnapshot snapshot) =>
+      snapshot.gate('F6_GEMMA_CITATION')?.status !=
+      GoldenGateStatus.passed;
 }
 
 class _GoldenRunContext {
@@ -178,6 +368,8 @@ class _GoldenRunContext {
   ChatSessionStore? chatStore;
   ChatSession? chatSession;
   Database? chatDatabase;
+  String? lineageTraceId;
+  Future<List<GateResult>>? lineageVerification;
   bool f1TimedOut = false;
 
   Future<GateResult> runF1() async {
@@ -284,6 +476,8 @@ class _GoldenRunContext {
       store: chatStore!,
       retriever: engine.retriever,
       model: chatModel!,
+      lineageRecorder: engine.runtimeLineageRecorder,
+      lineageStore: engine.lineageStore,
     );
     var session = await orchestrator.newSession(title: 'Golden real chat');
     session = await orchestrator.setMode(session.id, ChatMode.knowledge);
@@ -292,6 +486,7 @@ class _GoldenRunContext {
       session.id,
       '请解释 31 03 51 01 获取标定结果时为什么 DSA 可能持续等待；回答中必须保留 31 03 51 01 并引用本轮证据。',
     );
+    lineageTraceId = reply.traceId;
     final passed = reply.text.contains('31 03 51 01') &&
         (reply.text.contains('等待') || reply.text.contains('处理中')) &&
         reply.citedAnchors.isNotEmpty &&
@@ -324,6 +519,22 @@ class _GoldenRunContext {
         .map((evidence) => evidence.anchor)
         .toSet();
     return GoldenF7Assertion.evaluate(reply, validAnchors);
+  }
+
+  Future<GateResult> runF8() => _lineageGate(0);
+
+  Future<GateResult> runF9() => _lineageGate(1);
+
+  Future<GateResult> runF10() => _lineageGate(2);
+
+  Future<GateResult> _lineageGate(int index) async {
+    final verification = lineageVerification ??=
+        const GoldenLineageVerifier().verify(
+      engine.lineageStore,
+      lineageTraceId,
+    );
+    final gates = await verification;
+    return gates[index];
   }
 
   Future<void> onGateTimeout(GoldenGateSnapshot gate) async {
@@ -373,6 +584,7 @@ class _GoldenHeavyEvidenceRetriever implements KnowledgeRetrievalGateway {
     String query, {
     KnowledgeScope scope = const KnowledgeScope.all(),
     int limit = 8,
+    RetrievalExecutionContext? execution,
   }) async {
     final chunks = List<PgChunk>.generate(6, (index) {
       final number = index + 1;

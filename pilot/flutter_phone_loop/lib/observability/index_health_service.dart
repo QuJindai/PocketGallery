@@ -4,6 +4,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 import '../core/models.dart';
+import '../lineage/vector_index_health_service.dart';
 import '../services/lexical_fts_store.dart';
 import 'vector_observation_store.dart';
 
@@ -42,6 +43,7 @@ class IndexHealthSnapshot {
     required this.ftsDbBytes,
     required this.vectorDbBytes,
     required this.observabilityDbBytes,
+    this.activeVectorHealth,
   });
 
   final int documentCount;
@@ -55,6 +57,7 @@ class IndexHealthSnapshot {
   final int? ftsDbBytes;
   final int? vectorDbBytes;
   final int? observabilityDbBytes;
+  final ActiveVectorHealth? activeVectorHealth;
 
   double get ftsCoverage => chunkCount == 0 ? 1 : ftsIndexedCount / chunkCount;
   double get vectorCoverage =>
@@ -66,11 +69,13 @@ class IndexHealthService {
     required this.lexicalStore,
     required this.vectorStore,
     required this.activeModelIdentity,
+    this.activeVectorHealthService,
   });
 
   final LexicalFtsStore lexicalStore;
   final VectorObservationStore vectorStore;
   final String Function() activeModelIdentity;
+  final VectorIndexHealthService? activeVectorHealthService;
 
   Future<IndexHealthSnapshot> snapshot({bool includeFileSizes = true}) async {
     final documents = await lexicalStore.listDocuments();
@@ -80,6 +85,7 @@ class IndexHealthService {
       for (final observation in observations) observation.chunkId: observation,
     };
     final activeModel = activeModelIdentity();
+    final activeVectorHealth = await activeVectorHealthService?.snapshot();
 
     var missing = 0;
     var stale = 0;
@@ -133,6 +139,7 @@ class IndexHealthService {
       ftsDbBytes: ftsBytes,
       vectorDbBytes: vectorBytes,
       observabilityDbBytes: observationBytes,
+      activeVectorHealth: activeVectorHealth,
     );
   }
 
