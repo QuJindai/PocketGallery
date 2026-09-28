@@ -1,0 +1,74 @@
+name: PocketGallery PR Signer Cache Probe
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/pocketgallery-pr-signer-cache-probe.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  probe-pr-cache:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Restore PR-scope signer cache
+        id: signer-cache
+        uses: actions/cache@v5
+        with:
+          path: ~/.android/pocketgallery-r3-signing
+          key: pocketgallery-r3-signing-v1
+
+      - name: Fingerprint restored signer without exposing key material
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          SIGN_DIR="$HOME/.android/pocketgallery-r3-signing"
+          REPORT=/tmp/pr-signer-cache-probe.txt
+          cache_hit="${{ steps.signer-cache.outputs.cache-hit }}"
+          keystore_present=false
+          password_present=false
+          cert_export_ok=false
+          signer_sha256=""
+          [[ -s "$SIGN_DIR/r3.keystore" ]] && keystore_present=true
+          [[ -s "$SIGN_DIR/password" ]] && password_present=true
+          if [[ "$keystore_present" = true && "$password_present" = true ]]; then
+            PASS="$(<"$SIGN_DIR/password")"
+            echo "::add-mask::$PASS"
+            set +e
+            keytool -exportcert \
+              -keystore "$SIGN_DIR/r3.keystore" \
+              -storepass "$PASS" \
+              -alias pocketgallery-r3 \
+              -file "$RUNNER_TEMP/pr-signer-cert.der" >/dev/null 2>&1
+            rc=$?
+            set -e
+            if [[ $rc -eq 0 && -s "$RUNNER_TEMP/pr-signer-cert.der" ]]; then
+              cert_export_ok=true
+              signer_sha256="$(sha256sum "$RUNNER_TEMP/pr-signer-cert.der" | awk '{print $1}')"
+            fi
+          fi
+          {
+            echo "run_id=$GITHUB_RUN_ID"
+            echo "event=$GITHUB_EVENT_NAME"
+            echo "ref=$GITHUB_REF"
+            echo "head_ref=$GITHUB_HEAD_REF"
+            echo "base_ref=$GITHUB_BASE_REF"
+            echo "cache_hit=$cache_hit"
+            echo "keystore_present=$keystore_present"
+            echo "password_present=$password_present"
+            echo "cert_export_ok=$cert_export_ok"
+            echo "signer_sha256=$signer_sha256"
+          } | tee "$REPORT"
+          ENCODED="$(base64 -w0 "$REPORT")"
+          TARGET_BRANCH="${GITHUB_HEAD_REF:-feature/phone-pilot-r3-final-apk}"
+          gh api --method PUT \
+            "repos/${GITHUB_REPOSITORY}/contents/docs/ci-diagnostics/pr-signer-cache-${GITHUB_RUN_ID}.txt" \
+            -f message="ci: persist PR signer cache probe ${GITHUB_RUN_ID}" \
+            -f content="$ENCODED" \
+            -f branch="$TARGET_BRANCH" >/dev/null

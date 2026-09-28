@@ -1,0 +1,12 @@
+diff --git a/Android/src/app/build.gradle.kts b/Android/src/app/build.gradle.kts
+--- a/Android/src/app/build.gradle.kts
++++ b/Android/src/app/build.gradle.kts
+@@ -116,6 +116,8 @@ dependencies {
+   implementation(libs.moshi.kotlin)
+   implementation("androidx.room3:room3-runtime:3.0.1")
+   implementation("androidx.sqlite:sqlite-bundled:2.7.0")
++  implementation("androidx.pdf:pdf-core:1.0.0-alpha19")
++  implementation("androidx.pdf:pdf-document-service:1.0.0-alpha19")
+   kapt(libs.hilt.android.compiler)
+   testImplementation(libs.junit)
+   androidTestImplementation(libs.androidx.junit)

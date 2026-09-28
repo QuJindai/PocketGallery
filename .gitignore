@@ -7,3 +7,9 @@ local.properties
 *.jks
 *.keystore
 .env
+# Generated Flutter tool state and Android scaffold (source lives in android_host).
+**/.dart_tool/
+**/.flutter-plugins
+**/.flutter-plugins-dependencies
+pilot/flutter_phone_loop/android/
+pilot/flutter_phone_loop/.metadata

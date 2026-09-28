@@ -13,18 +13,19 @@ void main() {
 
   test('A-F lane contract is stable and ordered', () {
     expect(OkfAfLane.values, hasLength(6));
-    expect(
-      OkfAfLane.values.map((lane) => lane.code).toList(),
-      <String>['A', 'B', 'C', 'D', 'E', 'F'],
-    );
+    expect(OkfAfLane.values.map((lane) => lane.code).toList(), <String>[
+      'A',
+      'B',
+      'C',
+      'D',
+      'E',
+      'F',
+    ]);
   });
 
   test('A bare-model lane supplies no external evidence', () {
     expect(
-      retriever.retrieve(
-        'X7是否经过B工序？',
-        lane: OkfAfLane.bareModel,
-      ),
+      retriever.retrieve('X7是否经过B工序？', lane: OkfAfLane.bareModel),
       isEmpty,
     );
   });
@@ -43,7 +44,10 @@ void main() {
 
     expect(concepts, isNotEmpty);
     expect(passages, isNotEmpty);
-    expect(passages.first.chunk.text.length, lessThan(concepts.first.chunk.text.length));
+    expect(
+      passages.first.chunk.text.length,
+      lessThan(concepts.first.chunk.text.length),
+    );
   });
 
   test('E graph lane assembles route current timing and bottleneck rule', () {
@@ -59,20 +63,25 @@ void main() {
     expect(ids, contains('rules/bottleneck'));
   });
 
-  test('F trust freshness lane rejects deprecated R18 and keeps verified R19', () {
-    final results = retriever.retrieve(
-      '2026年9月5日，1线C工序应使用多少秒？',
-      lane: OkfAfLane.okfTrustFreshness,
-      limit: 8,
-    );
-    final ids = results.map((item) => item.conceptId).toSet();
+  test(
+    'F trust freshness lane rejects deprecated R18 and keeps verified R19',
+    () {
+      final results = retriever.retrieve(
+        '2026年9月5日，1线C工序应使用多少秒？',
+        lane: OkfAfLane.okfTrustFreshness,
+        limit: 8,
+      );
+      final ids = results.map((item) => item.conceptId).toSet();
 
-    expect(ids, contains('lines/line1-r19'));
-    expect(ids, isNot(contains('lines/line1-r18')));
-    final r19 = results.firstWhere((item) => item.conceptId == 'lines/line1-r19');
-    expect(r19.sourceIds, contains('spec://FR-Test/SPEC-R19'));
-    expect(r19.trustLabel, 'verified');
-  });
+      expect(ids, contains('lines/line1-r19'));
+      expect(ids, isNot(contains('lines/line1-r18')));
+      final r19 = results.firstWhere(
+        (item) => item.conceptId == 'lines/line1-r19',
+      );
+      expect(r19.sourceIds, contains('spec://FR-Test/SPEC-R19'));
+      expect(r19.trustLabel, 'verified');
+    },
+  );
 
   test('synthetic benchmark covers fact multi-hop conflict and provenance', () {
     expect(okfAfBenchmarkCases, hasLength(4));

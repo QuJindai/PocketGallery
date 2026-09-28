@@ -238,7 +238,9 @@ class _KnowledgePageState extends State<KnowledgePage> {
                               Expanded(
                                 child: FilledButton.tonalIcon(
                                   onPressed: busy ? null : () => _openHealth(),
-                                  icon: const Icon(Icons.monitor_heart_outlined),
+                                  icon: const Icon(
+                                    Icons.monitor_heart_outlined,
+                                  ),
                                   label: const Text('索引健康'),
                                 ),
                               ),
@@ -254,14 +256,18 @@ class _KnowledgePageState extends State<KnowledgePage> {
                           ),
                           const SizedBox(height: 8),
                           FilledButton.tonalIcon(
-                            key: const ValueKey<String>('open-retrieval-experiment-center'),
+                            key: const ValueKey<String>(
+                              'open-retrieval-experiment-center',
+                            ),
                             onPressed: busy ? null : _openExperiments,
                             icon: const Icon(Icons.science_outlined),
                             label: const Text('Experiment Center'),
                           ),
                           const SizedBox(height: 8),
                           FilledButton.icon(
-                            key: const ValueKey<String>('open-okf-af-benchmark'),
+                            key: const ValueKey<String>(
+                              'open-okf-af-benchmark',
+                            ),
                             onPressed: busy ? null : _openOkfAfBenchmark,
                             icon: const Icon(Icons.hub_outlined),
                             label: const Text('OKF A–F 能力验证'),

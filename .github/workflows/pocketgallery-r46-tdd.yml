@@ -1,9 +1,9 @@
-name: PocketGallery R5.0 TDD
+name: PocketGallery Flutter Verify
 
 on:
   workflow_dispatch:
   push:
-    branches: ["feature/phone-pilot-r46-runtime-lineage"]
+    branches: ["main"]
     paths:
       - "pilot/flutter_phone_loop/**"
       - ".github/workflows/pocketgallery-r46-tdd.yml"
@@ -11,7 +11,7 @@ on:
       - "DROPIN_MANIFEST.sha256"
       - "PILOT_DROPIN_README.md"
   pull_request:
-    branches: ["feature/phone-pilot-r46-runtime-lineage"]
+    branches: ["main"]
     paths:
       - "pilot/flutter_phone_loop/**"
       - ".github/workflows/pocketgallery-r46-tdd.yml"
@@ -21,6 +21,10 @@ on:
 
 permissions:
   contents: read
+
+concurrency:
+  group: flutter-verify-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   r46-tdd:
@@ -43,17 +47,20 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+          flutter-version: '3.47.2'
           cache: true
       - name: Flutter environment
         working-directory: pilot/flutter_phone_loop
         run: flutter --version
       - name: Resolve dependencies
         working-directory: pilot/flutter_phone_loop
-        run: flutter pub get
+        run: flutter pub get --enforce-lockfile
       - name: Verify Dart formatting
         working-directory: pilot/flutter_phone_loop
         run: dart format --output=none --set-exit-if-changed lib test tool
-      - name: Analyze R5.0
+      - name: Verify canonical signer guard
+        run: bash pilot/flutter_phone_loop/scripts/test_verify_canonical_signer.sh
+      - name: Analyze R5.0 and OKF experiments
         working-directory: pilot/flutter_phone_loop
         run: flutter analyze
       - name: Full Flutter regression suite

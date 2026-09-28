@@ -6,10 +6,7 @@ import '../../okf/okf_af_runner.dart';
 import '../../services/knowledge_engine.dart';
 
 class OkfAfBenchmarkPage extends StatefulWidget {
-  const OkfAfBenchmarkPage({
-    super.key,
-    required this.engine,
-  });
+  const OkfAfBenchmarkPage({super.key, required this.engine});
 
   final KnowledgeEngine engine;
 
@@ -59,16 +56,21 @@ class _OkfAfBenchmarkPageState extends State<OkfAfBenchmarkPage> {
       status = '${lane.code} ${lane.label} · 本地模型运行中';
     });
     try {
-      final result = await runner.run(
-        benchmarkCase: currentCase,
-        lane: lane,
-      );
+      final result = await runner.run(benchmarkCase: currentCase, lane: lane);
       if (!mounted) return;
       setState(() {
-        results.putIfAbsent(currentCase.id, () => <OkfAfLane, OkfAfRunResult>{})[lane] = result;
-        status = '${lane.code} 完成 · '
+        results.putIfAbsent(
+          currentCase.id,
+          () => <OkfAfLane, OkfAfRunResult>{},
+        )[lane] = result;
+        status =
+            '${lane.code} 完成 · '
             '${result.answerPass ? '答案 PASS' : '答案 FAIL'}'
-            '${result.sourcePass == null ? '' : result.sourcePass! ? ' · 来源 PASS' : ' · 来源 FAIL'}';
+            '${result.sourcePass == null
+                ? ''
+                : result.sourcePass!
+                ? ' · 来源 PASS'
+                : ' · 来源 FAIL'}';
       });
     } catch (error) {
       if (mounted) setState(() => status = '${lane.code} 运行失败：$error');
@@ -91,13 +93,13 @@ class _OkfAfBenchmarkPageState extends State<OkfAfBenchmarkPage> {
     try {
       for (var index = 0; index < OkfAfLane.values.length; index++) {
         final lane = OkfAfLane.values[index];
-        final result = await runner.run(
-          benchmarkCase: benchmark,
-          lane: lane,
-        );
+        final result = await runner.run(benchmarkCase: benchmark, lane: lane);
         if (!mounted) return;
         setState(() {
-          results.putIfAbsent(benchmark.id, () => <OkfAfLane, OkfAfRunResult>{})[lane] = result;
+          results.putIfAbsent(
+            benchmark.id,
+            () => <OkfAfLane, OkfAfRunResult>{},
+          )[lane] = result;
           status = '当前问题 A–F · ${index + 1}/6';
         });
       }
@@ -130,7 +132,10 @@ class _OkfAfBenchmarkPageState extends State<OkfAfBenchmarkPage> {
           );
           if (!mounted) return;
           setState(() {
-            results.putIfAbsent(currentCase.id, () => <OkfAfLane, OkfAfRunResult>{})[lane] = result;
+            results.putIfAbsent(
+              currentCase.id,
+              () => <OkfAfLane, OkfAfRunResult>{},
+            )[lane] = result;
             fullCompleted += 1;
             status = '完整基准 · $fullCompleted/24';
           });
@@ -175,7 +180,9 @@ class _OkfAfBenchmarkPageState extends State<OkfAfBenchmarkPage> {
                     if (runningFull)
                       Padding(
                         padding: const EdgeInsets.only(top: 8),
-                        child: LinearProgressIndicator(value: fullCompleted / 24),
+                        child: LinearProgressIndicator(
+                          value: fullCompleted / 24,
+                        ),
                       ),
                   ],
                 ),
@@ -197,70 +204,68 @@ class _OkfAfBenchmarkPageState extends State<OkfAfBenchmarkPage> {
   }
 
   Widget _benchmarkSelector(BuildContext context) => Card(
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text('Benchmark', style: Theme.of(context).textTheme.titleSmall),
-              DropdownButton<int>(
-                isExpanded: true,
-                value: caseIndex,
-                items: [
-                  for (var index = 0; index < okfAfBenchmarkCases.length; index++)
-                    DropdownMenuItem<int>(
-                      value: index,
-                      child: Text(
-                        okfAfBenchmarkCases[index].question,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                ],
-                onChanged: busy
-                    ? null
-                    : (value) {
-                        if (value != null) setState(() => caseIndex = value);
-                      },
-              ),
-              Text('${benchmark.category} · ${benchmark.note}'),
-              const SizedBox(height: 8),
-              FilledButton.icon(
-                key: const ValueKey<String>('okf-af-run-current'),
-                onPressed: busy ? null : _runCurrent,
-                icon: const Icon(Icons.play_circle_outline),
-                label: Text(runningCurrent ? 'A–F 运行中…' : '运行当前问题 A–F'),
-              ),
-              const SizedBox(height: 6),
-              OutlinedButton.icon(
-                key: const ValueKey<String>('okf-af-run-full'),
-                onPressed: busy ? null : _runFull,
-                icon: const Icon(Icons.speed_outlined),
-                label: Text(runningFull ? '完整基准运行中…' : '完整基准 · 4题 × A–F'),
-              ),
-              const SizedBox(height: 4),
-              const Text(
-                '完整基准会连续进行24次本地生成，适合最终定量；首次验证建议先跑“当前问题 A–F”。',
-              ),
+    child: Padding(
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text('Benchmark', style: Theme.of(context).textTheme.titleSmall),
+          DropdownButton<int>(
+            isExpanded: true,
+            value: caseIndex,
+            items: [
+              for (var index = 0; index < okfAfBenchmarkCases.length; index++)
+                DropdownMenuItem<int>(
+                  value: index,
+                  child: Text(
+                    okfAfBenchmarkCases[index].question,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
             ],
+            onChanged: busy
+                ? null
+                : (value) {
+                    if (value != null) setState(() => caseIndex = value);
+                  },
           ),
-        ),
-      );
+          Text('${benchmark.category} · ${benchmark.note}'),
+          const SizedBox(height: 8),
+          FilledButton.icon(
+            key: const ValueKey<String>('okf-af-run-current'),
+            onPressed: busy ? null : _runCurrent,
+            icon: const Icon(Icons.play_circle_outline),
+            label: Text(runningCurrent ? 'A–F 运行中…' : '运行当前问题 A–F'),
+          ),
+          const SizedBox(height: 6),
+          OutlinedButton.icon(
+            key: const ValueKey<String>('okf-af-run-full'),
+            onPressed: busy ? null : _runFull,
+            icon: const Icon(Icons.speed_outlined),
+            label: Text(runningFull ? '完整基准运行中…' : '完整基准 · 4题 × A–F'),
+          ),
+          const SizedBox(height: 4),
+          const Text('完整基准会连续进行24次本地生成，适合最终定量；首次验证建议先跑“当前问题 A–F”。'),
+        ],
+      ),
+    ),
+  );
 
   Widget _summaryCard(BuildContext context) => Card(
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('能力跃迁总表', style: Theme.of(context).textTheme.titleSmall),
-              const SizedBox(height: 6),
-              const Text('答案率 / 来源率越高越好；Context / TTFT 越低越好。'),
-              const SizedBox(height: 8),
-              for (final lane in OkfAfLane.values) _summaryRow(lane),
-            ],
-          ),
-        ),
-      );
+    child: Padding(
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('能力跃迁总表', style: Theme.of(context).textTheme.titleSmall),
+          const SizedBox(height: 6),
+          const Text('答案率 / 来源率越高越好；Context / TTFT 越低越好。'),
+          const SizedBox(height: 8),
+          for (final lane in OkfAfLane.values) _summaryRow(lane),
+        ],
+      ),
+    ),
+  );
 
   Widget _summaryRow(OkfAfLane lane) {
     final laneResults = <OkfAfRunResult>[
@@ -274,11 +279,22 @@ class _OkfAfBenchmarkPageState extends State<OkfAfBenchmarkPage> {
       );
     }
     final answerPass = laneResults.where((item) => item.answerPass).length;
-    final sourceMeasured = laneResults.where((item) => item.sourcePass != null).toList();
-    final sourcePass = sourceMeasured.where((item) => item.sourcePass == true).length;
-    final avgContext = laneResults.fold<int>(0, (sum, item) => sum + item.contextTokens) ~/ laneResults.length;
-    final ttfts = laneResults.map((item) => item.generation.ttftMs).whereType<int>().toList();
-    final avgTtft = ttfts.isEmpty ? null : ttfts.reduce((a, b) => a + b) ~/ ttfts.length;
+    final sourceMeasured = laneResults
+        .where((item) => item.sourcePass != null)
+        .toList();
+    final sourcePass = sourceMeasured
+        .where((item) => item.sourcePass == true)
+        .length;
+    final avgContext =
+        laneResults.fold<int>(0, (sum, item) => sum + item.contextTokens) ~/
+        laneResults.length;
+    final ttfts = laneResults
+        .map((item) => item.generation.ttftMs)
+        .whereType<int>()
+        .toList();
+    final avgTtft = ttfts.isEmpty
+        ? null
+        : ttfts.reduce((a, b) => a + b) ~/ ttfts.length;
     return Padding(
       padding: const EdgeInsets.only(bottom: 7),
       child: Text(
@@ -290,7 +306,11 @@ class _OkfAfBenchmarkPageState extends State<OkfAfBenchmarkPage> {
   }
 
   Widget _laneCard(BuildContext context, OkfAfLane lane) {
-    final preview = retriever.retrieve(benchmark.question, lane: lane, limit: 8);
+    final preview = retriever.retrieve(
+      benchmark.question,
+      lane: lane,
+      limit: 8,
+    );
     final result = results[benchmark.id]?[lane];
     final laneRunning = runningLane == lane;
     return Card(
@@ -304,7 +324,10 @@ class _OkfAfBenchmarkPageState extends State<OkfAfBenchmarkPage> {
                 CircleAvatar(radius: 16, child: Text(lane.code)),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text(lane.label, style: Theme.of(context).textTheme.titleSmall),
+                  child: Text(
+                    lane.label,
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
                 ),
                 if (lane == OkfAfLane.okfTrustFreshness)
                   const Chip(label: Text('FULL OKF')),
@@ -340,7 +363,9 @@ class _OkfAfBenchmarkPageState extends State<OkfAfBenchmarkPage> {
                 children: [
                   Chip(label: Text(result.answerPass ? '答案 PASS' : '答案 FAIL')),
                   if (result.sourcePass != null)
-                    Chip(label: Text(result.sourcePass! ? '来源 PASS' : '来源 FAIL')),
+                    Chip(
+                      label: Text(result.sourcePass! ? '来源 PASS' : '来源 FAIL'),
+                    ),
                   Chip(label: Text('检索 ${result.retrievalUs}µs')),
                   Chip(label: Text('Context ${result.contextTokens} tok')),
                   Chip(label: Text('TTFT ${result.generation.ttftMs ?? -1}ms')),
@@ -360,10 +385,16 @@ class _OkfAfBenchmarkPageState extends State<OkfAfBenchmarkPage> {
                   tilePadding: EdgeInsets.zero,
                   title: const Text('查看实际送入模型的证据'),
                   children: [
-                    for (var index = 0; index < result.retrieved.length && index < 4; index++)
+                    for (
+                      var index = 0;
+                      index < result.retrieved.length && index < 4;
+                      index++
+                    )
                       ListTile(
                         dense: true,
-                        title: Text('[E${index + 1}] ${result.retrieved[index].chunk.sourceName}'),
+                        title: Text(
+                          '[E${index + 1}] ${result.retrieved[index].chunk.sourceName}',
+                        ),
                         subtitle: Text(result.retrieved[index].chunk.text),
                       ),
                   ],
