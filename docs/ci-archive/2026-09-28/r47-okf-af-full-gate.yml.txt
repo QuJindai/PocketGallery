@@ -1,0 +1,91 @@
+name: R4.7 OKF A-F Full Gate
+
+on:
+  push:
+    branches:
+      - codex/r47-okf-af-benchmark
+    paths:
+      - '.github/workflows/r47-okf-af-full-gate.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: r47-okf-af-full-gate
+  cancel-in-progress: false
+
+jobs:
+  verify-and-freeze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: codex/r47-okf-af-benchmark
+          fetch-depth: 0
+
+      - name: Refresh integrity manifests in dependency order
+        working-directory: pilot/flutter_phone_loop
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash scripts/generate_manifests.sh inner > /tmp/af-inner.sha256
+          cp /tmp/af-inner.sha256 MANIFEST.sha256
+          bash scripts/generate_manifests.sh outer > /tmp/af-outer.sha256
+          cp /tmp/af-outer.sha256 ../../DROPIN_MANIFEST.sha256
+          git diff --check
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Resolve dependencies
+        working-directory: pilot/flutter_phone_loop
+        run: flutter pub get
+
+      - name: Analyze
+        working-directory: pilot/flutter_phone_loop
+        run: flutter analyze
+
+      - name: A-F focused contracts
+        working-directory: pilot/flutter_phone_loop
+        run: flutter test test/r47_okf_af_benchmark_test.dart test/r47_okf_af_ui_test.dart
+
+      - name: Existing R4.7 OKF regression
+        working-directory: pilot/flutter_phone_loop
+        run: |
+          flutter test \
+            test/r47_okf_parser_test.dart \
+            test/r47_okf_integration_contract_test.dart \
+            test/r47_okf_shadow_lab_test.dart
+
+      - name: Full Flutter regression suite
+        working-directory: pilot/flutter_phone_loop
+        run: flutter test
+
+      - name: Verify manifests are stable after tests
+        working-directory: pilot/flutter_phone_loop
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash scripts/generate_manifests.sh inner > /tmp/af-inner-after.sha256
+          diff -u MANIFEST.sha256 /tmp/af-inner-after.sha256
+          bash scripts/generate_manifests.sh outer > /tmp/af-outer-after.sha256
+          diff -u ../../DROPIN_MANIFEST.sha256 /tmp/af-outer-after.sha256
+
+      - name: Commit verified manifests
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add pilot/flutter_phone_loop/MANIFEST.sha256 DROPIN_MANIFEST.sha256
+          if git diff --cached --quiet; then
+            echo "Manifests already current"
+          else
+            git diff --cached --check
+            git commit -m "chore(r47): freeze A-F benchmark integrity manifests"
+            git push origin HEAD:codex/r47-okf-af-benchmark
+          fi

@@ -1,0 +1,52 @@
+name: R4.7 OKF A-F Analyze Readback
+
+on:
+  push:
+    branches:
+      - codex/r47-okf-af-benchmark
+    paths:
+      - '.github/workflows/r47-okf-af-analyze-readback.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - working-directory: pilot/flutter_phone_loop
+        run: flutter pub get
+      - id: check
+        working-directory: pilot/flutter_phone_loop
+        shell: bash
+        run: |
+          set +e
+          flutter analyze 2>&1 | tee /tmp/analyze.txt
+          echo "code=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
+          exit 0
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT=/tmp/readback.txt
+          {
+            echo "source_sha=$GITHUB_SHA"
+            echo "analyze_exit=${{ steps.check.outputs.code }}"
+            echo
+            tail -n 160 /tmp/analyze.txt
+          } > "$OUT"
+          CONTENT="$(base64 -w0 "$OUT")"
+          PATH_URL="repos/${GITHUB_REPOSITORY}/contents/docs/superpowers/diagnostics/R47_OKF_AF_ANALYZE.txt"
+          EXISTING="$(gh api "$PATH_URL?ref=r47-signing-diagnostic-readback" --jq .sha 2>/dev/null || true)"
+          ARGS=(--method PUT "$PATH_URL" -f message="ci: update R4.7 A-F analyze readback" -f content="$CONTENT" -f branch="r47-signing-diagnostic-readback")
+          if [[ -n "$EXISTING" ]]; then ARGS+=(-f sha="$EXISTING"); fi
+          gh api "${ARGS[@]}" >/dev/null
+      - run: test "${{ steps.check.outputs.code }}" = "0"

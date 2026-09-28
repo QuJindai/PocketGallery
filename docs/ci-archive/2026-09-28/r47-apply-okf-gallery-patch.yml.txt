@@ -1,0 +1,34 @@
+name: R4.7 Apply OKF Gallery Integration
+
+on:
+  push:
+    branches:
+      - codex/r47-okf-gallery
+    paths:
+      - '.github/workflows/r47-apply-okf-gallery-patch.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: codex/r47-okf-gallery
+      - name: Apply deterministic source patch
+        run: python pilot/flutter_phone_loop/tool/r47_apply_okf_gallery.py
+      - name: Commit integrated sources
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add pilot/flutter_phone_loop/lib/services/knowledge_engine.dart \
+                  pilot/flutter_phone_loop/lib/ui/microscope/retrieval_experiment_center_page.dart
+          if git diff --cached --quiet; then
+            echo "No source changes to commit"
+            exit 0
+          fi
+          git commit -m "feat(r47): wire OKF sidecar and three-arm Gallery lab"
+          git push origin HEAD:codex/r47-okf-gallery

@@ -1,0 +1,72 @@
+name: PocketGallery PR10 Signer Cache Probe
+
+on:
+  pull_request:
+    branches:
+      - feature/phone-pilot-r4-chat-first
+    paths:
+      - '.github/workflows/pocketgallery-pr10-signer-cache-probe.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe-pr10-cache:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Restore PR-scope signer cache
+        id: signer-cache
+        uses: actions/cache@v5
+        with:
+          path: ~/.android/pocketgallery-r3-signing
+          key: pocketgallery-r3-signing-v1
+
+      - name: Fingerprint restored signer safely
+        shell: bash
+        run: |
+          set -euo pipefail
+          SIGN_DIR="$HOME/.android/pocketgallery-r3-signing"
+          CACHE_HIT="${{ steps.signer-cache.outputs.cache-hit }}"
+          KEYSTORE_PRESENT=false
+          PASSWORD_PRESENT=false
+          CERT_EXPORT_OK=false
+          SIGNER_SHA256=""
+
+          [[ -s "$SIGN_DIR/r3.keystore" ]] && KEYSTORE_PRESENT=true
+          [[ -s "$SIGN_DIR/password" ]] && PASSWORD_PRESENT=true
+
+          if [[ "$KEYSTORE_PRESENT" = true && "$PASSWORD_PRESENT" = true ]]; then
+            PASS="$(<"$SIGN_DIR/password")"
+            echo "::add-mask::$PASS"
+            set +e
+            keytool -exportcert \
+              -keystore "$SIGN_DIR/r3.keystore" \
+              -storepass "$PASS" \
+              -alias pocketgallery-r3 \
+              -file "$RUNNER_TEMP/pr10-signer-cert.der" >/dev/null 2>&1
+            RC=$?
+            set -e
+            if [[ $RC -eq 0 && -s "$RUNNER_TEMP/pr10-signer-cert.der" ]]; then
+              CERT_EXPORT_OK=true
+              SIGNER_SHA256="$(sha256sum "$RUNNER_TEMP/pr10-signer-cert.der" | awk '{print $1}')"
+            fi
+          fi
+
+          echo "PR10_PROBE_EVENT=$GITHUB_EVENT_NAME"
+          echo "PR10_PROBE_REF=$GITHUB_REF"
+          echo "PR10_PROBE_HEAD_REF=$GITHUB_HEAD_REF"
+          echo "PR10_PROBE_BASE_REF=$GITHUB_BASE_REF"
+          echo "PR10_CACHE_HIT=$CACHE_HIT"
+          echo "PR10_KEYSTORE_PRESENT=$KEYSTORE_PRESENT"
+          echo "PR10_PASSWORD_PRESENT=$PASSWORD_PRESENT"
+          echo "PR10_CERT_EXPORT_OK=$CERT_EXPORT_OK"
+          echo "PR10_SIGNER_SHA256=$SIGNER_SHA256"
+          echo "PR10_EXPECTED_SIGNER_SHA256=81af4a5ef94c236774f0e193b2a4b248805b36c14cc36e2a56df8e451a712541"
+
+          test "$GITHUB_REF" = "refs/pull/10/merge"
+          test "$CACHE_HIT" = "true"
+          test "$CERT_EXPORT_OK" = "true"
+          test "$SIGNER_SHA256" = "81af4a5ef94c236774f0e193b2a4b248805b36c14cc36e2a56df8e451a712541"

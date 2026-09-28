@@ -1,0 +1,11 @@
+run_id=33695553496
+source_sha=6c2d03532942451b5bfb867c31f23a46ca02f7ef
+has_keystore=false
+has_store_password=false
+has_key_password=false
+has_alias=false
+decode_ok=false
+cert_export_ok=false
+expected_signer_sha256=81af4a5ef94c236774f0e193b2a4b248805b36c14cc36e2a56df8e451a712541
+actual_signer_sha256=
+signer_match=false

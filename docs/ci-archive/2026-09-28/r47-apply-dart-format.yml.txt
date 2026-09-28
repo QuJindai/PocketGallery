@@ -1,0 +1,39 @@
+name: R4.7 Apply Diagnosed Dart Format
+
+on:
+  push:
+    branches:
+      - codex/r47-okf-gallery
+    paths:
+      - '.github/workflows/r47-apply-dart-format.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: codex/r47-okf-gallery
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Apply current stable Dart formatter
+        working-directory: pilot/flutter_phone_loop
+        run: dart format lib test tool
+      - name: Commit only formatter output
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add pilot/flutter_phone_loop/lib pilot/flutter_phone_loop/test pilot/flutter_phone_loop/tool
+          if git diff --cached --quiet; then
+            echo "Formatter already clean"
+            exit 0
+          fi
+          git commit -m "style(r47): apply stable Dart formatter"
+          git push origin HEAD:codex/r47-okf-gallery
