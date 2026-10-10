@@ -103,4 +103,4 @@ jobs:
             pilot/flutter_phone_loop/build/app/outputs/flutter-apk/PocketGallery-R50-handset-acceptance-debug.apk
             pilot/flutter_phone_loop/build/app/outputs/flutter-apk/PocketGallery-R50-handset-acceptance-debug.apk.sha256
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 7
