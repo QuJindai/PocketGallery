@@ -70,7 +70,7 @@ jobs:
           name: PocketGallery-debug-apk
           path: .work/gallery/Android/src/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 7
 
       - name: Run pristine upstream lint (informational)
         continue-on-error: true
@@ -86,7 +86,7 @@ jobs:
             .work/gallery/Android/src/app/build/reports/lint-results-debug.html
             .work/gallery/Android/src/app/build/reports/lint-results-debug.txt
           if-no-files-found: ignore
-          retention-days: 14
+          retention-days: 7
 
   knowledge-db-smoke:
     needs: android-debug
@@ -126,4 +126,4 @@ jobs:
           name: PocketGallery-p0b-emulator-log
           path: .work/emulator/p0b-api35.log
           if-no-files-found: ignore
-          retention-days: 14
+          retention-days: 7
